@@ -1,0 +1,24 @@
+# Local/private dumps and derived texts; do not upload third-party game data.
+work/
+imported/
+private/
+*.private.json
+**/data.unity3d
+**/resources.assets
+**/sharedassets*.assets
+**/romfs/
+**/exefs/
+*.nsp
+*.xci
+*.nca
+*.nro
+*.grf
+prod.keys
+title.keys
+*.rar
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
