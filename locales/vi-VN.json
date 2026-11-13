@@ -11,5 +11,7 @@
   "weaponLang/{HELLFIRE}tips": "Yêu cầu: Thuốc Cuồng Nộ.",
   "weaponLang/{VESPERS}description": "Spirit Spheres đã tiến hóa. Hiệu ứng duy trì vĩnh viễn.",
   "weaponLang/{VESPERS}tips": "Yêu cầu: Thẻ Clock.",
-  "weaponLang/{HEAVENSWORD}description": "Shield Boomerang đã tiến hóa. Có thể gây sát thương chí mạng."
+  "weaponLang/{HEAVENSWORD}description": "Shield Boomerang đã tiến hóa. Có thể gây sát thương chí mạng.",
+  "lang/intro_start": "NHẤN ĐỂ BẮT ĐẦU",
+  "lang/weaponLevelUp_charm": "Tăng số lượng kẻ địch thêm %0%."
 }
