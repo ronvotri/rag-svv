@@ -1,0 +1,15 @@
+{
+  "weaponLang/{VAMPIRICA}description": "Đòn đánh cơ bản đã tiến hóa. Có thể chí mạng và hút HP.",
+  "weaponLang/{VAMPIRICA}tips": "Yêu cầu: Trái Tim Nàng.",
+  "weaponLang/{HOLY_MISSILE}description": "Soul Strike đã tiến hóa. Tấn công không gián đoạn.",
+  "weaponLang/{HOLY_MISSILE}tips": "Yêu cầu: Sách Phép Thuật.",
+  "weaponLang/{SCYTHE}description": "Mammonite đã tiến hóa. Đòn đánh xuyên qua kẻ địch.",
+  "weaponLang/{SCYTHE}tips": "Yêu cầu: Nến Đỏ Cấm Kỵ.",
+  "weaponLang/{THOUSAND}description": "Double Strafe đã tiến hóa. Tấn công không gián đoạn.",
+  "weaponLang/{THOUSAND}tips": "Yêu cầu: Bao Ngón Cung Thủ.",
+  "weaponLang/{HELLFIRE}description": "Fire Ball đã tiến hóa. Đòn đánh xuyên qua kẻ địch.",
+  "weaponLang/{HELLFIRE}tips": "Yêu cầu: Thuốc Cuồng Nộ.",
+  "weaponLang/{VESPERS}description": "Spirit Spheres đã tiến hóa. Hiệu ứng duy trì vĩnh viễn.",
+  "weaponLang/{VESPERS}tips": "Yêu cầu: Thẻ Clock.",
+  "weaponLang/{HEAVENSWORD}description": "Shield Boomerang đã tiến hóa. Có thể gây sát thương chí mạng."
+}
