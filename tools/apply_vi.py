@@ -57,8 +57,10 @@ def main() -> int:
     applied = 0
     for file_name, serialized in bundle.serialized():
         for obj in list(serialized.objects.values()):
+            if obj.type.name != "MonoBehaviour":
+                continue
             raw = obj.get_raw_data()
-            if obj.type.name != "MonoBehaviour" or b"I2Languages" not in raw[:64]:
+            if b"I2Languages" not in raw[:64]:
                 continue
             table_count += 1
             table = I2Terms(raw)
