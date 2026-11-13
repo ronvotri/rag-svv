@@ -1,6 +1,17 @@
-# Ragnarok Survivors — Việt hóa (RAG-SVV)
+# RAG-SVV — hai dự án Ragnarok Survivors Việt hóa
 
-Dự án cộng đồng làm bản vá tiếng Việt cho **Ragnarok Survivors**, bản mod Nintendo Switch biến **Vampire Survivors** thành phong cách Ragnarok Online.
+Repo này theo đuổi **hai dự án độc lập**. Chúng chỉ chung nơi quản lý và không sử dụng lẫn game, tài sản hay mã nguồn.
+
+| Hướng | Mục tiêu | Tài liệu | Trạng thái |
+| --- | --- | --- | --- |
+| Nintendo Switch | Việt hóa bản mod Vampire Survivors mang phong cách Ragnarok Online | [switch/](switch/) | Đã có công cụ và bản dịch thử nghiệm; chưa test Switch |
+| Web / Server Việt Nam | Nghiên cứu Việt hóa [ro-survivors.com](https://ro-survivors.com/) và khả năng xây server được cấp phép | [web/](web/) | Chưa có mã nguồn/quyền chạy server |
+
+**Lưu ý pháp lý và kỹ thuật:** `type0labs-dev/ragnarok-survivors` **không phải** mã nguồn của `ro-survivors.com`. Không được xem việc có repo Switch là quyền sao chép hoặc mở server trò chơi web. Việc đưa mã nguồn upstream vào dự án công khai cần có giấy phép phù hợp; tài nguyên game và khóa cá nhân không được đẩy lên GitHub.
+
+## Hướng Nintendo Switch — tài liệu triển khai
+
+Phần này làm bản vá tiếng Việt cho **Ragnarok Survivors**, bản mod Nintendo Switch biến **Vampire Survivors** thành phong cách Ragnarok Online.
 
 > **Trạng thái:** Bộ công cụ Việt hóa thử nghiệm. Chưa có bản game Việt hóa hoàn chỉnh / NSP / bản build đã kiểm thử.
 
