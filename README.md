@@ -45,6 +45,28 @@ Công cụ `apply_vi.py` chỉ sửa **bảng ngôn ngữ I2** trong tệp mod �
 py tools/apply_vi.py --upstream "../ragnarok-survivors" --data "D:\\RAG-output\\atmosphere\\contents\\010089A0197E4000\\romfs\\Data\\data.unity3d" --dry-run
 ```
 
+## Tham khảo bản Việt hóa Vampire Survivors Switch 1.16.100
+
+Đã kiểm tra bản vá do người dùng cung cấp (tên archive ghi `juskiddin & Chum`, màn hình ghi công `Bánh Cuốn & Chum`):
+- Chỉ có file `010089a0197e4000/romfs/Data/data.unity3d`.
+- Trong metadata, game gốc là **1.16.100**, không khớp phiên bản **1.15.113** mà Ragnarok Survivors yêu cầu.
+- Bảng I2Languages có **6.893** khóa, mỗi khóa 14 ngôn ngữ. Slot 0 (English) chứa **5.951** chuỗi khác rỗng; trong đó nhóm `lang/` có 913 khóa, 909 có nội dung.
+- Không chép đè `data.unity3d` của 1.16 lên mod 1.15.113. Chỉ dùng nội dung văn bản làm tham khảo, ghép theo khóa I2, rồi test font.
+- **Không** push bản dịch của bên thứ ba lên repo công khai nếu chưa được phép.
+
+Sau khi giải nén bản vá tham khảo trên máy tính, chạy:
+
+```powershell
+# Chạy trong thư mục rag-svv. Đã clone repo upstream và cài requirements ở phần trên.
+py tools/extract_reference_vi.py --upstream "../ragnarok-survivors" --data "D:\\VS-VI-1.16\\010089a0197e4000\\romfs\\Data\\data.unity3d"
+py tools/prepare_vi.py --source "work/source-vi.private.json" --mode ui
+# Sau khi build Ragnarok bằng tools/build.py:
+py tools/apply_vi.py --upstream "../ragnarok-survivors" --data "D:\\RAG-output\\atmosphere\\contents\\010089A0197E4000\\romfs\\Data\\data.unity3d" --translations "work/vi-merged.private.json" --dry-run
+# Bỏ --dry-run sau khi đã đối chiếu tỷ lệ khóa hợp lệ để thực sự tạo bản vá.
+```
+
+`--mode ui` chỉ nhập văn bản giao diện dùng chung, sau đó ưu tiên bản dịch trong `locales/vi-VN.json`. `--mode all` nhập thêm mô tả/nhiệm vụ/nhân vật từ Vampire Survivors nhưng **chưa được rà soát** để khớp Ragnarok, không nên dùng cho bản phát hành. Bản thử nghiệm ghi vào vị trí ngôn ngữ PT-BR (slot 5), còn văn bản tham khảo 1.16 nằm ở EN (slot 0). Phần font và kiểm thử trên Switch vẫn chưa hoàn tất.
+
 ## Phạm vi và việc cần làm
 
 1. Dịch tên kỹ năng, nhân vật, vật phẩm; sau đó dịch mô tả, bestiary, thành tựu, menu.
