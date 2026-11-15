@@ -1,13 +1,22 @@
-# RAG-SVV — hai dự án Ragnarok Survivors Việt hóa
+# RAG-SVV — các dự án Ragnarok và game sinh tồn tiếng Việt
 
-Repo này theo đuổi **hai dự án độc lập**. Chúng chỉ chung nơi quản lý và không sử dụng lẫn game, tài sản hay mã nguồn.
+Repo này quản lý **ba hướng độc lập**. Hướng đang phát triển là **game web offline tiếng Việt** trong `midgard-offline/`. Các hướng cũ được giữ riêng để tra cứu.
 
 | Hướng | Mục tiêu | Tài liệu | Trạng thái |
 | --- | --- | --- | --- |
+| Midgard offline | Xây game sinh tồn chơi đơn bằng tiếng Việt, chạy hoàn toàn trên máy | [midgard-offline/](midgard-offline/) | Bản thử nghiệm độc lập; chưa chuyển đổi đầy đủ client Midgard Survivors |
 | Nintendo Switch | Việt hóa bản mod Vampire Survivors mang phong cách Ragnarok Online | [switch/](switch/) | Đã có công cụ và bản dịch thử nghiệm; chưa test Switch |
 | Web / Server Việt Nam | Nghiên cứu Việt hóa [ro-survivors.com](https://ro-survivors.com/) và khả năng xây server được cấp phép | [web/](web/) | Chưa có mã nguồn/quyền chạy server |
 
 **Lưu ý pháp lý và kỹ thuật:** `type0labs-dev/ragnarok-survivors` **không phải** mã nguồn của `ro-survivors.com`. Không được xem việc có repo Switch là quyền sao chép hoặc mở server trò chơi web. Việc đưa mã nguồn upstream vào dự án công khai cần có giấy phép phù hợp; tài nguyên game và khóa cá nhân không được đẩy lên GitHub.
+
+## Hướng hiện tại — web offline tiếng Việt
+
+Mở [midgard-offline/index.html](midgard-offline/index.html) bằng trình duyệt để chơi bản **Biên niên Midgard**. Game dùng HTML, CSS và JavaScript thuần; không cần tài khoản, máy chủ game, thư mục `E:\Game\RagnarokSVV` hay kết nối Internet khi chơi. Mã, hình vẽ và luật chơi của bản thử nghiệm được xây riêng trong repo.
+
+Client Windows Midgard Survivors do người dùng cung cấp chỉ được kiểm kê cục bộ để đánh giá cấu trúc Godot và phụ thuộc online. Đây chưa phải bản clone 1:1 hoặc bản xuất web từ project gốc. Đọc [hướng dẫn chơi và build](midgard-offline/README.md) cùng [kết quả phân tích client](midgard-offline/docs/client-analysis.md).
+
+Có thể tiếp tục phát triển repo trên máy khác hoặc môi trường cloud với Node.js 20 trở lên. Bản build ZIP tự chứa mọi tệp chơi offline; dữ liệu lưu giữa các thiết bị được chuyển bằng **Xuất lưu / Nhập lưu**.
 
 ## Hướng Nintendo Switch — tài liệu triển khai
 

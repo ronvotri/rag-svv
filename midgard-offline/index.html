@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#132a25">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>Biên niên Midgard · Offline</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="world" aria-label="Đấu trường sinh tồn" tabindex="0"></canvas>
+  <div id="hud" hidden>
+    <div class="hud-top"><div class="vitals"><span id="job-name"></span><div class="bar health"><i id="hp-fill"></i><b id="hp-label"></b></div><div class="bar xp"><i id="xp-fill"></i></div><small id="level-label"></small></div><div class="clock"><b id="timer">00:00</b><span id="objective">Sống sót đến 05:00</span></div><button id="pause-button" class="icon-button" aria-label="Tạm dừng">Ⅱ</button></div>
+    <div id="boss-hud" hidden><span>VUA CỔ THỤ</span><div class="bar health"><i id="boss-fill"></i></div></div>
+    <div class="hud-bottom"><span id="kill-label"></span><div id="loadout"></div><button id="dash-button">Lướt <kbd>Space</kbd></button></div>
+    <div id="joystick" hidden><i></i></div>
+  </div>
+  <main id="menu" class="overlay">
+    <div class="menu-shell">
+      <header class="masthead"><a class="wordmark" href="./index.html">VOTRI <span>VALLEY</span></a><span class="offline"><i></i> OFFLINE · LƯU TRÊN MÁY</span></header>
+      <section class="hero"><span class="eyebrow">MỘT CHUYẾN PHIÊU LƯU MỚI</span><h1>Biên niên<br><em>Midgard.</em></h1><p>Bầy quái đã thức giấc. Chọn nghề, rèn kỹ năng<br class="desktop"> và viết nên huyền thoại của riêng bạn.</p><div class="hero-meta"><span>01 — SINH TỒN</span><span>02 — TIẾN HÓA</span><span>03 — CHINH PHỤC</span></div></section>
+      <section class="expedition"><div class="section-heading"><h2>Chọn người đồng hành</h2><span>01 / NGHỀ NGHIỆP</span></div><div id="classes" class="class-grid"></div>
+      <div class="section-heading map-heading"><h2>Đích đến</h2><span>02 / THÁM HIỂM</span></div><div id="maps" class="map-grid"></div>
+      <div class="depart"><div><strong id="best-label">Cuộc phiêu lưu đầu tiên</strong><small>Di chuyển WASD / ↑↓←→ · Tự động tấn công</small></div><button id="start-button" class="primary">Bắt đầu hành trình <span>↗</span></button></div></section>
+      <footer><span>BẢN THỬ NGHIỆM 0.1 · GAME ĐỘC LẬP</span><div><button id="training-button">Rèn luyện <span id="gold-label"></span></button><button id="export-button">Xuất lưu</button><button id="import-button">Nhập lưu</button><button id="sound-button" aria-pressed="false">Âm thanh: Tắt</button></div></footer>
+      <p id="storage-message" role="status"></p>
+    </div>
+  </main>
+  <section id="modal" class="overlay shade" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="dialog"><span id="modal-eyebrow" class="eyebrow"></span><h2 id="modal-title"></h2><p id="modal-description"></p><div id="modal-content"></div><div id="modal-actions"></div></div></section>
+  <input id="import-file" type="file" accept=".json,application/json" hidden>
+  <script src="engine.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
