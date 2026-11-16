@@ -5,6 +5,9 @@ on:
     branches: [feature/original-offline]
     paths:
       - '.github/workflows/original-web-qa.yml'
+      - 'midgard-offline/tools/cloud-build-original.py'
+      - 'midgard-offline/tests/test_cloud_build_original.py'
+      - 'midgard-offline/config/cloud-tools.json'
 permissions:
   contents: read
 concurrency:
