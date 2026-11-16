@@ -4,6 +4,19 @@ Repo có ba hướng riêng biệt: Switch (Unity mod tooling), web research, v�
 
 ## Midgard offline
 
+### Ưu tiên hiện tại: client gốc và sprite Ragnarok
+
+- Người dùng đã xác nhận muốn client gốc đầy đủ, giữ sprite Ragnarok và thêm AI, KHÔNG dùng prototype vẽ pixel riêng làm bản bàn giao. Cửa sổ prototype từng gây nhầm lẫn; không lặp lại khi preview hoặc báo kết quả.
+- Project đã khôi phục: `midgard-offline/work/recovered/`; bản đã vá offline: `midgard-offline/work/recovered-offline/`. Các thư mục này bị Git bỏ qua. Mã/tài nguyên gốc không được đưa lên repo công khai.
+- Godot đúng phiên bản 4.7.2; GDRE 2.7.4. Các công cụ sẵn trong `work/tools/`. Full sprites/maps được giữ trong project Godot, không thay bằng hình tự vẽ của `engine.js`/`game.js`.
+- Helper tự viết: `tools/prepare-original-offline.py`, `tools/localize_original.py`, `tools/install-original-assistant.py`, các helper export original. Khi sửa source riêng, cập nhật helper để có thể tái lập.
+- `original-addons/offline_assistant.gd` là overlay tự viết; NPC theo luật phải ghi rõ chưa phải LLM. LLM Qwen cục bộ đã thử CPU nhưng chất lượng chưa đạt, không bật mặc định hoặc ghi hoàn thiện native Android.
+- Save offline riêng; test phải dùng `--offline-test` và các tệp test riêng, không dùng `--coop` gốc vì nó có thể reset profile thử nghiệm. Tổ đội bot phải được lưu và khôi phục cả trạng thái.
+- Xem `docs/ORIGINAL_CLIENT.md` và `docs/FEATURE_PARITY.md` trước khi tiếp tục. Xác nhận artifact gốc và QA thật; số bản ghi dữ liệu hoặc việc build prototype không chứng minh full tính năng.
+- Người dùng ưu tiên tiếp tục bằng ChatGPT web + GitHub, không phụ thuộc Codex desktop. Đọc `midgard-offline/docs/WEB_GITHUB_DEVELOPMENT.md`; workflow `original-client.yml` tự tải client chính thức, kiểm hash, recover và build trong runner. Không bảo người dùng quay về máy này khi chỉ cần sửa bản dịch/addon hoặc build.
+
+### Prototype HTML/JS cũ (hướng phụ)
+
 - Game độc lập tiếng Việt, chơi đơn, chạy trực tiếp bằng `index.html` khi ngắt mạng. Không phụ thuộc client PC, API, tài khoản hoặc server gameplay.
 - Giữ runtime buildless: HTML/CSS/JS thường, Canvas tự vẽ. Không thêm CDN, font online hoặc bước tải dependency để chơi.
 - `engine.js`: luật chơi thuần JS, dùng được trong Node tests. `game.js`: giao diện, điều khiển, âm thanh và hình vẽ. `style.css`: giao diện responsive.

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "page": "https://nearq.itch.io/midgard-survivors",
+  "upload_id": "20348959",
+  "archive_name": "midgard-survivors-windows.zip",
+  "archive_size": 534365028,
+  "pck_member": "MidgardSurvivors.pck",
+  "pck_size": 557227992,
+  "pck_crc32": "dbfe3e91",
+  "pck_sha256": "445a3ed2a0a56cd97bb37ca88efe0a4d7c2e44515acd8e09cba4cd0707cf219e",
+  "project_base_version": "0.1.273",
+  "itch_upload_label": "0.1.275-dx12",
+  "max_archive_entries": 32,
+  "max_total_uncompressed": 800000000,
+  "metadata_verified_date": "2026-11-16",
+  "notice": "Downloads the publisher's publicly free client during a build. This file grants no redistribution rights to original game assets. Pin the extracted PCK hash; never silently accept a changed upstream upload."
+}

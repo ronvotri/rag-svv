@@ -1,9 +1,5 @@
-name: Midgard Offline - Test and Build
+name: Legacy prototype - manual reference only
 on:
-  push:
-    paths: ['midgard-offline/**', '.github/workflows/midgard-offline.yml']
-  pull_request:
-    paths: ['midgard-offline/**', '.github/workflows/midgard-offline.yml']
   workflow_dispatch:
 permissions:
   contents: read

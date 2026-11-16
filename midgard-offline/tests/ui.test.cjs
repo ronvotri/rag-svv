@@ -6,6 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const engine=require('../engine.js');
+const ai=require('../ai.js'),campaign=require('../campaign.js'),runSave=require('../run-save.js');
 const root=path.resolve(__dirname,'..');
 
 function browser(initialSave=null,{storageBlocked=false}={}) {
@@ -33,6 +34,7 @@ function browser(initialSave=null,{storageBlocked=false}={}) {
     click(){if(!this.disabled)this.onclick?.({target:this});}
     getContext(){return context;}
     setPointerCapture(){}
+    remove(){for(const e of ids.values())e.children=e.children.filter(c=>c!==this);}
     querySelectorAll(selector){
       const results=[];
       const matches=e=>selector==='canvas'?e.tagName==='CANVAS':selector==='button:not(:disabled)'?e.tagName==='BUTTON'&&!e.disabled:false;
@@ -55,6 +57,7 @@ function browser(initialSave=null,{storageBlocked=false}={}) {
   }
   const sandbox={document,innerWidth:1280,innerHeight:800,devicePixelRatio:1,console,Blob,
     Midgard:{...engine,Run:ObservedRun},
+    MidgardAI:ai,MidgardCampaign:campaign,MidgardRunSave:{...runSave,restore(...args){const run=runSave.restore(...args);runs.push(run);return run;}},
     localStorage:{getItem:key=>{if(storageBlocked)throw new Error('blocked');return storage.get(key)||null;},setItem:(key,value)=>{if(storageBlocked)throw new Error('blocked');storage.set(key,value);}},
     URL:{createObjectURL:()=> 'blob:offline-test',revokeObjectURL(){}},
     setTimeout:()=>0,requestAnimationFrame:fn=>{callback=fn;},
@@ -113,10 +116,39 @@ test('training spends once and applies to a new run; focus loss pauses', () => {
   const saved=JSON.parse(b.storage.get('votri.midgard.offline.v1'));
   assert.equal(saved.gold,40);assert.equal(saved.training.hp,1);
   b.modalButtons().find(e=>e.textContent==='Trở về').click();
-  b.ids.get('start-button').click();b.frame();assert.equal(b.runs[0].player.maxHp,150);
+  b.ids.get('start-button').click();b.frame();assert.equal(b.runs[0].player.maxHp,150+campaign.bonuses(campaign.createProfile()).hp);
   b.events.get('blur')();assert.equal(b.runs[0].state,'paused');
   b.key('Escape');assert.equal(b.runs[0].state,'playing');
   b.events.get('document:visibilitychange')();assert.equal(b.runs[0].state,'playing');
+});
+
+test('party choices create real companions and contextual chat cannot drive the player',()=>{
+  const b=browser();b.ids.get('party-button').click();
+  b.modalButtons()[0].click();
+  b.modalButtons().find(e=>e.textContent==='Xác nhận đội hình').click();
+  b.ids.get('start-button').click();b.frame();
+  const run=b.runs[0];assert.equal(run.companions.length,1);assert.equal(run.companions[0].role,'guardian');
+  b.ids.get('guide-ingame').click();assert.equal(run.state,'paused');assert.equal(b.ids.get('chat-panel').hidden,false);
+  const x=run.player.x;b.key('d');b.frame(40);assert.equal(run.player.x,x);
+  b.ids.get('chat-input').value='cách đánh boss';b.ids.get('chat-form').onsubmit({preventDefault(){}});
+  assert.ok(b.ids.get('chat-messages').children.length>=3);
+  b.ids.get('chat-close').click();assert.equal(b.ids.get('chat-panel').hidden,true);assert.equal(run.state,'paused');
+});
+
+test('run snapshots resume under the same id and campaign settlement is not duplicated',()=>{
+  const b=browser();b.ids.get('start-button').click();b.frame();const first=b.runs[0];first.time=30;first.kills=50;
+  b.ids.get('pause-button').click();b.modalButtons().find(e=>e.textContent==='Lưu trận và về thị trấn').click();
+  assert.equal(b.ids.get('resume-button').hidden,false);b.ids.get('resume-button').click();
+  const resumed=b.runs[1];assert.equal(resumed.id,first.id);assert.equal(resumed.time,first.time);assert.equal(resumed.state,'paused');
+  b.modalButtons().find(e=>e.textContent==='Kết thúc lượt').click();
+  const p=JSON.parse(b.storage.get('votri.midgard.campaign.v1'));assert.equal(p.stats.runs,1);assert.equal(p.stats.kills,50);
+  b.frame();assert.equal(JSON.parse(b.storage.get('votri.midgard.campaign.v1')).stats.runs,1);
+});
+
+test('town uses the campaign profile and never gives early quest rewards',()=>{
+  const b=browser();b.ids.get('town-button').click();assert.match(b.ids.get('modal-title').textContent,/Thị trấn/);
+  b.modalButtons().find(e=>e.textContent==='Nhiệm vụ').click();
+  const claim=b.ids.get('modal-content').querySelectorAll('button:not(:disabled)').filter(e=>e.textContent==='Nhận thưởng');assert.equal(claim.length,0);
 });
 
 test('blocked storage keeps the game playable and warns about JSON export', () => {

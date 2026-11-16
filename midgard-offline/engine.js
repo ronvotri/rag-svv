@@ -46,7 +46,7 @@
   const clamp = (v,a,b) => Math.max(a,Math.min(v,b));
   const cost = level => 60+level*60;
   class Run {
-    constructor(jobId,mapId,save=emptySave(),random=Math.random) {
+    constructor(jobId,mapId,save=emptySave(),random=Math.random,options={}) {
       this.job=CLASSES.find(x=>x.id===jobId);this.map=MAPS.find(x=>x.id===mapId);
       if(!this.job || !this.map) throw new Error('Nghề hoặc bản đồ không tồn tại.');
       if(save.wins<this.map.unlock) throw new Error('Bản đồ chưa mở khóa.');
@@ -55,10 +55,16 @@
       this.basePower=1+save.training.power*.05;this.fortune=save.training.fortune;
       this.upgrades={};this.enemies=[];this.gems=[];this.shots=[];this.effects=[];this.texts=[];this.choices=[];
       this.spawnClock=0;this.attackClock=0;this.novaClock=4;this.dashCooldown=0;this.dashTime=0;this.bossSpawned=false;this.nextId=1;
+      this.id=options.runId||`run-${Date.now()}-${Math.floor(random()*1e9)}`;
+      this.mode=options.mode==='tower'?'tower':'survival';this.floor=1;this.floorKills=0;
+      this.companions=(options.companions||[]).filter((role,i,a)=>['guardian','ranger','healer'].includes(role)&&a.indexOf(role)===i).slice(0,3).map((role,i)=>({id:`ally-${role}`,name:role==='healer'?'Linh':role==='ranger'?'Phong':'Thạch',role,job:role==='healer'?'mage':role==='ranger'?'archer':'knight',x:-45-i*35,y:40,hp:role==='guardian'?180:105,maxHp:role==='guardian'?180:105,range:role==='guardian'?95:350,damage:role==='guardian'?17:role==='ranger'?15:11,face:1,invuln:0,cooldowns:{attack:0,heal:0,revive:0,dash:0},dashTime:0,reviveProgress:0,reason:'Bám đội'}));
+      const b=options.bonuses||{};
+      this.player.maxHp+=clamp(Number(b.hp)||0,0,500);this.player.hp=this.player.maxHp;
+      this.basePower*=1+clamp(Number(b.power)||0,0,2);this.bonusSpeed=clamp(Number(b.speed)||0,0,.5);this.bonusRegen=clamp(Number(b.regen)||0,0,8);this.bonusFortune=clamp(Number(b.fortune)||0,0,2);
     }
     get power(){return this.basePower*(1+.2*(this.upgrades.power||0));}
-    get speed(){return this.job.speed*(1+.1*(this.upgrades.speed||0));}
-    get gold(){return Math.floor((this.kills*.55+this.time*.12+(this.state==='won'?120:0))*(1+this.fortune*.1));}
+    get speed(){return this.job.speed*(1+.1*(this.upgrades.speed||0)+(this.bonusSpeed||0));}
+    get gold(){return Math.floor((this.kills*.55+this.time*.12+(this.state==='won'?120:0))*(1+this.fortune*.1+(this.bonusFortune||0)));}
     dash(dx,dy){
       if(this.state!=='playing' || this.dashCooldown>0 || Math.hypot(dx,dy)<.1) return false;
       const d=Math.hypot(dx,dy);this.dashDirection={x:dx/d,y:dy/d};this.dashTime=.19;this.dashCooldown=3;this.player.invuln=.3;return true;
@@ -75,7 +81,7 @@
       if(enemy.hp<=0)return;
       enemy.hp-=value;enemy.hit=.12;
       if(this.texts.length<60)this.texts.push({x:enemy.x+(this.random()-.5)*16,y:enemy.y-20,value:Math.round(value),life:.65});
-      if(enemy.hp<=0){this.kills++;this.gems.push({x:enemy.x,y:enemy.y,value:enemy.type==='boss'?100:enemy.type==='golem'?4:2});if(enemy.type==='boss')this.state='won';}
+      if(enemy.hp<=0){this.kills++;this.floorKills++;this.gems.push({x:enemy.x,y:enemy.y,value:enemy.type==='boss'?100:enemy.type==='golem'?4:2});if(enemy.type==='boss'){if(this.mode==='tower'){this.floor++;this.floorKills=0;this.bossSpawned=false;this.player.hp=Math.min(this.player.maxHp,this.player.hp+this.player.maxHp*.25);}else this.state='won';}}
     }
     area(x,y,radius,damage,kind='slash') {
       this.effects.push({x,y,r:radius,kind,life:.28,max:.28});
@@ -113,6 +119,36 @@
       if(id==='vitality'){this.player.maxHp+=25;this.player.hp=Math.min(this.player.maxHp,this.player.hp+35);}
       this.choices=[];this.state='playing';this.checkLevel();return true;
     }
+    updateCompanions(dt){
+      if(!this.companions.length)return;
+      const ai=root.MidgardAI||(typeof require==='function'?require('./ai.js'):null);
+      if(!ai)return;
+      const allies=[{...this.player,id:'player'},...this.companions];
+      const hazards=this.effects.filter(e=>e.damage&&e.life>0).map(e=>({...e,radius:e.r}));
+      for(const a of this.companions){
+        if(a.hp<=0)continue;
+        a.invuln=Math.max(0,a.invuln-dt);for(const k of Object.keys(a.cooldowns))a.cooldowns[k]=Math.max(0,a.cooldowns[k]-dt);
+        const decision=ai.decideCompanion(a,{player:{...this.player,id:'player'},enemies:this.enemies.filter(e=>e.hp>0),allies,hazards});
+        a.reason=decision.reason;const move=decision.move||{x:0,y:0};const l=Math.hypot(move.x,move.y)||1;
+        if(decision.dash&&a.cooldowns.dash<=0){a.dashTime=.18;a.cooldowns.dash=3;a.invuln=.25;}
+        a.dashTime=Math.max(0,a.dashTime-dt);const speed=this.speed*.93*(a.dashTime>0?3:1);
+        a.x+=move.x/Math.max(1,l)*speed*dt;a.y+=move.y/Math.max(1,l)*speed*dt;if(move.x)a.face=move.x<0?-1:1;
+        // Catch up after a long sprint; no repeated attacks or healing during teleport.
+        if(dist(a,this.player)>900){a.x=this.player.x-45;a.y=this.player.y+35;continue;}
+        const target=this.enemies.find(e=>e.id===decision.targetId&&e.hp>0);
+        if(target&&a.cooldowns.attack<=0&&dist(a,target)<=a.range+target.r){
+          a.cooldowns.attack=a.role==='ranger'?.8:1.15;
+          if(a.role==='guardian')this.area(a.x,a.y,95,a.damage*this.power,'slash');
+          else{const angle=Math.atan2(target.y-a.y,target.x-a.x);this.shots.push({x:a.x,y:a.y,vx:Math.cos(angle)*440,vy:Math.sin(angle)*440,damage:a.damage*this.power,life:1.5,kind:a.role==='healer'?'fire':'arrow',pierce:1,hit:new Set()});}
+        }
+        const heal=decision.healId==='player'?this.player:this.companions.find(e=>e.id===decision.healId);
+        if(a.role==='healer'&&heal&&heal.hp>0&&a.cooldowns.heal<=0&&dist(a,heal)<260){heal.hp=Math.min(heal.maxHp,heal.hp+24);a.cooldowns.heal=5;this.effects.push({x:heal.x,y:heal.y,r:32,kind:'heal',life:.5,max:.5});}
+        const down=this.companions.find(e=>e.id===decision.reviveId&&e.hp<=0);
+        if(down&&dist(a,down)<60&&a.cooldowns.revive<=0){a.reviveProgress+=dt;if(a.reviveProgress>=2){down.hp=down.maxHp*.35;down.invuln=2;a.cooldowns.revive=12;a.reviveProgress=0;}}
+        else a.reviveProgress=0;
+        for(const e of this.enemies){if(e.hp>0&&dist(a,e)<e.r+12&&a.invuln<=0){a.hp=Math.max(0,a.hp-e.damage);a.invuln=.8;}}
+      }
+    }
     update(dt,input={x:0,y:0}) {
       if(this.state!=='playing')return;
       dt=clamp(dt,0,.05);this.time+=dt;const p=this.player;
@@ -121,11 +157,13 @@
       if(this.dashTime>0){this.dashTime-=dt;p.x+=this.dashDirection.x*this.speed*4*dt;p.y+=this.dashDirection.y*this.speed*4*dt;}
       else{p.x+=move.x*this.speed*dt;p.y+=move.y*this.speed*dt;}
       if(move.x)p.face=move.x<0?-1:1;
-      p.hp=Math.min(p.maxHp,p.hp+(this.upgrades.regen||0)*1.5*dt);
+      p.hp=Math.min(p.maxHp,p.hp+((this.upgrades.regen||0)*1.5+this.bonusRegen)*dt);
       this.spawnClock-=dt;
       if(this.spawnClock<=0 && !this.bossSpawned){this.spawnClock=Math.max(.18,1.1-this.time/310)/this.map.difficulty;this.spawn();if(this.time>90)this.spawn();}
-      if(this.time>=300 && !this.bossSpawned){this.bossSpawned=true;this.spawn(true);this.effects.push({x:p.x,y:p.y,r:400,kind:'warning',life:1,max:1});}
-      if(this.time>=420){this.state='lost';return;}
+      if((this.mode==='tower'?this.floorKills>=15+this.floor*5:this.time>=300) && !this.bossSpawned){this.bossSpawned=true;this.spawn(true);this.effects.push({x:p.x,y:p.y,r:400,kind:'warning',life:1,max:1});}
+      if((this.mode==='survival'&&this.time>=420)||this.time>=3600){this.state='lost';return;}
+      if(this.mode==='tower'&&this.floor>20){this.state='won';return;}
+      this.updateCompanions(dt);
       this.attackClock-=dt;if(this.attackClock<=0){if(this.attack())this.attackClock=this.job.rate*Math.pow(.9,this.upgrades.haste||0);else this.attackClock=.08;}
       this.novaClock-=dt;if(this.upgrades.nova && this.novaClock<=0){this.novaClock=5;this.area(p.x,p.y,145+this.upgrades.nova*20,(25+this.upgrades.nova*18)*this.power,'nova');}
       const orbits=this.upgrades.orbit||0;
@@ -156,7 +194,7 @@
       // Only merge uncollected drops: collected values are already in player XP.
       this.gems=this.gems.filter(x=>!x.collected);
       while(this.gems.length>450){const a=this.gems.shift();this.gems[0].value+=a.value;}
-      for(const effect of this.effects){effect.life-=dt;if(effect.damage && effect.life<=0 && dist(effect,p)<effect.r+12 && p.invuln<=0){p.hp-=effect.damage;p.invuln=.65;}}
+      for(const effect of this.effects){effect.life-=dt;if(effect.damage&&effect.life<=0){if(dist(effect,p)<effect.r+12&&p.invuln<=0){p.hp-=effect.damage;p.invuln=.65;}for(const a of this.companions)if(a.hp>0&&dist(effect,a)<effect.r+12&&a.invuln<=0){a.hp=Math.max(0,a.hp-effect.damage);a.invuln=.8;}}}
       for(const t of this.texts){t.life-=dt;t.y-=25*dt;}
       this.enemies=this.enemies.filter(x=>x.hp>0 && (x.type==='boss'||dist(x,p)<1500));this.gems=this.gems.filter(x=>!x.collected);
       this.shots=this.shots.filter(x=>x.life>0);this.effects=this.effects.filter(x=>x.life>0);this.texts=this.texts.filter(x=>x.life>0);
