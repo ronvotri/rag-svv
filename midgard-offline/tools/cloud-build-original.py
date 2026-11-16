@@ -128,7 +128,7 @@ def configure_android_texture_import(project):
     original = config.read_text(encoding="utf-8")
     changed = preparer.set_setting(original, "rendering", "textures/vram_compression/import_etc2_astc", "true")
     if changed != original:
-        config.write_text(changed, encoding="utf-8", newline="\\n")
+        config.write_text(changed, encoding="utf-8", newline="\n")
     return changed
 
 
