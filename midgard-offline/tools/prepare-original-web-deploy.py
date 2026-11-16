@@ -129,7 +129,9 @@ def stage(source: Path, output: Path, version: str,
         encoding="utf-8",
     )
     static_files = [p for p in public.rglob("*") if p.is_file()]
-    too_large = [str(p.relative_to(public)) for p in static_files if p.stat().st_size > limit]
+    # Tests may lower the split threshold. Pages itself always allows 25 MiB
+    # for wrapper HTML, manifest, SW and all other static deployment files.
+    too_large = [str(p.relative_to(public)) for p in static_files if p.stat().st_size > PAGES_FILE_LIMIT]
     if too_large:
         raise ValueError("Asset(s) exceed the Pages single-file limit: " + repr(too_large))
     if len(static_files) > MAX_FREE_FILES:
