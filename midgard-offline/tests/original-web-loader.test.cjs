@@ -31,6 +31,7 @@ async function simulate(assetBytes, assetParts, extra = {}) {
   };
   const fetches = [];
   const networkFetch = async req => {
+    console.log('SW_TEST_NETWORK_FETCH', typeof req === 'string' ? req : req.href ?? req.url);
     const url = new URL(typeof req === 'string' ? req : req.href ?? req.url);
     fetches.push(url.pathname);
     const relative = url.pathname.slice(1);
@@ -48,13 +49,16 @@ async function simulate(assetBytes, assetParts, extra = {}) {
   // streams can remain pending even though the worker byte logic is correct.
   new Function('self', 'fetch', worker)(self, networkFetch);
   async function request(resource, headers = {}) {
+    console.log('SW_TEST_BEGIN_REQUEST', resource);
     let promise;
     handlers.fetch({
       request: new Request(base + resource, { headers }),
       respondWith(value) { promise = value; }
     });
     if (!promise) return null;
-    return await promise;
+    const value = await Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('Service Worker request promise never settled')), 2500))]);
+    console.log('SW_TEST_RESPONSE_READY', resource, value?.status);
+    return value;
   }
   return { manifest, files, request, fetches, ...extra };
 }
@@ -67,7 +71,8 @@ test('original wasm bytes are streamed in the exact order from Pages parts', asy
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('content-type'), 'application/wasm');
   assert.equal(Number(response.headers.get('content-length')), expected.length);
-  assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from(expected));
+  const bytes = await Promise.race([response.arrayBuffer(), new Promise((_, reject) => setTimeout(() => reject(new Error('Service Worker response body never completed')), 2500))]);
+  assert.deepEqual(Buffer.from(bytes), Buffer.from(expected));
   assert.equal(app.fetches.filter(x => x.includes('/parts/')).length, 3);
 });
 
