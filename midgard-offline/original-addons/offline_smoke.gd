@@ -41,6 +41,11 @@ func _run() -> void:
 	Save.load_profile()
 	check(Save.zeny() == before_gold + 17, "encrypted profile gold survives reload")
 	check(Save.setting("offline_qa_marker", "") == "persistent", "profile settings survive reload")
+	var expected_party: Array[String] = ["mage", "archer", "acolyte"]
+	Save.set_setting("svv_offline_party", expected_party)
+	Save.flush()
+	Save.load_profile()
+	check(Save.setting("svv_offline_party", []) == expected_party, "chosen AI roster survives profile reload")
 	var packed: PackedScene = load("res://scenes/main.tscn")
 	check(packed != null, "main scene resource loaded")
 	if packed == null:
@@ -51,6 +56,7 @@ func _run() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	check(world.menus != null, "original menu constructed")
+	check(world.coop_classes == expected_party, "new World restores selected AI roster")
 	check(world.net.mode == "", "network session inactive")
 	check(world.net.eos() == null, "EOS route unavailable")
 	check(not world.cloud._enabled(), "cloud account route disabled")
