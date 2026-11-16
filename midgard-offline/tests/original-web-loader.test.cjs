@@ -31,7 +31,6 @@ async function simulate(assetBytes, assetParts, extra = {}) {
   };
   const fetches = [];
   const networkFetch = async req => {
-    console.log('SW_TEST_NETWORK_FETCH', typeof req === 'string' ? req : req.href ?? req.url);
     const url = new URL(typeof req === 'string' ? req : req.href ?? req.url);
     fetches.push(url.pathname);
     const relative = url.pathname.slice(1);
@@ -49,7 +48,6 @@ async function simulate(assetBytes, assetParts, extra = {}) {
   // streams can remain pending even though the worker byte logic is correct.
   new Function('self', 'fetch', worker)(self, networkFetch);
   async function request(resource, headers = {}) {
-    console.log('SW_TEST_BEGIN_REQUEST', resource);
     let promise;
     handlers.fetch({
       request: new Request(base + resource, { headers }),
@@ -57,7 +55,6 @@ async function simulate(assetBytes, assetParts, extra = {}) {
     });
     if (!promise) return null;
     const value = await Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('Service Worker request promise never settled')), 2500))]);
-    console.log('SW_TEST_RESPONSE_READY', resource, value?.status);
     return value;
   }
   return { manifest, files, request, fetches, ...extra };
