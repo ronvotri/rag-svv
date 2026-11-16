@@ -1,64 +1,70 @@
-# Chơi Ragnarok client gốc trên website (Cloudflare Pages + R2)
+# Ragnarok client gốc trên Cloudflare Pages Free (không R2)
 
-## Trạng thái thực tế
+## Trạng thái
 
-- Godot Web export QA đã **PASS** ở workflow [43887959854](https://github.com/ronvotri/rag-svv/actions/runs/43887959854), commit `a9a089f`. Đây là xác nhận **xuất gói Web**, không phải đã chơi thử trên thiết bị.
-- Chưa có tên miền chơi công khai được xác minh. Không gọi website là đang hoạt động trước khi Cloudflare deploy thành công và qua QA trình duyệt.
-- Game được xây dựng lại trên GitHub Actions từ bản game chính thức rồi vá offline. Source game và sprite gốc **không được lưu trong repository công khai**.
-- **Quan trọng về bản quyền:** workflow chỉ công bố asset sau khi chủ tài khoản chủ động xác nhận có quyền phân phối lại tài nguyên gốc. Có bản game tải về để chơi không mặc nhiên đồng nghĩa được quyền phát hành công khai. Nếu chưa có quyền, chỉ chạy bản Web riêng tư cục bộ và xin phép tác giả/nhà phát hành.
+- Người dùng đã tạo site `rag-svv-web.pages.dev` với trang HTML tạm.
+- Godot Web export đã PASS một lượt ở [Web QA #43893310727](https://github.com/ronvotri/rag-svv/actions/runs/43893310727), trước khi thêm bộ chia file mới.
+- Bộ chia file lớn / Service Worker **phải vượt qua CI mới và QA trình duyệt** trước khi tuyên bố game chạy được; chỉ unit test hoặc xuất Godot không chứng minh Web đầy đủ.
+- Công cụ không tải dữ liệu game lên Git. Nó nhận bản export mới ở runner, chia file, đóng gói website. Website hiện tại vẫn là trang tạm cho tới khi có một lần phát hành thật hợp lệ.
+- **Quyền tài nguyên:** tải được client gốc không đồng nghĩa có quyền phân phối công khai sprite/mã game. Workflow vẫn yêu cầu người chạy xác nhận được phép phát hành. Nếu chưa có, không upload bản game gốc lên website công khai.
 
-## Kiến trúc
+## Vì sao không cần R2?
 
-```text
-Trình duyệt (không login)
-   |
-   v
-Cloudflare Pages: HTML, JavaScript, giao diện, file nhỏ
-   |
-   +-- Godot file > 25 MiB --> Pages Function
-                                    |
-                                    v
-                                R2 bucket riêng
-                                releases/<git-sha>/<name>
-```
+Cloudflare Pages Free hỗ trợ file đơn tối đa **25 MiB**, website tối đa **20.000 file**, theo https://developers.cloudflare.com/pages/platform/limits/.
+Godot Web tạo `.pck` và `.wasm` lớn hơn 25 MiB; uploader trực tiếp không nhận các file đó.
 
-- **Cloudflare Pages**: file tĩnh nhỏ hơn hoặc bằng 25 MiB và URL website.
-- **Cloudflare R2**: file `.pck`, `.wasm` hoặc tệp khác lớn hơn 25 MiB. Không bật public bucket. Pages Function đọc binding `GAME_ASSETS` và trả file tại **đúng URL gốc** (`/index.pck`, `/index.wasm`) nên Godot không cần sửa loader.
-- `_routes.json` chỉ chuyển URL tệp lớn vào Function; file nhỏ phục vụ trực tiếp từ CDN.
-- Thay đổi commit tạo khóa `releases/<sha>/`, tránh đè nội dung của những bản đang mở.
-- Lưu trữ `profile_offline` dùng `user://` của Godot trong browser, phụ thuộc vùng dữ liệu website trên thiết bị. Save Guardian có hai bản cục bộ nhưng **không đồng bộ cloud**. Xóa dữ liệu website, duyệt riêng tư hoặc đổi máy có thể mất save. Việc bổ sung xuất/nhập save vẫn là đầu việc riêng.
+`tools/prepare-original-web-deploy.py` sẽ:
 
-## Thiết lập Cloudflare một lần
+1. Giữ `game.html` (HTML export gốc), JS/CSS/hình nhỏ.
+2. Đổi `index.html` thành trang chờ khởi động Service Worker, sau đó mới chuyển đến `game.html`.
+3. Chia file lớn thành các phần tĩnh tối đa **16 MiB** ở `parts/<git-commit>/<tên file>/0000.bin`.
+4. Sinh `asset-map.json` có danh sách phần, kích thước và SHA-256 được tính từ file gốc.
+5. Cài `godot-split-sw.js` vào thư mục Pages. Service Worker của **trình duyệt** bắt yêu cầu tải URL `index.pck` và `index.wasm`, trả một `ReadableStream` ghép từng phần theo đúng thứ tự, có hỗ trợ Range, đúng Content-Type cho WASM. Không cần sửa Godot loader hoặc gọi Cloudflare Workers/R2.
+6. Kiểm tra số lượng file, dung lượng mỗi file trước khi xuất bản.
 
-1. Đăng nhập Cloudflare và tạo **Pages project** tên chính xác `rag-svv-web` (Direct Upload / Wrangler). Không chọn pipeline Web prototype HTML.
-2. Tạo **R2 bucket** tên `rag-svv-game-assets`; có thể để private. Bản đóng gói dùng binding `GAME_ASSETS` khai báo qua `wrangler.toml`.
-3. Tạo **API Token** Cloudflare đủ quyền cập nhật Pages của account.
-4. Tạo **R2 API token** giới hạn quyền Object Read & Write của bucket trên; lấy Access Key ID và Secret Access Key theo hướng dẫn R2.
-5. Trong GitHub `ronvotri/rag-svv` → Settings → Secrets and variables → Actions, thêm **bốn secret**:
+Giới hạn: chia nhỏ không giảm tổng dung lượng game hoặc nhu cầu RAM của Godot; tải nhiều phần liên tiếp vẫn có thể chậm. Save cục bộ của Godot vẫn nằm theo site/browser, không tự đồng bộ máy khác. Ngắt mạng giữa lần tải đầu tiên có thể ngăn vào game; chưa được xem là một PWA có bộ cài offline đầy đủ.
 
-| GitHub secret | Nội dung |
-| --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
-| `CLOUDFLARE_API_TOKEN` | Token sửa Pages |
-| `R2_ACCESS_KEY_ID` | R2 Access Key ID |
-| `R2_SECRET_ACCESS_KEY` | R2 Secret Access Key |
+## Chỉ cần 2 GitHub Secrets (không cần R2)
 
-6. Trong GitHub → Actions → **Ragnarok SVV - publish original Web (Cloudflare)** → Run workflow, chọn nhánh `main`, tích ô `redistribution_rights_confirmed` **chỉ nếu có quyền phát hành tài nguyên gốc**. Workflow sẽ tự checkout `feature/original-offline`, dựng Godot, chạy test, chuyển file lớn lên R2 rồi deploy Pages.
-7. Kiểm tra deployment URL do Cloudflare trả về. Với project tên này, hostname mặc định dự kiến là `rag-svv-web.pages.dev`, **không phải URL đã xác minh là đang chạy**.
+Trang Pages `rag-svv-web` đã được khởi tạo bằng Direct Upload và có thể cập nhật bằng Wrangler qua GitHub Actions.
 
-**Không bao giờ** điền token vào chat, file Git hoặc giao diện game. Chỉ cấu hình vào GitHub Secrets.
+1. Cloudflare → API Tokens: https://dash.cloudflare.com/?to=/:account/api-tokens
+   - Tạo token có quyền **Account / Cloudflare Pages / Edit** chỉ cho tài khoản phù hợp.
+2. Cloudflare Dashboard → Account home / R2 Overview / Account Details để lấy **Account ID** (không phải API token).
+3. GitHub Secrets: https://github.com/ronvotri/rag-svv/settings/secrets/actions
+   - `CLOUDFLARE_ACCOUNT_ID`: Account ID của Cloudflare
+   - `CLOUDFLARE_API_TOKEN`: token chỉ dành cho Pages
 
-## Đã thêm trong repo
+Không cần `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, bucket R2, đăng ký R2 hoặc bật thanh toán cho R2.
 
-- `tools/prepare-original-web-deploy.py`: chia file Pages/R2 an toàn với ngưỡng 25 MiB; sinh `_routes.json`, `wrangler.toml`, manifest SHA-256.
-- `cloudflare/functions/[[path]].js`: trả file lớn qua binding R2 cùng origin, hỗ trợ HEAD và byte range.
-- `tests/test_original_web_deploy.py`: thử với các fixture nhỏ, xác minh tệp lớn không lọt vào Pages.
-- `.github/workflows/original-web-publish.yml`: **chỉ manual**, xác nhận quyền phát hành, không tự upload tài nguyên chỉ vì push GitHub.
+**Không gửi token vào chat, commit hay ảnh chụp.** Chỉ nhập vào GitHub Secrets.
 
-## Kiểm thử trước khi gọi là hoàn thành
+## Xuất bản
 
-- URL mở `index.html`, các file Godot JS/WASM/PCK tải HTTP 200 và Content-Type đúng (WASM: `application/wasm`).
-- Mở game và vào màn chọn nhân vật **không login**, thử chiến đấu, AI đồng hành, menu tiếng Việt, không thiếu sprite.
-- Save: kết thúc lượt, reload website, kiểm tra hồ sơ/đội hình/Guardian vẫn còn. Mở ở Safari/Chrome Android để kiểm tra cục bộ.
-- Đo tốc độ tải và bộ nhớ: Web package hiện đã lớn ~507 MB **sau nén**; chạy trên điện thoại có nguy cơ chậm/hết bộ nhớ. Cần tối ưu thêm asset để có trải nghiệm tốt.
-- Kiểm tra gửi file byte range, Cache-Control, deployment cũ/mới và giới hạn tài nguyên; tránh thông báo website đã sẵn sàng nếu chỉ CI build pass.
+Sau khi kiểm tra việc có quyền phân phối game gốc, mở workflow:
+https://github.com/ronvotri/rag-svv/actions/workflows/original-web-publish.yml
+
+- Chọn **Run workflow**, nhánh **main** (workflow được cài ở đây).
+- Chỉ tích `redistribution_rights_confirmed` nếu bạn thực sự có quyền phân phối tài nguyên gốc.
+- Workflow tự checkout `feature/original-offline`, rebuild Godot trên runner, chạy Python/Node test, đóng gói các phần file tĩnh, gọi Wrangler để deploy `public/` lên project `rag-svv-web`.
+- Workflow đọc `production_branch` của Pages project bằng Cloudflare API, tránh deploy nhầm lên nhánh preview.
+- Không cần tải file .pck lên tay và không có bước upload R2. Không kích hoạt workflow nếu chưa xác nhận quyền phát hành.
+
+## Tiêu chí nghiệm thu website
+
+- Mở https://rag-svv-web.pages.dev và chờ chuyển trang từ `index.html` sang `game.html`.
+- F12 → Network: `asset-map.json`, `godot-split-sw.js` và các URL `parts/<sha>/...` tải HTTP 200; URL `index.wasm` được Service Worker trả `application/wasm`. Không có request đến R2.
+- Sau khi tải đủ, Godot hiện màn chọn nhân vật, không yêu cầu login; sprite, âm thanh, NPC, AI chiến đấu hoạt động.
+- Reload; xác nhận save/đội đồng hành cục bộ còn nguyên; kiểm tra cả Chrome/Edge desktop và Chrome Android.
+- Có hiển thị lỗi dễ hiểu nếu HTTPS/Service Worker không hoạt động, một phần file bị thiếu, hoặc thiết bị không đủ bộ nhớ.
+- Có quyền phát hành asset gốc trước khi mở bản Web cho mọi người.
+
+## Mã nguồn
+
+- `tools/prepare-original-web-deploy.py`: chia file và kiểm tra giới hạn Pages.
+- `cloudflare/pages-bootstrap.html`: HTML chuẩn bị Service Worker và chuyển vào Godot.
+- `cloudflare/godot-split-sw.js`: ghép từng phần trên trình duyệt bằng stream, không tốn Worker quota.
+- `tests/test_original_web_deploy.py`: kiểm tra chia đúng, hash và lỗi đầu vào.
+- `tests/original-web-loader.test.cjs`: mô phỏng stream/HTTP Range/missing chunk.
+- `.github/workflows/original-web-qa.yml`: chạy QA không xuất bản.
+- `.github/workflows/original-web-publish.yml`: thủ công, yêu cầu xác nhận quyền và đủ 2 secret Pages.
