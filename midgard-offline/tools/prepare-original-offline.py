@@ -214,7 +214,12 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
         "_ready": "process_mode = Node.PROCESS_MODE_ALWAYS",
         "_call": "if done.is_valid():\n\tdone.call_deferred(false, null)",
     })
-    patch("scripts/ui/menus.gd", {"_ask_notes": "pass"})
+    # Every account/login entry point goes to the original offline class selector.
+    # This also handles the Back button on character selection.
+    patch("scripts/ui/menus.gd", {
+        "_ask_notes": "pass",
+        "show_login": "show_class_select()",
+    })
     patch("scripts/net/net_sync.gd", {"eos": "return null", "host": "return false", "join": "return false"})
     patch("scripts/net/town_channel.gd", {"join_enet": "return false"})
     patch("scripts/net/channel_bot.gd", {"connect_now": "pass"})
@@ -242,8 +247,11 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
     text = text.replace('if coop_classes.is_empty() and net.mode == "":', 'if net.mode == "":', 1)
     text = re.sub(r'if not is_coop\(\):\n(\s+)RunSave\.clear\(\)', r'if net.mode == "":\n\1RunSave.clear()', text)
     main.write_text(text, encoding="utf-8", newline="\n")
-    # Offline single-player should enter original character selection directly.
-    patch("scripts/core/main.gd", {"_opening_screens": "menus.show_class_select()"})
+    # Keep the ORIGINAL _opening_screens. The preparation-screen action calls
+    # start_run(class_id, true), which reaches _opening_screens during combat
+    # startup. Overriding it to show_class_select caused "To adventure!" to
+    # jump back to the menu instead of finishing battle initialization.
+    # Offline login is redirected by the patched menus.show_login above.
     assets = output / "scripts/autoload/ro_assets.gd"
     content = assets.read_text(encoding="utf-8")
     audio_anchor = 'var path: = ROOT + "audio/%s.wav" % key'
