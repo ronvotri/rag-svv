@@ -1,4 +1,4 @@
-name: Ragnarok SVV - publish original Web (Cloudflare)
+name: Ragnarok SVV - publish original Web (Pages Free)
 on:
   workflow_dispatch:
     inputs:
@@ -16,17 +16,13 @@ jobs:
   publish:
     if: ${{ inputs.redistribution_rights_confirmed == true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 75
     environment: web-production
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: auto
-      AWS_EC2_METADATA_DISABLED: "true"
     steps:
-      - name: Checkout the ORIGINAL offline client source branch
+      - name: Checkout the original client tooling (no game assets in Git)
         uses: actions/checkout@v4
         with:
           ref: feature/original-offline
@@ -37,67 +33,70 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify Cloudflare credentials before handling game assets
+      - name: Verify Pages credentials (R2 credentials are NOT required)
         run: |
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$AWS_ACCESS_KEY_ID"
-          test -n "$AWS_SECRET_ACCESS_KEY"
-      - name: Validate authored code and translations
+      - name: Validate authored code and binary-chunk loader
         run: |
           node --test midgard-offline/tests/*.test.cjs
           python -m unittest discover -s midgard-offline/tests -p 'test_*.py'
           python -m py_compile midgard-offline/tools/*.py
-      - name: Reconstruct and export the original Godot Web client
+      - name: Rebuild original Godot Web client and run offline gameplay smoke tests
         run: python midgard-offline/tools/cloud-build-original.py --target web
-      - name: Prepare large-file-safe Cloudflare Pages + R2 package
-        id: version
+      - name: Stage only static Cloudflare Pages assets
+        id: pack
         run: |
           CLIENT_SHA="$(git rev-parse HEAD)"
           echo "sha=$CLIENT_SHA" >> "$GITHUB_OUTPUT"
-          python midgard-offline/tools/prepare-original-web-deploy.py \
-            --version "$CLIENT_SHA"
-      - name: Install AWS CLI for reliable multipart R2 uploads
-        run: python -m pip install --disable-pip-version-check awscli
-      - name: Upload large Godot files to private R2 bucket
-        run: |
+          python midgard-offline/tools/prepare-original-web-deploy.py --version "$CLIENT_SHA"
           python - <<'PY'
           import json
-          import os
           from pathlib import Path
-          import subprocess
-
-          folder = Path("midgard-offline/work/cloud/cloudflare-deploy")
-          manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-          endpoint = f'https://{os.environ["CLOUDFLARE_ACCOUNT_ID"]}.r2.cloudflarestorage.com'
-          bucket = manifest["bucket"]
-          for item in manifest["large_assets"]:
-              src = folder / "r2" / item["name"]
-              dst = f's3://{bucket}/releases/{manifest["version"]}/{item["name"]}'
-              subprocess.run([
-                  "aws", "s3", "cp", str(src), dst,
-                  "--endpoint-url", endpoint,
-                  "--content-type", item["content_type"],
-                  "--cache-control", "public,max-age=31536000,immutable",
-                  "--only-show-errors",
-              ], check=True)
-          print(f'Uploaded {len(manifest["large_assets"])} versioned files to private R2.')
+          base = Path("midgard-offline/work/cloud/cloudflare-deploy")
+          manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+          assets = [p for p in (base / "public").rglob("*") if p.is_file()]
+          assert len(assets) <= 20000, "Exceeds Cloudflare Pages Free file count"
+          assert all(p.stat().st_size <= 25 * 1024 * 1024 for p in assets)
+          assert manifest["large_assets"], "Expected original Godot large files to be split"
+          assert not (base / "r2").exists(), "Unexpected R2 asset output"
+          assert not (base / "functions").exists(), "Unexpected Pages Functions"
+          print("STATIC PAGES PASS:", len(assets), "files and", len(manifest["large_assets"]), "split assets")
           PY
-      - name: Publish small Web assets and R2 streaming function to Cloudflare Pages
+      - name: Read existing Pages project's production branch
+        id: pages
+        run: |
+          BRANCH="$(python - <<'PY'
+          import json
+          import os
+          import re
+          from urllib.request import Request, urlopen
+          url = "https://api.cloudflare.com/client/v4/accounts/%s/pages/projects/rag-svv-web" % os.environ["CLOUDFLARE_ACCOUNT_ID"]
+          request = Request(url, headers={"Authorization": "Bearer " + os.environ["CLOUDFLARE_API_TOKEN"]})
+          with urlopen(request, timeout=30) as response:
+              body = json.load(response)
+          branch = (body.get("result") or {}).get("production_branch")
+          if not body.get("success") or not branch or not re.fullmatch(r"[A-Za-z0-9._/-]+", branch):
+              raise SystemExit("Could not verify Cloudflare Pages production branch")
+          print(branch)
+          PY
+          )"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+      - name: Publish static Pages package (no R2, no server functions)
         run: |
           npx --yes wrangler@4 pages deploy public \
             --project-name rag-svv-web \
-            --branch main \
-            --config wrangler.toml \
-            --commit-hash "${{ steps.version.outputs.sha }}"
+            --branch "${{ steps.pages.outputs.branch }}" \
+            --commit-hash "${{ steps.pack.outputs.sha }}"
         working-directory: midgard-offline/work/cloud/cloudflare-deploy
-      - name: Publish deployment summary
+      - name: Deployment summary
         if: success()
         run: |
           {
-            echo "## Ragnarok Web was submitted to Cloudflare Pages"
+            echo "## Ragnarok Web: Pages-only deployment submitted"
             echo "Project: rag-svv-web"
-            echo "Source commit: ${{ steps.version.outputs.sha }}"
-            echo "Game save is local in the browser; no cloud account or gameplay server."
-            echo "Next: check the Cloudflare deployment URL and test in a real browser."
+            echo "Original client commit: ${{ steps.pack.outputs.sha }}"
+            echo "HTTPS site: https://rag-svv-web.pages.dev"
+            echo "No R2, database or backend gameplay server."
+            echo "Browser/device QA and player-save QA are still required."
           } >> "$GITHUB_STEP_SUMMARY"
