@@ -1,4 +1,5 @@
-"""Tests for Cloudflare Pages + R2 package staging (no public upload)."""
+"""Regression tests for Cloudflare Pages Free split Godot export."""
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -11,36 +12,86 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 
-class CloudflareStagingTests(unittest.TestCase):
-    def test_oversized_godot_files_go_only_to_r2(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "export"
-            source.mkdir()
-            (source / "index.html").write_text("<html>Godot</html>", encoding="utf-8")
-            (source / "index.js").write_text("console.log('game')", encoding="utf-8")
-            (source / "index.pck").write_bytes(b"x" * 30)
-            (source / "index.wasm").write_bytes(b"y" * 32)
-            result = mod.stage(source, root / "deploy", "abcdef0123456", limit=20)
-            self.assertEqual([x["name"] for x in result["large_assets"]], ["index.pck", "index.wasm"])
-            self.assertFalse((root / "deploy/public/index.pck").exists())
-            self.assertTrue((root / "deploy/r2/index.pck").exists())
-            self.assertEqual(json.loads((root / "deploy/public/_routes.json").read_text())["include"], ["/index.pck", "/index.wasm"])
-            cfg = (root / "deploy/wrangler.toml").read_text()
-            self.assertIn('ASSET_VERSION = "abcdef0123456"', cfg)
-            self.assertIn('binding = "GAME_ASSETS"', cfg)
-            self.assertTrue((root / "deploy/functions/[[path]].js").is_file())
+def original_fixture(root):
+    source = root / "export"
+    source.mkdir()
+    (source / "index.html").write_text(
+        "<html><head></head><body><script src='index.js'></script></body></html>",
+        encoding="utf-8",
+    )
+    (source / "index.js").write_text("console.log('godot');", encoding="utf-8")
+    (source / "index.pck").write_bytes(bytes(range(100)))
+    (source / "index.wasm").write_bytes(bytes(range(100))[::-1])
+    return source
 
-    def test_invalid_version_and_missing_core_files(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            src = root / "export"
-            src.mkdir()
-            (src / "index.html").write_text("hi")
+
+class CloudflarePagesOnlyTests(unittest.TestCase):
+    def test_files_split_without_r2_and_reassemble_byte_for_byte(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = original_fixture(root)
+            result = mod.stage(source, root / "deploy", "abcdef0123456",
+                               limit=25, part_bytes=16)
+            public = root / "deploy/public"
+            self.assertTrue((public / "index.html").is_file())
+            self.assertTrue((public / "game.html").is_file())
+            self.assertTrue((public / "godot-split-sw.js").is_file())
+            self.assertFalse((public / "index.pck").exists())
+            self.assertFalse((public / "index.wasm").exists())
+            self.assertFalse((root / "deploy/r2").exists())
+            self.assertFalse((root / "deploy/wrangler.toml").exists())
+            self.assertFalse((public / "_routes.json").exists())
+            self.assertEqual(set(result["large_assets"]), {"index.pck", "index.wasm"})
+            self.assertEqual(result["deployment_files"], sum(1 for p in public.rglob("*") if p.is_file()))
+
+            for name, meta in result["large_assets"].items():
+                self.assertTrue(all(part["size"] <= 16 for part in meta["parts"]))
+                parts = [public / entry["path"] for entry in meta["parts"]]
+                assembled = b"".join(p.read_bytes() for p in parts)
+                self.assertEqual(assembled, (source / name).read_bytes())
+                self.assertEqual(hashlib.sha256(assembled).hexdigest(), meta["sha256"])
+                self.assertTrue(all(
+                    hashlib.sha256(p.read_bytes()).hexdigest() == info["sha256"]
+                    for p, info in zip(parts, meta["parts"])
+                ))
+            self.assertTrue(all(p.stat().st_size <= 25 for p in public.rglob("*") if p.is_file()
+                                and p.name not in ("index.html", "game.html", "godot-split-sw.js",
+                                                   "asset-map.json", "_headers")))
+            asset_map = json.loads((public / "asset-map.json").read_text(encoding="utf-8"))
+            self.assertEqual(asset_map["version"], "abcdef0123456")
+            self.assertEqual(asset_map["large_assets"], result["large_assets"])
+
+    def test_invalid_version_no_export_or_reusing_output_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = original_fixture(root)
             with self.assertRaises(ValueError):
-                mod.stage(src, root / "out", "../bad")
+                mod.stage(source, root / "out", "../bad", limit=25, part_bytes=16)
             with self.assertRaises(ValueError):
-                mod.stage(src, root / "out", "abcdef0123456")
+                mod.stage(source, root / "out", "abcdef0123456", limit=25, part_bytes=25)
+            (source / "index.wasm").unlink()
+            with self.assertRaises(ValueError):
+                mod.stage(source, root / "out", "abcdef0123456", limit=25, part_bytes=16)
+
+    def test_reject_subdirectories_and_symlinks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = original_fixture(root)
+            (source / "other").mkdir()
+            with self.assertRaises(ValueError):
+                mod.stage(source, root / "out", "abcdef0123456", limit=25, part_bytes=16)
+
+    def test_reject_asset_count_over_free_plan(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = original_fixture(root)
+            old = mod.MAX_FREE_FILES
+            try:
+                mod.MAX_FREE_FILES = 2
+                with self.assertRaises(ValueError):
+                    mod.stage(source, root / "out", "abcdef0123456", limit=25, part_bytes=16)
+            finally:
+                mod.MAX_FREE_FILES = old
 
 
 if __name__ == "__main__":
