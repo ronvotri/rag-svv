@@ -78,6 +78,32 @@ def set_setting(text: str, section: str, key: str, value: str) -> str:
     return text[:start] + block + text[end:]
 
 
+
+def offline_party_bootstrap() -> str:
+    """Load saved AI companions on every new World, with an explicit CLI override.
+
+    An intentionally empty saved roster means solo. Invalid/duplicated class IDs
+    are ignored; old or malformed settings fall back to the default roster.
+    """
+    return "\n".join([
+        '\tvar saved_offline_party = Save.setting("svv_offline_party", ["acolyte", "mage", "archer"])',
+        '\tif not saved_offline_party is Array:',
+        '\t\tsaved_offline_party = ["acolyte", "mage", "archer"]',
+        '\tcoop_classes.clear()',
+        '\tfor candidate in saved_offline_party:',
+        '\t\tvar offline_class: String = str(candidate)',
+        '\t\tif GameData.CLASSES.has(offline_class) and not coop_classes.has(offline_class) and coop_classes.size() < 3:',
+        '\t\t\tcoop_classes.append(offline_class)',
+        '\tfor offline_arg in OS.get_cmdline_user_args():',
+        '\t\tif str(offline_arg).begins_with("--offline-party="):',
+        '\t\t\tcoop_classes.clear()',
+        '\t\t\tfor offline_candidate in str(offline_arg).substr(16).split(",", false):',
+        '\t\t\t\tvar offline_class: String = str(offline_candidate)',
+        '\t\t\t\tif GameData.CLASSES.has(offline_class) and not coop_classes.has(offline_class) and coop_classes.size() < 3:',
+        '\t\t\t\t\tcoop_classes.append(offline_class)',
+        '\t_build_scene()',
+    ])
+
 def patch_party_run_save(text: str) -> str:
     """Extend existing per-hero snapshots to an offline AI party."""
     if '"offline_party"' in text:
@@ -208,16 +234,7 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
     anchor = "\t_build_scene()"
     if anchor not in text:
         raise ValueError("Main scene boot anchor missing")
-    party = '\n'.join([
-        '\tcoop_classes.assign(["acolyte", "mage", "archer"])',
-        '\tfor offline_arg in OS.get_cmdline_user_args():',
-        '\t\tif str(offline_arg).begins_with("--offline-party="):',
-        '\t\t\tcoop_classes.clear()',
-        '\t\t\tfor offline_class in str(offline_arg).substr(16).split(",", false):',
-        '\t\t\t\tif GameData.CLASSES.has(offline_class) and coop_classes.size() < 3:',
-        '\t\t\t\t\tcoop_classes.append(offline_class)',
-        anchor,
-    ])
+    party = offline_party_bootstrap()
     main.write_text(text.replace(anchor, party, 1), encoding="utf-8", newline="\n")
     text = main.read_text(encoding="utf-8")
     text = text.replace('if coop_classes.is_empty() and net.mode == "":', 'if net.mode == "":', 1)
