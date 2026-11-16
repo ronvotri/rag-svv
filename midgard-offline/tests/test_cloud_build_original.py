@@ -42,6 +42,27 @@ class CloudInputs(unittest.TestCase):
                 cloud.download(config, destination)
             self.assertEqual(destination.read_bytes(), expected)
 
+    def test_portable_web_templates_include_release_and_debug(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            editor = root / "tools" / "godot"
+            editor.parent.mkdir()
+            editor.write_bytes(b"godot")
+            templates = root / "templates"
+            templates.mkdir()
+            (templates / "web_nothreads_debug.zip").write_bytes(b"debug")
+            (templates / "web_nothreads_release.zip").write_bytes(b"release")
+            installed = cloud.install_web_templates(editor, templates, "4.7.2")
+            self.assertEqual(
+                installed,
+                editor.parent / "editor_data" / "export_templates" / "4.7.2.stable",
+            )
+            self.assertEqual((installed / "web_nothreads_debug.zip").read_bytes(), b"debug")
+            self.assertEqual((installed / "web_nothreads_release.zip").read_bytes(), b"release")
+            (templates / "web_nothreads_release.zip").unlink()
+            with self.assertRaises(FileNotFoundError):
+                cloud.install_web_templates(editor, templates, "4.7.2")
+
     def test_cache_seeding_does_not_restore_native_extensions_or_old_fonts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
