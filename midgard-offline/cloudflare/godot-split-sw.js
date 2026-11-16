@@ -59,8 +59,10 @@ function createPartStream(asset, start, end) {
           bytesRead = 0;
           abortController = new AbortController();
           const pathURL = new URL(currentPart.path, self.registration.scope);
+          // Content-addressed chunk URLs are immutable. Let the browser's
+          // HTTP cache reuse downloads on reload where storage permits.
           const response = await fetch(pathURL.href, {
-            cache: 'no-store',
+            cache: 'default',
             signal: abortController.signal
           });
           if (!response.ok || !response.body) {
