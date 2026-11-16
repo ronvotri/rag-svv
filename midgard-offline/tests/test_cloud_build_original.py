@@ -63,6 +63,24 @@ class CloudInputs(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 cloud.install_web_templates(editor, templates, "4.7.2")
 
+    def test_android_texture_import_is_enabled_once_on_private_project(self):
+        with tempfile.TemporaryDirectory() as directory:
+            prepared = Path(directory) / "work" / "prepared"
+            prepared.mkdir(parents=True)
+            project_config = prepared / "project.godot"
+            project_config.write_text('[application]\\nconfig/name="Midgard SVV Offline"\\n\\n[rendering]\\nrenderer/rendering_method="gl_compatibility"\\n', encoding="utf-8")
+            first = cloud.configure_android_texture_import(prepared)
+            second = cloud.configure_android_texture_import(prepared)
+            self.assertEqual(first, second)
+            self.assertEqual(first.count("textures/vram_compression/import_etc2_astc=true"), 1)
+            self.assertIn('renderer/rendering_method="gl_compatibility"', first)
+
+    def test_web_export_disables_pwa_without_icons(self):
+        script = Path(__file__).resolve().parents[1] / "tools" / "create-original-presets.py"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("progressive_web_app/enabled=false", source)
+        self.assertNotIn("progressive_web_app/enabled=true", source)
+
     def test_cache_seeding_does_not_restore_native_extensions_or_old_fonts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
