@@ -43,8 +43,7 @@ function createPartStream(asset, start, end) {
   let abortController = null;
   const expected = end - start + 1;
 
-  return new ReadableStream({
-    async pull(controller) {
+  async function pump(controller) {
       try {
         if (delivered >= expected) {
           controller.close();
@@ -79,7 +78,7 @@ function createPartStream(asset, start, end) {
           abortController = null;
           partStart += currentPart.size;
           partIndex++;
-          return;
+          return pump(controller);
         }
         const data = result.value;
         if (!(data instanceof Uint8Array)) throw new Error('Invalid game chunk bytes');
@@ -105,7 +104,9 @@ function createPartStream(asset, start, end) {
         if (abortController) abortController.abort();
         controller.error(error);
       }
-    },
+  }
+  return new ReadableStream({
+    pull: pump,
     cancel() {
       if (partReader) partReader.cancel().catch(() => {});
       if (abortController) abortController.abort();
