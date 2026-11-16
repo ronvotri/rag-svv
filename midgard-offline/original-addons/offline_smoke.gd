@@ -58,11 +58,17 @@ func _run() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	check(world.menus != null, "original menu constructed")
+	world.menus.show_login()
+	await get_tree().process_frame
+	check(world.menus._mode == "class_select", "offline login redirects to character selection")
 	check(world.coop_classes == expected_party, "new World restores selected AI roster")
 	check(world.net.mode == "", "network session inactive")
 	check(world.net.eos() == null, "EOS route unavailable")
 	check(not world.cloud._enabled(), "cloud account route disabled")
-	world.start_run("swordsman", false)
+	# Use the same choose_start=true route as the visible To adventure! button.
+	# Prior QA called start_run(..., false) and missed the menu-reset loop.
+	world.start_run("swordsman", true)
+	check(world.menus._mode != "class_select", "To adventure keeps the player out of class select")
 	world.menus.close()
 	get_tree().paused = false
 	await get_tree().process_frame
