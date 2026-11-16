@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Stage a large Godot Web export for Cloudflare Pages + private R2 binding.
+"""Prepare the original Godot Web export for Cloudflare Pages Free (no R2).
 
-Files above the Pages 25 MiB per-file limit are NOT included in the Pages
-deployment. The same-origin Pages Function streams those files from R2.
-This prepares files only; it never publishes the original game's assets.
+Splits exported .pck/.wasm or any oversized file into versioned <= 16 MiB
+static parts. A browser Service Worker streams the original URL transparently.
+No assets or third-party game data are committed to this public repository.
 """
 from __future__ import annotations
 
@@ -15,108 +15,128 @@ import shutil
 from pathlib import Path
 
 PAGES_FILE_LIMIT = 25 * 1024 * 1024
+PART_BYTES = 16 * 1024 * 1024
+MAX_FREE_FILES = 20_000
 PROJECT_NAME = "rag-svv-web"
-R2_BUCKET = "rag-svv-game-assets"
 BUILD_NAME = "MidgardSVV-Original-Offline-Web-TEST"
-REQUIRED_SUFFIXES = {".pck", ".wasm", ".js"}
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(block)
+    with path.open("rb") as file:
+        for part in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(part)
     return digest.hexdigest()
 
 
-def stage(source: Path, output: Path, version: str, limit: int = PAGES_FILE_LIMIT) -> dict:
+def _split(source: Path, public: Path, version: str, part_bytes: int) -> dict:
+    name = source.name
+    output = public / "parts" / version / name
+    output.mkdir(parents=True)
+    full_hash = hashlib.sha256()
+    pieces = []
+    with source.open("rb") as reader:
+        index = 0
+        while True:
+            payload = reader.read(part_bytes)
+            if not payload:
+                break
+            full_hash.update(payload)
+            relative = f"parts/{version}/{name}/{index:04d}.bin"
+            destination = public / relative
+            destination.write_bytes(payload)
+            pieces.append({
+                "path": relative,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            })
+            index += 1
+    if not pieces or sum(x["size"] for x in pieces) != source.stat().st_size:
+        raise ValueError("Split size mismatch: " + name)
+    return {
+        "name": name,
+        "size": source.stat().st_size,
+        "sha256": full_hash.hexdigest(),
+        "type": ("application/wasm" if source.suffix == ".wasm" else
+                 "text/javascript" if source.suffix == ".js" else
+                 "application/octet-stream"),
+        "parts": pieces,
+    }
+
+
+def stage(source: Path, output: Path, version: str,
+          limit: int = PAGES_FILE_LIMIT, part_bytes: int = PART_BYTES) -> dict:
     if not re.fullmatch(r"[a-f0-9]{7,64}", version):
         raise ValueError("Version must be a Git commit hash")
+    if not (0 < part_bytes < limit <= PAGES_FILE_LIMIT):
+        raise ValueError("Expected chunk size < Pages file size limit <= 25 MiB")
     source = source.resolve(strict=True)
     output = output.resolve()
     if not source.is_dir() or not (source / "index.html").is_file():
-        raise ValueError("Expected the original Godot Web export, including index.html")
-    if output.exists():
-        raise ValueError("Refusing to overwrite an existing deployment directory")
-    if output == source or source in output.parents or output in source.parents:
-        raise ValueError("Source and destination must be separate")
-    if limit > PAGES_FILE_LIMIT or limit < 1:
-        raise ValueError("Invalid static asset limit")
-
-    files = [file for file in source.iterdir() if file.is_file()]
-    if any(file.is_symlink() for file in source.iterdir()):
-        raise ValueError("Web export cannot contain symlinks")
-    if not all(any(file.suffix == suffix for file in files) for suffix in REQUIRED_SUFFIXES):
-        raise ValueError("Missing the original Godot .pck, .wasm or .js")
+        raise ValueError("Expected Godot Web export containing index.html")
+    if output.exists() or source == output or source in output.parents or output in source.parents:
+        raise ValueError("Output must be a new, separate directory")
+    if any(p.is_symlink() or not p.is_file() for p in source.iterdir()):
+        raise ValueError("Unexpected symlink or subdirectory in Web export")
+    files = sorted(source.iterdir())
+    if not {".pck", ".wasm", ".js"}.issubset({p.suffix for p in files}):
+        raise ValueError("Missing required Godot JS/WASM/PCK export files")
 
     public = output / "public"
-    large = output / "r2"
     public.mkdir(parents=True)
-    large.mkdir()
     manifest = {
-        "version": version,
-        "project": PROJECT_NAME,
-        "bucket": R2_BUCKET,
-        "pages_assets": [],
-        "large_assets": [],
+        "schema": 1, "project": PROJECT_NAME, "version": version,
+        "static_assets": [], "large_assets": {},
     }
-    for file in sorted(files):
+    reserved = {"_headers", "_redirects", "_routes.json", "_worker.js",
+                "godot-split-sw.js", "asset-map.json", "game.html"}
+    for file in files:
         name = file.name
-        if name.startswith(".") or not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
-            raise ValueError("Unexpected export filename: " + name)
-        if name in ("_routes.json", "wrangler.toml", "_worker.js"):
-            raise ValueError("Reserved deployment filename: " + name)
-        dest_group = "large_assets" if file.stat().st_size > limit else "pages_assets"
-        destination = large if dest_group == "large_assets" else public
-        shutil.copyfile(file, destination / name)
-        manifest[dest_group].append({
-            "name": name,
-            "size": file.stat().st_size,
-            "sha256": sha256(file),
-            "content_type": (
-                "application/wasm" if file.suffix == ".wasm" else
-                "application/octet-stream" if file.suffix == ".pck" else
-                "text/javascript" if file.suffix == ".js" else
-                "application/octet-stream"
-            ),
-        })
+        if (name.startswith(".") or not re.fullmatch(r"[A-Za-z0-9_.-]+", name)
+                or name in reserved):
+            raise ValueError("Unsafe or reserved Web file: " + name)
+        destination_name = "game.html" if name == "index.html" else name
+        if file.stat().st_size > limit:
+            if name == "index.html":
+                raise ValueError("Godot HTML entry cannot exceed Pages file limit")
+            manifest["large_assets"][destination_name] = _split(
+                file, public, version, part_bytes
+            )
+        else:
+            shutil.copyfile(file, public / destination_name)
+            manifest["static_assets"].append({
+                "name": destination_name,
+                "size": file.stat().st_size,
+                "sha256": sha256(file),
+            })
 
-    # Pages Functions only executes for paths declared here; other requests
-    # are served directly from Pages' static CDN without invoking a Worker.
-    routes = {
-        "version": 1,
-        "include": ["/" + item["name"] for item in manifest["large_assets"]],
-        "exclude": [],
+    asset_map = {
+        "schema": 1, "version": version,
+        "large_assets": manifest["large_assets"],
     }
-    (public / "_routes.json").write_text(json.dumps(routes, indent=2) + "\n", encoding="utf-8")
+    (public / "asset-map.json").write_text(
+        json.dumps(asset_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    shutil.copyfile(ROOT / "cloudflare/godot-split-sw.js", public / "godot-split-sw.js")
+    shutil.copyfile(ROOT / "cloudflare/pages-bootstrap.html", public / "index.html")
     (public / "_headers").write_text(
         "/index.html\n  Cache-Control: no-cache\n"
+        "/game.html\n  Cache-Control: no-cache\n"
+        "/asset-map.json\n  Cache-Control: no-store\n"
+        "/godot-split-sw.js\n  Cache-Control: no-cache\n"
         "/*.wasm\n  Content-Type: application/wasm\n",
         encoding="utf-8",
     )
-    # Wrangler supports a Pages R2 binding. The bucket is intentionally
-    # private; large assets are fetched by same-origin Pages Functions.
-    allowed = ",".join(item["name"] for item in manifest["large_assets"])
-    configuration = (
-        f'name = "{PROJECT_NAME}"\n'
-        'compatibility_date = "2026-11-16"\n'
-        'pages_build_output_dir = "./public"\n\n'
-        '[[r2_buckets]]\n'
-        'binding = "GAME_ASSETS"\n'
-        f'bucket_name = "{R2_BUCKET}"\n\n'
-        '[vars]\n'
-        f'ASSET_VERSION = "{version}"\n'
-        f'LARGE_ASSETS = "{allowed}"\n'
-    )
-    (output / "wrangler.toml").write_text(configuration, encoding="utf-8")
-    target_functions = output / "functions"
-    target_functions.mkdir()
-    shutil.copyfile(
-        ROOT / "cloudflare/functions/[[path]].js", target_functions / "[[path]].js"
-    )
+    static_files = [p for p in public.rglob("*") if p.is_file()]
+    too_large = [str(p.relative_to(public)) for p in static_files if p.stat().st_size > limit]
+    if too_large:
+        raise ValueError("Asset(s) exceed the Pages single-file limit: " + repr(too_large))
+    if len(static_files) > MAX_FREE_FILES:
+        raise ValueError("Cloudflare Pages Free exceeds 20,000 files")
+    manifest["deployment_files"] = len(static_files)
     (output / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     return manifest
 
@@ -128,9 +148,6 @@ if __name__ == "__main__":
     cli.add_argument("--version", required=True)
     args = cli.parse_args()
     result = stage(args.source, args.output, args.version)
-    print(
-        "Cloudflare staging ready: "
-        f'{len(result["pages_assets"])} Pages assets, '
-        f'{len(result["large_assets"])} R2 assets. '
-        "Public deployment has NOT been performed."
-    )
+    print("Pages Free staged:", result["deployment_files"], "files,",
+          len(result["large_assets"]), "streamed assets;",
+          "R2 is NOT used. This command does not publish the game.")
