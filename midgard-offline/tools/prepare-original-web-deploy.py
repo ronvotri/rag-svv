@@ -90,7 +90,7 @@ def stage(source: Path, output: Path, version: str,
         "static_assets": [], "large_assets": {},
     }
     reserved = {"_headers", "_redirects", "_routes.json", "_worker.js",
-                "godot-split-sw.js", "asset-map.json", "game.html"}
+                "godot-split-sw.js", "asset-map.json", "game.html", "fullscreen-toggle.js"}
     for file in files:
         name = file.name
         if (name.startswith(".") or not re.fullmatch(r"[A-Za-z0-9_.-]+", name)
@@ -104,11 +104,25 @@ def stage(source: Path, output: Path, version: str,
                 file, public, version, part_bytes
             )
         else:
-            shutil.copyfile(file, public / destination_name)
+            destination = public / destination_name
+            if name == "index.html":
+                # Add a fullscreen control to the real Godot page, not the
+                # temporary bootstrap page; it must survive navigation.
+                html = file.read_text(encoding="utf-8")
+                if html.lower().count("</body>") != 1:
+                    raise ValueError("Unexpected original Godot HTML body")
+                html = re.sub(
+                    r"</body>",
+                    '<script src="./fullscreen-toggle.js" defer></script>\\n</body>',
+                    html, count=1, flags=re.IGNORECASE,
+                )
+                destination.write_text(html, encoding="utf-8")
+            else:
+                shutil.copyfile(file, destination)
             manifest["static_assets"].append({
                 "name": destination_name,
-                "size": file.stat().st_size,
-                "sha256": sha256(file),
+                "size": destination.stat().st_size,
+                "sha256": sha256(destination),
             })
 
     asset_map = {
@@ -124,6 +138,7 @@ def stage(source: Path, output: Path, version: str,
     (public / "godot-split-sw.js").write_text(
         "// Ragnarok Pages build: " + version + "\n" + worker, encoding="utf-8"
     )
+    shutil.copyfile(ROOT / "cloudflare/fullscreen-toggle.js", public / "fullscreen-toggle.js")
     shutil.copyfile(ROOT / "cloudflare/pages-bootstrap.html", public / "index.html")
     (public / "_headers").write_text(
         "/index.html\n  Cache-Control: no-cache\n"
