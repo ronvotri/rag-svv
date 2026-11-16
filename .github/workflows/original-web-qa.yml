@@ -58,6 +58,25 @@ jobs:
           print(f"Web export package OK: {len(files)} files, {archive.stat().st_size} bytes.")
           print("NOTE: Package QA is not browser/PWA, cache, save, or device acceptance.")
           PY
+      - name: Prepare Cloudflare Pages and R2 staging package (no deployment)
+        run: |
+          python midgard-offline/tools/prepare-original-web-deploy.py --version "$GITHUB_SHA"
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          base = Path("midgard-offline/work/cloud/cloudflare-deploy")
+          manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+          assert manifest["large_assets"], "Expected large Godot asset(s) routed to R2"
+          for path in (base / "public").iterdir():
+              if path.is_file():
+                  assert path.stat().st_size <= 25 * 1024 * 1024, "Pages file exceeds Cloudflare limit: " + path.name
+          expected = {"/" + item["name"] for item in manifest["large_assets"]}
+          routes = json.loads((base / "public/_routes.json").read_text(encoding="utf-8"))
+          assert set(routes["include"]) == expected
+          assert (base / "functions/[[path]].js").is_file()
+          print("Cloudflare staging QA passed; no public upload performed.")
+          PY
       - name: Upload original Godot Web client TEST artifact
         uses: actions/upload-artifact@v4
         with:
