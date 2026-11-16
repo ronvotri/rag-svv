@@ -143,13 +143,12 @@ def write_context(project, work, translation):
     context = work / "context"
     context.mkdir(exist_ok=True)
     localizer = own_tool("localize_original")
-    dictionary = {}
-    for name in ("vi-ui.json", "vi-ui-extra.json"):
-        dictionary.update(json.loads((ROOT / "patches" / name).read_text(encoding="utf-8")))
+    dictionary = localizer.load_translations(ROOT / "patches/vi-ui.json")
+    protected = localizer.protected_names(project)
     pending = []
     for entry in localizer.read_po(project / "locale/en.po"):
         english = entry.get("en") or entry["id"]
-        if english not in dictionary:
+        if english not in dictionary and english not in protected:
             pending.append({"msgid": entry["id"], "english": english})
     for start in range(0, len(pending), 200):
         (context / f"translation-worklist-{start//200+1:03d}.json").write_text(json.dumps(pending[start:start+200], ensure_ascii=False, indent=2), encoding="utf-8")

@@ -1,0 +1,54 @@
+"""Original Godot localization policy regression tests."""
+from pathlib import Path
+import importlib.util
+import json
+import tempfile
+import unittest
+
+MODULE_PATH = Path(__file__).resolve().parents[1] / "tools/localize_original.py"
+spec = importlib.util.spec_from_file_location("original_l10n", MODULE_PATH)
+locale = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(locale)
+
+
+class OriginalLocalization(unittest.TestCase):
+    def test_skill_item_and_class_names_stay_english(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "work" / "project"
+            (root / "scripts/autoload").mkdir(parents=True)
+            (root / "scripts/ui").mkdir(parents=True)
+            (root / "locale").mkdir()
+            (root / "project.godot").write_text("[application]\n", encoding="utf-8")
+            (root / "scripts/ui/lang.gd").write_text('const DEFAULT: = "en"\n', encoding="utf-8")
+            (root / "scripts/autoload/game_data.gd").write_text(
+                'const ITEMS: = {"red": {"name": "Red Potion", "description": "Restores HP"}}\n'
+                'const SKILLS: = {"hit": {"name": "Double Attack"}}\n'
+                'const CLASSES: = {"mage": {"name": "Mage"}}\n', encoding="utf-8")
+            (root / "locale/en.po").write_text(
+                'msgid "a"\nmsgstr "Red Potion"\n\n'
+                'msgid "b"\nmsgstr "Double Attack"\n\n'
+                'msgid "c"\nmsgstr "Mage"\n\n'
+                'msgid "d"\nmsgstr "Restores HP"\n\n', encoding="utf-8")
+            original = root / "original.json"
+            original.write_text(json.dumps({
+                "Red Potion": "Thuốc đỏ", "Double Attack": "Song kích",
+                "Mage": "Pháp sư", "Restores HP": "Hồi HP",
+            }, ensure_ascii=False), encoding="utf-8")
+            custom_keep = root / "none.json"
+            protected = locale.protected_names(root, custom_keep)
+            self.assertTrue({"Red Potion", "Double Attack", "Mage"} <= protected)
+            # Explicitly isolated test patch folder; no repository dictionaries.
+            result = locale.localize(root, original, extra_dictionary=custom_keep)
+            output = locale.read_po(root / "locale/vi.po")
+            self.assertEqual([x["en"] for x in output], ["Red Potion", "Double Attack", "Mage", "Hồi HP"])
+            self.assertEqual(result["protected_english_entries"], 3)
+            self.assertEqual(result["authored_vietnamese_entries"], 1)
+
+    def test_keep_english_list_contains_core_terminology(self):
+        keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
+        for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
+            self.assertIn(term, keep)
+
+
+if __name__ == "__main__":
+    unittest.main()
