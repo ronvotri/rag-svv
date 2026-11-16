@@ -32,9 +32,25 @@ class OriginalPartyBootstrap(unittest.TestCase):
 
     def test_original_boot_skips_online_login_and_preloads_guard(self):
         source = module_path.read_text(encoding="utf-8")
-        self.assertIn('"_opening_screens": "menus.show_class_select()"', source)
+        self.assertIn('"show_login": "show_class_select()"', source)
+        self.assertNotIn('{"_opening_screens": "menus.show_class_select()"}', source)
+        self.assertIn("Keep the ORIGINAL _opening_screens", source)
         self.assertIn('svv_guard.restore_missing_profile(PATH, _name)', source)
         self.assertLess(source.index('svv_guard.restore_missing_profile(PATH, _name)'), source.index('"load_profile()"'))
+
+
+    def test_redirecting_login_preserves_preparation_route(self):
+        original = (
+            'func show_login() -> void:\n'
+            '\tprint("online-only login")\n'
+            '\n'
+            'func show_prep() -> void:\n'
+            '\tworld.start_run("swordsman", true)\n'
+        )
+        actual = prepare.replace_function(original, "show_login", "show_class_select()")
+        self.assertIn("func show_login() -> void:\n\tshow_class_select()", actual)
+        self.assertIn('world.start_run("swordsman", true)', actual)
+        self.assertNotIn("online-only login", actual)
 
 
 
