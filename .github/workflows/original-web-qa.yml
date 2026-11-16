@@ -6,6 +6,10 @@ on:
     paths:
       - '.github/workflows/original-web-qa.yml'
       - 'midgard-offline/tools/cloud-build-original.py'
+      - 'midgard-offline/tools/prepare-original-offline.py'
+      - 'midgard-offline/tools/diagnose-original-flow.py'
+      - 'midgard-offline/tools/localize_original.py'
+      - 'midgard-offline/tests/test_prepare_original_offline.py'
       - 'midgard-offline/tools/prepare-original-web-deploy.py'
       - 'midgard-offline/cloudflare/**'
       - 'midgard-offline/tests/test_original_web_deploy.py'
