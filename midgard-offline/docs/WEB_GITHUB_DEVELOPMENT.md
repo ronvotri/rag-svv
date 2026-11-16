@@ -2,6 +2,8 @@
 
 Mục tiêu: phát triển client gốc với sprite Ragnarok từ bất kỳ máy nào, không cần ứng dụng Codex desktop, ổ E: hoặc máy Windows ban đầu. GitHub lưu các thay đổi tự viết; GitHub Actions tải bản nền chính thức, khôi phục, vá, kiểm tra và build trên máy runner.
 
+**Đã xác minh một lượt Windows thành công:** [run 43785523181](https://github.com/ronvotri/rag-svv/actions/runs/43785523181), commit `f4262bb`. Xem [kết quả và artifact](CLOUD_BUILD_VERIFIED.md). Tiếp tục ở nhánh `feature/original-offline`; thay đổi mã/bản dịch liên quan sẽ tự kích hoạt build Windows trên nhánh này.
+
 ## Repo công khai vẫn build được game gốc
 
 Repo không phải chứa lại toàn bộ client hoặc sprite để build. `config/official-client.json` ghim upload Windows miễn phí của tác giả và SHA-256 PCK. `fetch-original-client.py` lấy link tải công khai mới cho mỗi lần chạy, kiểm dung lượng/CRC/SHA và chỉ trích PCK. Không dùng tài khoản itch.io, token cá nhân hoặc URL CDN hết hạn lưu sẵn.
@@ -39,7 +41,7 @@ Việc build do GitHub Actions thực hiện, không cần chat có terminal ho�
 - NPC hướng dẫn theo luật không phải LLM; mô hình nhỏ thử trên CPU chưa đạt chất lượng. Không bật mặc định.
 - Android output là debug-test, chưa có khóa ký phát hành lâu dài hoặc QA thiết bị.
 - Web Godot cần localhost/PWA và kiểm tra cache, không mở trực tiếp file://.
-- Quy trình tự tái dựng trên runner chỉ được ghi đạt sau một lượt Actions thành công, không dựa vào việc YAML hợp lệ.
+- Quy trình tự tái dựng trên runner Windows target đã đạt; các target web/Android và tính năng còn lại cần lượt kiểm tra riêng.
 
 ## Lời nhắn mở chat sau
 

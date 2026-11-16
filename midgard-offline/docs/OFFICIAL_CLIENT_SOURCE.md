@@ -11,6 +11,8 @@ Repo công khai chỉ cần chứa công cụ, bản dịch và patch do dự á
 
 Ngày kiểm tra metadata: **16/11/2026**. Đã thực hiện yêu cầu công khai ẩn danh thành công và chỉ tải **128 KiB cuối ZIP** để kiểm tra mục lục. Dung lượng và CRC trùng với PCK cục bộ là bằng chứng mạnh, nhưng chưa thay cho SHA-256 của toàn bộ PCK từ lần tải mới. Bước tải đầy đủ trong CI phải xác minh SHA này trước khi chấp nhận client.
 
+**Cập nhật đã xác minh:** [Actions run 43785523181](https://github.com/ronvotri/rag-svv/actions/runs/43785523181) đã tải đầy đủ, đi qua kiểm SHA-256 và hoàn thành khôi phục/build Windows. Vì script dừng nếu SHA sai, lượt thành công này xác nhận PCK tải chính thức đúng bản nền đã ghim.
+
 URL CDN được itch.io tạo mới cho mỗi phiên và hết hạn; không lưu URL đó vào repo. Script dùng cookie ẩn danh và trường CSRF của trang công khai, như chính nút tải miễn phí. Không đăng nhập, không mua hàng và không vượt paywall. Nếu trang không còn miễn phí, upload biến mất hoặc byte/hash thay đổi, script dừng để rà soát thay vì lấy bản mới một cách im lặng.
 
 ## Lệnh cho GitHub Actions hoặc ChatGPT web

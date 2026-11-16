@@ -4,6 +4,8 @@ Hướng hiện tại là **chuyển client Midgard Survivors gốc sang offline
 
 **Phát triển từ web, không cần Codex desktop:** [ChatGPT web + GitHub Actions](midgard-offline/docs/WEB_GITHUB_DEVELOPMENT.md). Workflow tự lấy bản nền từ nguồn chính thức và tái dựng project trên runner; không phụ thuộc ổ E: hay máy ban đầu.
 
+**Đã build Windows thành công trên GitHub:** [lượt chạy và bản tải](https://github.com/ronvotri/rag-svv/actions/runs/43785523181). Tiếp tục trên nhánh `feature/original-offline`; xem [trạng thái nghiệm thu](midgard-offline/docs/CLOUD_BUILD_VERIFIED.md).
+
 | Hướng | Mục tiêu | Tài liệu | Trạng thái |
 | --- | --- | --- | --- |
 | Client Midgard gốc offline | Giữ sprite Ragnarok, 11 nghề, bản đồ và các hệ thống từ client gốc; thêm AI và Việt hóa | [Client gốc](midgard-offline/docs/ORIGINAL_CLIENT.md) | Đã khôi phục và chạy thử cảnh thị trấn/chiến đấu; đang nghiệm thu và xuất các nền tảng |
