@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ragnarok SVV – Client gốc Offline</title>
+  <style>
+    * { box-sizing: border-box }
+    body { margin: 0; min-height: 100vh; background: #14251f; color: #f6f2e9;
+           font-family: system-ui, sans-serif; display: grid; place-items: center }
+    main { padding: 26px; width: min(520px, 95vw); text-align: center }
+    h1 { font-size: clamp(24px, 6vw, 38px); margin: 0 0 12px }
+    p { font-size: 16px; line-height: 1.6; color: #cbd7cf }
+    button { background: #e3bd76; color: #14251f; border: 0; border-radius: 8px;
+             font-weight: 700; padding: 12px 18px; cursor: pointer }
+  </style>
+</head>
+<body>
+<main>
+  <h1>RAGNAROK SVV</h1>
+  <p id="status" role="status">Đang chuẩn bị client Ragnarok offline trên trình duyệt…</p>
+  <button id="retry" hidden type="button">Thử lại</button>
+</main>
+<script>
+(async () => {
+  const status = document.getElementById('status');
+  const retry = document.getElementById('retry');
+  retry.addEventListener('click', () => location.reload());
+  try {
+    if (!window.isSecureContext || !('serviceWorker' in navigator)) {
+      throw new Error('Cần trình duyệt hỗ trợ Service Worker và HTTPS.');
+    }
+    status.textContent = 'Đang chuẩn bị trình tải dữ liệu…';
+    const registration = await navigator.serviceWorker.register('./godot-split-sw.js', {
+      scope: './',
+      updateViaCache: 'none'
+    });
+    await navigator.serviceWorker.ready;
+    // Godot must not request index.pck/index.wasm before the browser's
+    // Service Worker controls this tab. clients.claim() handles first install.
+    if (!navigator.serviceWorker.controller) {
+      await Promise.race([
+        new Promise(resolve => {
+          navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(
+          'Không kích hoạt được trình tải game. Hãy tải lại trang.'
+        )), 15000))
+      ]);
+    }
+    if (!navigator.serviceWorker.controller) {
+      throw new Error('Trình tải game chưa sẵn sàng.');
+    }
+    status.textContent = 'Đang mở game…';
+    location.replace(new URL('./game.html', location.href));
+  } catch (error) {
+    status.textContent = 'Không thể chuẩn bị game: ' + error.message;
+    retry.hidden = false;
+    console.error('Ragnarok Pages startup failed', error);
+  }
+})();
+</script>
+</body>
+</html>
