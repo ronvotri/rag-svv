@@ -122,7 +122,7 @@ def stage(source: Path, output: Path, version: str,
     # Changing the SW bytes on every deployment forces browsers to activate
     # the manifest matching the current versioned chunk paths.
     (public / "godot-split-sw.js").write_text(
-        "// Ragnarok Pages build: " + version + "\\n" + worker, encoding="utf-8"
+        "// Ragnarok Pages build: " + version + "\n" + worker, encoding="utf-8"
     )
     shutil.copyfile(ROOT / "cloudflare/pages-bootstrap.html", public / "index.html")
     (public / "_headers").write_text(
@@ -130,6 +130,7 @@ def stage(source: Path, output: Path, version: str,
         "/game.html\n  Cache-Control: no-cache\n"
         "/asset-map.json\n  Cache-Control: no-store\n"
         "/godot-split-sw.js\n  Cache-Control: no-cache\n"
+        "/parts/*\n  Cache-Control: public, max-age=31536000, immutable\n"
         "/*.wasm\n  Content-Type: application/wasm\n",
         encoding="utf-8",
     )
