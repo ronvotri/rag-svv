@@ -15,10 +15,7 @@ spec.loader.exec_module(mod)
 def original_fixture(root):
     source = root / "export"
     source.mkdir()
-    (source / "index.html").write_text(
-        "<html><head></head><body><script src='index.js'></script></body></html>",
-        encoding="utf-8",
-    )
+    (source / "index.html").write_text("<html></html>", encoding="utf-8")
     (source / "index.js").write_text("console.log('godot');", encoding="utf-8")
     (source / "index.pck").write_bytes(bytes(range(100)))
     (source / "index.wasm").write_bytes(bytes(range(100))[::-1])
