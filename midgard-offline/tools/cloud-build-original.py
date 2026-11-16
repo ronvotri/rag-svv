@@ -116,6 +116,22 @@ def install_web_templates(godot, templates, version):
     return destination
 
 
+def configure_android_texture_import(project):
+    """Ensure ETC2/ASTC textures are imported before Godot's Android export.
+
+    Windows desktop default settings often leave this option disabled. Modifying
+    only the private prepared project keeps the public original-client patch
+    cross-platform while satisfying Android export validation.
+    """
+    preparer = own_tool("prepare-original-offline")
+    config = project / "project.godot"
+    original = config.read_text(encoding="utf-8")
+    changed = preparer.set_setting(original, "rendering", "textures/vram_compression/import_etc2_astc", "true")
+    if changed != original:
+        config.write_text(changed, encoding="utf-8", newline="\\n")
+    return changed
+
+
 def archive_folder(folder, output):
     with ZipFile(output, "w", ZIP_DEFLATED, compresslevel=1) as archive:
         for path in sorted(folder.rglob("*")):
@@ -179,6 +195,8 @@ def build(target):
         raise ValueError("Use a fresh runner/work directory; refusing to overwrite a recovered project")
     run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
     own_tool("prepare-original-offline").prepare(recovered, project)
+    if target == "android":
+        configure_android_texture_import(project)
     seed_cache(recovered, project)
     translation = own_tool("localize_original").localize(project, ROOT / "patches/vi-ui.json", fonts / "NotoSans-Regular.ttf", fonts / "NotoSans-Bold.ttf")
     shutil.copyfile(fonts / "OFL.txt", project / "assets/ro/fonts/NotoSans-OFL.txt")
