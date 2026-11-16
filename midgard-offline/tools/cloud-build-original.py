@@ -98,6 +98,24 @@ def seed_cache(source, destination):
             if path.is_file() and path.suffix in {".scn", ".ctex", ".sample", ".mp3str", ".md5"}:
                 shutil.copyfile(path, target / path.name)
 
+def install_web_templates(godot, templates, version):
+    """Install the official debug AND release Web templates for portable Godot.
+
+    Godot validates the conventional editor_data location even with a custom
+    debug template in export_presets.cfg. _sc_ is placed next to the editor.
+    """
+    destination = godot.parent / "editor_data" / "export_templates" / (version + ".stable")
+    required = ("web_nothreads_debug.zip", "web_nothreads_release.zip")
+    for filename in required:
+        source = templates / filename
+        if not source.is_file():
+            raise FileNotFoundError("Official Web export template missing: " + str(source))
+    destination.mkdir(parents=True, exist_ok=True)
+    for filename in required:
+        shutil.copyfile(templates / filename, destination / filename)
+    return destination
+
+
 def archive_folder(folder, output):
     with ZipFile(output, "w", ZIP_DEFLATED, compresslevel=1) as archive:
         for path in sorted(folder.rglob("*")):
@@ -144,10 +162,12 @@ def build(target):
     (godot.parent / "_sc_").touch()
     templates_archive = download(config["templates"], archives / "templates.tpz")
     templates = work / "templates"
-    selected = {"web_nothreads_debug.zip", "windows_debug_x86_64.exe", "android_debug.apk"}
+    selected = {"web_nothreads_debug.zip", "web_nothreads_release.zip", "windows_debug_x86_64.exe", "android_debug.apk"}
     extract_safe(templates_archive, templates, selected)
     if any(not (templates / name).is_file() for name in selected):
         raise ValueError("Official export template entries missing")
+    if target == "web":
+        install_web_templates(godot, templates, config["godot_version"])
     fonts = work / "fonts"
     for name, spec in config["fonts"].items():
         download(spec, fonts / name)
