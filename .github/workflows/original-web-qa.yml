@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/original-web-qa.yml'
       - 'midgard-offline/tools/cloud-build-original.py'
+      - 'midgard-offline/tools/create-original-presets.py'
       - 'midgard-offline/tests/test_cloud_build_original.py'
       - 'midgard-offline/config/cloud-tools.json'
 permissions:
