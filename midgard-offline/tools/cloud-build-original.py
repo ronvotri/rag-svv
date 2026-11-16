@@ -194,7 +194,10 @@ def build(target):
         raise ValueError("Use a fresh runner/work directory; refusing to overwrite a recovered project")
     run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
     own_tool("prepare-original-offline").prepare(recovered, project)
-    if target == "android":
+    # Web and Android exports both require ETC2/ASTC import to be enabled.
+    # Godot 4 can fail Web preset validation with an empty error message
+    # when the restored desktop project does not enable these textures.
+    if target in ("web", "android"):
         configure_android_texture_import(project)
     seed_cache(recovered, project)
     translation = own_tool("localize_original").localize(project, ROOT / "patches/vi-ui.json", fonts / "NotoSans-Regular.ttf", fonts / "NotoSans-Bold.ttf")
