@@ -28,7 +28,7 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
             root = Path(folder)
             source = original_fixture(root)
             result = mod.stage(source, root / "deploy", "abcdef0123456",
-                               limit=25, part_bytes=16)
+                               limit=32, part_bytes=16)
             public = root / "deploy/public"
             self.assertTrue((public / "index.html").is_file())
             self.assertTrue((public / "game.html").is_file())
