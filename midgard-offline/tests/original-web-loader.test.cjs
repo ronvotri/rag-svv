@@ -3,7 +3,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 
 const worker = fs.readFileSync(
   path.resolve(__dirname, '../cloudflare/godot-split-sw.js'), 'utf8'
@@ -45,12 +44,9 @@ async function simulate(assetBytes, assetParts, extra = {}) {
     skipWaiting: async () => {},
     clients: { claim: async () => {} }
   };
-  vm.runInNewContext(worker, {
-    self,
-    fetch: networkFetch,
-    URL, Response, Headers, ReadableStream, Uint8Array, AbortController,
-    console
-  });
+  // Run with the actual Node Web Streams realm; vm cross-realm Response
+  // streams can remain pending even though the worker byte logic is correct.
+  new Function('self', 'fetch', worker)(self, networkFetch);
   async function request(resource, headers = {}) {
     let promise;
     handlers.fetch({
