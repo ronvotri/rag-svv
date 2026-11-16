@@ -3,8 +3,8 @@ extends Node
 ## Inspired by PKMSVV's protection principle, but uses Godot FileAccess, not localStorage.
 ## Never uploads data or mixes test and normal player profiles.
 
-const MIN_BYTES := 32
-const INTERVAL_SECONDS := 15.0
+const MIN_BYTES = 32
+const INTERVAL_SECONDS = 15.0
 var elapsed := 0.0
 var last_warning := ""
 
