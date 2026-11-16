@@ -35,20 +35,39 @@
       scope: './',
       updateViaCache: 'none'
     });
+    // Each package embeds its commit into the SW source. Updating before
+    // launching avoids mixing an old Service Worker's manifest with new HTML.
+    await registration.update();
+    const pending = registration.installing || registration.waiting;
+    if (pending && pending.state !== 'activated') {
+      await Promise.race([
+        new Promise((resolve, reject) => {
+          pending.addEventListener('statechange', () => {
+            if (pending.state === 'activated') resolve();
+            if (pending.state === 'redundant') reject(new Error('Không cập nhật được trình tải.'));
+          });
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(
+          'Trình tải chưa cập nhật xong. Hãy thử tải lại trang.'
+        )), 20000))
+      ]);
+    }
     await navigator.serviceWorker.ready;
-    // Godot must not request index.pck/index.wasm before the browser's
-    // Service Worker controls this tab. clients.claim() handles first install.
-    if (!navigator.serviceWorker.controller) {
+    // The game must not request its giant PCK/WASM before the matching SW
+    // controls this tab; activation calls clients.claim().
+    if (!navigator.serviceWorker.controller ||
+        navigator.serviceWorker.controller !== registration.active) {
       await Promise.race([
         new Promise(resolve => {
           navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error(
           'Không kích hoạt được trình tải game. Hãy tải lại trang.'
-        )), 15000))
+        )), 20000))
       ]);
     }
-    if (!navigator.serviceWorker.controller) {
+    if (!navigator.serviceWorker.controller ||
+        navigator.serviceWorker.controller !== registration.active) {
       throw new Error('Trình tải game chưa sẵn sàng.');
     }
     status.textContent = 'Đang mở game…';
