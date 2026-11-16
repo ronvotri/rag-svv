@@ -68,7 +68,7 @@ class CloudInputs(unittest.TestCase):
             prepared = Path(directory) / "work" / "prepared"
             prepared.mkdir(parents=True)
             project_config = prepared / "project.godot"
-            project_config.write_text('[application]\\nconfig/name="Midgard SVV Offline"\\n\\n[rendering]\\nrenderer/rendering_method="gl_compatibility"\\n', encoding="utf-8")
+            project_config.write_text('[application]\nconfig/name="Midgard SVV Offline"\n\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n', encoding="utf-8")
             first = cloud.configure_android_texture_import(prepared)
             second = cloud.configure_android_texture_import(prepared)
             self.assertEqual(first, second)
