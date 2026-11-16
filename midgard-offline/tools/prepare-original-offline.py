@@ -226,6 +226,8 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
         'PATH = "user://%s.json" % _name',
         'TMP_PATH = "user://%s.tmp" % _name',
         'BACKUP_PATH = "user://%s.bak.json" % _name',
+        'var svv_guard = load("res://addons/svv_offline/offline_save_guardian.gd")',
+        "svv_guard.restore_missing_profile(PATH, _name)",
         "load_profile()",
         "Lang.apply_saved()",
     ])})
@@ -240,6 +242,8 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
     text = text.replace('if coop_classes.is_empty() and net.mode == "":', 'if net.mode == "":', 1)
     text = re.sub(r'if not is_coop\(\):\n(\s+)RunSave\.clear\(\)', r'if net.mode == "":\n\1RunSave.clear()', text)
     main.write_text(text, encoding="utf-8", newline="\n")
+    # Offline single-player should enter original character selection directly.
+    patch("scripts/core/main.gd", {"_opening_screens": "menus.show_class_select()"})
     assets = output / "scripts/autoload/ro_assets.gd"
     content = assets.read_text(encoding="utf-8")
     audio_anchor = 'var path: = ROOT + "audio/%s.wav" % key'

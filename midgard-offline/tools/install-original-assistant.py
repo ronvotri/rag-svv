@@ -12,6 +12,10 @@ def install(project):
     destination = project / "addons/svv_offline/offline_assistant.gd"
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
+    guardian_source = source.parent / "offline_save_guardian.gd"
+    if not guardian_source.is_file():
+        raise ValueError("Authored offline save guardian missing")
+    shutil.copyfile(guardian_source, destination.parent / guardian_source.name)
     qa = destination.parent / "qa"
     qa.mkdir(exist_ok=True)
     for name in ("offline_smoke", "offline_visual"):
@@ -23,20 +27,21 @@ def install(project):
         (qa / (name + ".tscn")).write_text(scene, encoding="utf-8")
     config = project / "project.godot"
     text = config.read_text(encoding="utf-8")
-    line = 'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"'
-    if line not in text:
-        if "[autoload]" not in text:
-            raise ValueError("Autoload section missing")
-        text = text.replace("[autoload]", "[autoload]\n\n" + line, 1)
-        # Save must initialize first; append assistant after existing autoloads.
-        text = text.replace("\n" + line, "", 1)
-        start = text.index("[autoload]")
-        end = text.find("\n[", start + 1)
-        if end < 0:
-            text = text.rstrip() + "\n" + line + "\n"
-        else:
-            text = text[:end].rstrip() + "\n" + line + "\n\n" + text[end:]
-        config.write_text(text, encoding="utf-8")
+    if "[autoload]" not in text:
+        raise ValueError("Autoload section missing")
+    start = text.index("[autoload]") + len("[autoload]")
+    next_section = text.find("\n[", start)
+    end = next_section if next_section >= 0 else len(text)
+    block = text[start:end]
+    for registration in (
+        'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
+        'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
+    ):
+        if registration not in block:
+            block = block.rstrip() + "\n" + registration + "\n"
+    new_text = text[:start] + block + text[end:]
+    if new_text != text:
+        config.write_text(new_text, encoding="utf-8")
     return destination
 
 if __name__ == "__main__":

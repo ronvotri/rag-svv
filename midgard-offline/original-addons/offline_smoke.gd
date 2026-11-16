@@ -41,6 +41,8 @@ func _run() -> void:
 	Save.load_profile()
 	check(Save.zeny() == before_gold + 17, "encrypted profile gold survives reload")
 	check(Save.setting("offline_qa_marker", "") == "persistent", "profile settings survive reload")
+	check(SVVSaveGuardian.backup_now(), "Save Guardian creates verified offline backup")
+	check(FileAccess.file_exists(SVVSaveGuardian.latest_path()), "Save Guardian latest snapshot exists")
 	var expected_party: Array[String] = ["mage", "archer", "acolyte"]
 	Save.set_setting("svv_offline_party", expected_party)
 	Save.flush()

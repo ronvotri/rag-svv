@@ -30,5 +30,13 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertTrue(body.rstrip().endswith("_build_scene()"))
 
 
+    def test_original_boot_skips_online_login_and_preloads_guard(self):
+        source = module_path.read_text(encoding="utf-8")
+        self.assertIn('"_opening_screens": "menus.show_class_select()"', source)
+        self.assertIn('svv_guard.restore_missing_profile(PATH, _name)', source)
+        self.assertLess(source.index('svv_guard.restore_missing_profile(PATH, _name)'), source.index('"load_profile()"'))
+
+
+
 if __name__ == "__main__":
     unittest.main()
