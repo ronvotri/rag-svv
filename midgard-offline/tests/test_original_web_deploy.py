@@ -15,7 +15,7 @@ spec.loader.exec_module(mod)
 def original_fixture(root):
     source = root / "export"
     source.mkdir()
-    (source / "index.html").write_text("<html></html>", encoding="utf-8")
+    (source / "index.html").write_text("<html><body></body></html>", encoding="utf-8")
     (source / "index.js").write_text("console.log('godot');", encoding="utf-8")
     (source / "index.pck").write_bytes(bytes(range(100)))
     (source / "index.wasm").write_bytes(bytes(range(100))[::-1])
@@ -32,6 +32,8 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
             public = root / "deploy/public"
             self.assertTrue((public / "index.html").is_file())
             self.assertTrue((public / "game.html").is_file())
+            self.assertIn("fullscreen-toggle.js", (public / "game.html").read_text(encoding="utf-8"))
+            self.assertTrue((public / "fullscreen-toggle.js").is_file())
             self.assertTrue((public / "godot-split-sw.js").is_file())
             self.assertFalse((public / "index.pck").exists())
             self.assertFalse((public / "index.wasm").exists())
