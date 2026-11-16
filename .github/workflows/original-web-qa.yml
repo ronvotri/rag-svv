@@ -9,6 +9,8 @@ on:
       - 'midgard-offline/tools/prepare-original-web-deploy.py'
       - 'midgard-offline/cloudflare/**'
       - 'midgard-offline/tests/test_original_web_deploy.py'
+      - 'midgard-offline/tests/original-web-loader.test.cjs'
+      - '.github/workflows/original-web-publish.yml'
       - 'midgard-offline/patches/**'
       - 'midgard-offline/original-addons/**'
       - 'midgard-offline/tools/create-original-presets.py'
@@ -63,7 +65,7 @@ jobs:
           print(f"Web export package OK: {len(files)} files, {archive.stat().st_size} bytes.")
           print("NOTE: Package QA is not browser/PWA, cache, save, or device acceptance.")
           PY
-      - name: Prepare Cloudflare Pages and R2 staging package (no deployment)
+      - name: Stage original Web as Pages Free static assets (no R2)
         run: |
           python midgard-offline/tools/prepare-original-web-deploy.py --version "$GITHUB_SHA"
           python - <<'PY'
@@ -72,15 +74,18 @@ jobs:
 
           base = Path("midgard-offline/work/cloud/cloudflare-deploy")
           manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
-          assert manifest["large_assets"], "Expected large Godot asset(s) routed to R2"
-          for path in (base / "public").iterdir():
-              if path.is_file():
-                  assert path.stat().st_size <= 25 * 1024 * 1024, "Pages file exceeds Cloudflare limit: " + path.name
-          expected = {"/" + item["name"] for item in manifest["large_assets"]}
-          routes = json.loads((base / "public/_routes.json").read_text(encoding="utf-8"))
-          assert set(routes["include"]) == expected
-          assert (base / "functions/[[path]].js").is_file()
-          print("Cloudflare staging QA passed; no public upload performed.")
+          public = base / "public"
+          assets = [p for p in public.rglob("*") if p.is_file()]
+          assert assets and len(assets) <= 20000, "Cloudflare Pages Free file cap exceeded"
+          assert all(p.stat().st_size <= 25 * 1024 * 1024 for p in assets), "Pages 25 MiB limit exceeded"
+          assert {"index.pck", "index.wasm"}.intersection(manifest["large_assets"])
+          assert (public / "index.html").is_file()
+          assert (public / "game.html").is_file()
+          assert (public / "godot-split-sw.js").is_file()
+          assert not (base / "r2").exists()
+          assert not (base / "functions").exists()
+          print("PAGES FREE QA PASS:", len(assets), "files,", len(manifest["large_assets"]), "split assets")
+          print("Note: no public upload; browser-level QA remains.")
           PY
       - name: Upload original Godot Web client TEST artifact
         uses: actions/upload-artifact@v4
