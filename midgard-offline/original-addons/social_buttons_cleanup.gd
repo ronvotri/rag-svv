@@ -4,7 +4,11 @@ extends Node
 ## verified community invite URL supplied by the game owner.
 ## A deferred check is cheap: it runs when UI buttons are added, not per frame.
 
+# Set ONLY after the owner supplies their actual server invitation.
+# A blank value preserves the Discord icon without inventing a destination.
+const DISCORD_INVITE_URL := ""
 var _pending := false
+var _discord_wired := false
 
 
 func _ready() -> void:
@@ -71,3 +75,23 @@ func _cleanup() -> void:
 	for button in siblings:
 		if button != keep:
 			button.hide()
+	# Once a verified invite is configured, point Discord to that community.
+	if not DISCORD_INVITE_URL.is_empty() and not _discord_wired:
+		for connection in keep.pressed.get_connections():
+			var callback: Callable = connection.get("callable", Callable())
+			if callback.is_valid():
+				keep.pressed.disconnect(callback)
+		keep.pressed.connect(_open_discord)
+		_discord_wired = true
+
+
+func _open_discord() -> void:
+	if not DISCORD_INVITE_URL.begins_with("https://discord.gg/") and not DISCORD_INVITE_URL.begins_with("https://discord.com/invite/"):
+		push_warning("Discord invite not configured: refusing unverified URL")
+		return
+	if OS.has_feature("web"):
+		var browser: JavaScriptObject = JavaScriptBridge.get_interface("window")
+		if browser != null:
+			browser.open(DISCORD_INVITE_URL, "_blank", "noopener,noreferrer")
+	else:
+		OS.shell_open(DISCORD_INVITE_URL)
