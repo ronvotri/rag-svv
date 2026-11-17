@@ -17,6 +17,12 @@ def install(project):
     if not web_perf_source.is_file():
         raise ValueError("Authored mobile web optimizer missing")
     shutil.copyfile(web_perf_source, destination.parent / web_perf_source.name)
+    # Remove external publisher links from the social strip without changing
+    # gameplay or guessing the user's own Discord invite.
+    social_source = source.parent / "social_buttons_cleanup.gd"
+    if not social_source.is_file():
+        raise ValueError("Authored social UI cleanup missing")
+    shutil.copyfile(social_source, destination.parent / social_source.name)
     guardian_source = source.parent / "offline_save_guardian.gd"
     if not guardian_source.is_file():
         raise ValueError("Authored offline save guardian missing")
@@ -42,6 +48,7 @@ def install(project):
         'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
         'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
+        'SVVSocialCleanup="*res://addons/svv_offline/social_buttons_cleanup.gd"',
     ):
         if registration not in block:
             block = block.rstrip() + "\n" + registration + "\n"
