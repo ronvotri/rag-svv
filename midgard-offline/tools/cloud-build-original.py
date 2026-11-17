@@ -218,6 +218,9 @@ def build(target):
         raise ValueError("Use a fresh runner/work directory; refusing to overwrite a recovered project")
     run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
     own_tool("prepare-original-offline").prepare(recovered, project)
+    # User-authored title art replaces the old character-selection wallpaper
+    # after the original menu builds. It does not change the game scene or save.
+    own_tool("install-start-background").install(project)
     run([sys.executable, TOOLS / "diagnose-original-flow.py", project])
     # Web and Android exports both require ETC2/ASTC import to be enabled.
     # Godot 4 can fail Web preset validation with an empty error message
