@@ -16,7 +16,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 110
 	open_button = Button.new()
-	open_button.text = "Đội AI · Hỏi NPC"
+	open_button.text = "Tìm party"
 	open_button.position = Vector2(12, 56)
 	open_button.custom_minimum_size = Vector2(168, 36)
 	open_button.pressed.connect(_open)
@@ -49,31 +49,35 @@ func _ready() -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(column)
 	var title := Label.new()
-	title.text = "Đồng hành cùng Midgard"
+	title.text = "Tìm party tại Midgard"
 	title.add_theme_font_size_override("font_size", 23)
 	column.add_child(title)
 	status = Label.new()
-	status.text = "Chơi cục bộ · Không kết nối dịch vụ game"
+	status.text = "Chọn tối đa 3 đồng đội. Party hoạt động offline, không ghép người chơi thật."
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status)
 	for key in GameData.CLASSES:
 		available_ids.append(str(key))
 	for i in 3:
 		var option := OptionButton.new()
-		option.add_item("Không chọn đồng đội")
+		option.add_item("Để trống vị trí")
 		for id in available_ids:
 			option.add_item(tr(str(GameData.CLASSES[id].get("name", id))))
 		column.add_child(option)
 		selectors.append(option)
 	var apply := Button.new()
-	apply.text = "Lưu đội hình cho lượt tiếp theo"
+	apply.text = "Xác nhận party"
 	apply.pressed.connect(_apply_party)
 	column.add_child(apply)
 	var explanation := Label.new()
-	explanation.text = "NPC trả lời theo kiến thức và tình huống. Chưa tích hợp mô hình ngôn ngữ trong client Godot."
+	explanation.text = "Cần lời khuyên? Trò chuyện với NPC Linh ngay bên dưới. Hội thoại có sẵn trên máy."
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.add_theme_font_size_override("font_size", 12)
 	column.add_child(explanation)
+	var npc_heading := Label.new()
+	npc_heading.text = "Hỏi NPC Linh"
+	npc_heading.add_theme_font_size_override("font_size", 18)
+	column.add_child(npc_heading)
 	messages = RichTextLabel.new()
 	messages.custom_minimum_size.y = 180
 	messages.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -130,6 +134,7 @@ func _restore_party() -> void:
 		world.coop_classes.assign(valid)
 	for i in selectors.size():
 		selectors[i].select(available_ids.find(valid[i]) + 1 if i < valid.size() else 0)
+	status.text = "Party hiện tại: %d/3 thành viên. Đồng đội sẽ tham chiến tự động." % valid.size()
 
 func _apply_party() -> void:
 	var ids: Array[String] = []
@@ -145,7 +150,7 @@ func _apply_party() -> void:
 	var world := _world()
 	if world != null:
 		world.coop_classes.assign(ids)
-	status.text = "Đã lưu %d đồng đội. Đội hiện tại được giữ đến hết lượt." % ids.size()
+	status.text = "Đã chọn %d/3 thành viên. Party mới áp dụng từ lượt tiếp theo." % ids.size()
 
 func _open() -> void:
 	if panel.visible:
@@ -178,9 +183,9 @@ func _answer(input: String) -> void:
 	if _has(query, ["xin chào", "chào", "hello", "cảm ơn"]):
 		answer = "Chào bạn! Mình có thể hướng dẫn ngay cả khi máy không có mạng."
 	elif _has(query, ["chatgpt", "mô hình", "llm", "internet", "ai thật"]):
-		answer = "NPC này dùng hội thoại theo luật và ngữ cảnh, chưa phải mô hình ngôn ngữ lớn. Đồng đội bot chạy trực tiếp bằng AI chiến đấu của game."
-	elif _has(query, ["đồng đội", "đội hình", "bot", "hồi sinh"]):
-		answer = "Chọn tối đa ba nghề đồng hành ở phía trên, rồi lưu đội hình. Đội mới có hiệu lực từ lượt tiếp theo. Bot dùng kỹ năng, chỉ số và luật chiến đấu thật; họ cũng có thể bị hạ. Chọn Tu sĩ để tăng hỗ trợ hồi phục."
+		answer = "NPC Linh trò chuyện theo kịch bản offline, không phải mô hình ngôn ngữ lớn. Thành viên party do game tự điều khiển, không phải người chơi trực tuyến."
+	elif _has(query, ["party", "tìm party", "tổ đội", "đồng đội", "đội hình", "bot", "hồi sinh"]):
+		answer = "Mở Tìm party, chọn tối đa ba nghề rồi xác nhận. Party mới tham gia từ lượt tiếp theo. Đồng đội tự dùng kỹ năng, có thể bị hạ và được hỗ trợ. Chọn Tu sĩ nếu cần hồi máu."
 	elif _has(query, ["lưu", "save", "đổi máy", "dữ liệu"]):
 		answer = "Bản offline dùng hồ sơ riêng, tách khỏi game gốc. Hãy sao lưu profile_offline.json và các tệp lưu lượt trong thư mục dữ liệu ứng dụng trước khi đổi máy, gỡ app hoặc xóa dữ liệu. Save không tự đồng bộ lên mạng."
 	elif _has(query, ["boss", "mvp", "thủ lĩnh"]):
