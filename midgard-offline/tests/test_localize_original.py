@@ -103,7 +103,7 @@ class OriginalLocalization(unittest.TestCase):
             "+40% attack speed (ASPD) for basic attacks.",
             "Wardrobe",
             "One for your whole account: it shows over your name in Prontera, in the chat and on the rankings.",
-            "Select\\nCharacter",
+            "Select\nCharacter",
             "←/→ or 1-3: choose   ·   Enter or double click: continue   ·   WASD or click: move   ·   Q: equipment & inventory   ·   Esc: pause",
         ):
             self.assertIn(key, translations)
