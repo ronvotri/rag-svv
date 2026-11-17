@@ -1,54 +1,96 @@
-/* Small, accessible fullscreen control for the original Godot Web export.
- * Does not scale or replace the game canvas, alter saves, or touch gameplay.
+/* Fullscreen and landscape control for the original Godot Web client.
+ * Browser orientation locks need fullscreen and a user gesture; iOS and some
+ * Zalo in-app browsers do not expose the Screen Orientation lock API.
  */
 (() => {
   'use strict';
+
   const init = () => {
     if (document.getElementById('svv-fullscreen')) return;
     const button = document.createElement('button');
     button.id = 'svv-fullscreen';
     button.type = 'button';
-    button.title = 'Phóng lớn trò chơi (toàn màn hình)';
-    button.setAttribute('aria-label', 'Bật toàn màn hình');
     button.textContent = '⛶';
     Object.assign(button.style, {
       position: 'fixed', top: '12px', right: '12px', zIndex: '2147483647',
-      width: '42px', height: '42px', padding: '0',
+      width: '46px', height: '46px', padding: '0',
       borderRadius: '11px', border: '1px solid rgba(255,255,255,.6)',
-      color: '#fff', background: 'rgba(17,32,37,.8)',
+      color: '#fff', background: 'rgba(17,32,37,.86)',
       font: 'bold 26px system-ui,sans-serif', cursor: 'pointer',
       boxShadow: '0 2px 12px rgba(0,0,0,.3)',
       touchAction: 'manipulation'
     });
+
+    const hint = document.createElement('div');
+    hint.id = 'svv-landscape-hint';
+    hint.setAttribute('role', 'status');
+    hint.setAttribute('aria-live', 'polite');
+    hint.textContent = 'Hãy xoay ngang điện thoại để chơi. Nếu máy không tự xoay, bật Tự động xoay trong cài đặt nhanh hoặc mở bằng Chrome.';
+    Object.assign(hint.style, {
+      position: 'fixed', left: '12px', right: '12px', bottom: '24px',
+      zIndex: '2147483646', padding: '12px 18px', borderRadius: '10px',
+      background: 'rgba(12,28,32,.93)', border: '1px solid rgba(255,255,255,.6)',
+      color: '#fff', font: '500 15px/1.5 system-ui,sans-serif',
+      textAlign: 'center', pointerEvents: 'none', display: 'none'
+    });
+    let attemptedLandscape = false;
+    const mobile = () => window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const portrait = () => window.innerHeight > window.innerWidth;
     const sync = () => {
-      const enabled = Boolean(document.fullscreenElement);
+      const enabled = !!document.fullscreenElement;
       button.textContent = enabled ? '⤢' : '⛶';
-      button.title = enabled ? 'Thoát toàn màn hình' : 'Phóng lớn trò chơi (toàn màn hình)';
+      button.title = enabled ? 'Thoát toàn màn hình' : 'Toàn màn hình và xoay ngang';
       button.setAttribute('aria-label', button.title);
+      hint.style.display = attemptedLandscape && mobile() && portrait() ? 'block' : 'none';
     };
+
     button.addEventListener('click', async (event) => {
       event.preventDefault();
       event.stopPropagation();
       try {
         if (document.fullscreenElement) {
+          if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+            try { screen.orientation.unlock(); } catch (_) { /* Browser may reject. */ }
+          }
           await document.exitFullscreen();
+          attemptedLandscape = false;
         } else if (document.documentElement.requestFullscreen) {
+          // A real tap supplies the user activation required by Android Chrome.
           await document.documentElement.requestFullscreen();
+          attemptedLandscape = mobile();
+          if (mobile() && screen.orientation &&
+              typeof screen.orientation.lock === 'function') {
+            try {
+              await screen.orientation.lock('landscape');
+            } catch (error) {
+              console.info('Ragnarok: landscape lock unavailable; rotate manually.', error);
+            }
+          }
         } else {
-          button.title = 'Trình duyệt không hỗ trợ toàn màn hình. Trên PC hãy thử F11.';
+          attemptedLandscape = mobile();
+          console.info('Ragnarok: fullscreen is unavailable in this browser.');
         }
-      } catch (err) {
-        console.warn('Ragnarok fullscreen unavailable:', err);
-        button.title = 'Không thể phóng lớn. Trên PC hãy thử F11.';
+      } catch (error) {
+        attemptedLandscape = mobile();
+        console.warn('Ragnarok fullscreen unavailable:', error);
       }
       sync();
     });
-    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) attemptedLandscape = false;
+      sync();
+    });
+    window.addEventListener('resize', sync, { passive: true });
+    if (screen.orientation && screen.orientation.addEventListener) {
+      screen.orientation.addEventListener('change', sync);
+    }
+    document.body.appendChild(hint);
     document.body.appendChild(button);
     sync();
   };
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, {once: true});
+    document.addEventListener('DOMContentLoaded', init, { once: true });
   } else {
     init();
   }
