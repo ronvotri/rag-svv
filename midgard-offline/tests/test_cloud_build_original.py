@@ -95,7 +95,9 @@ class CloudInputs(unittest.TestCase):
         self.assertIn("JavaScriptBridge.eval(", addon)
         self.assertIn("CONTENT_SCALE_MODE_VIEWPORT", addon)
         self.assertIn("CONTENT_SCALE_ASPECT_EXPAND", addon)
-        self.assertIn("Vector2i(960, 540)", addon)
+        self.assertIn("Vector2i(800, 450)", addon)
+        self.assertIn("Vector2i(450, 800)", addon)
+        self.assertIn("Engine.max_fps = 30", addon)
 
     def test_cache_seeding_does_not_restore_native_extensions_or_old_fonts(self):
         with tempfile.TemporaryDirectory() as directory:
