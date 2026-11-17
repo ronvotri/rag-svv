@@ -46,6 +46,12 @@ def placeholders(text):
 # are exact names, NOT substring filters: descriptions are still translated.
 PROTECTED_TABLES = ("SKILLS", "ITEMS", "CARDS", "PETS", "CLASSES")
 KEEP_TERMS_FILE = "vi-keep-english.json"
+# Some offline-only UI overrides are new strings, absent from upstream en.po.
+# Add these keys to vi.po as well so tr("Guest") does not fall back to English.
+SUPPLEMENTAL_UI_KEYS = (
+    "Guest", "Guest mode", "Guest account", "Play as guest",
+    "Continue as guest", "Midgard Survivors",
+)
 
 def protected_names(project, keep_file=None):
     protected = set()
@@ -145,6 +151,16 @@ def localize(project, dictionary, regular_font=None, bold_font=None, extra_dicti
             else:
                 source_fallback += 1
         output += ["msgid " + json.dumps(entry["id"], ensure_ascii=False), "msgstr " + json.dumps(vietnamese, ensure_ascii=False), ""]
+    present_ids = {entry["id"] for entry in entries}
+    supplemental_ui_entries = 0
+    for key in SUPPLEMENTAL_UI_KEYS:
+        value = translations.get(key)
+        if value is None or key in present_ids or key in preserve:
+            continue
+        if placeholders(key) != placeholders(value):
+            raise ValueError("Placeholder không khớp: " + key)
+        output += ["msgid " + json.dumps(key, ensure_ascii=False), "msgstr " + json.dumps(value, ensure_ascii=False), ""]
+        supplemental_ui_entries += 1
     (project / "locale/vi.po").write_text("\n".join(output), encoding="utf-8")
     lang = project / "scripts/ui/lang.gd"
     text = lang.read_text(encoding="utf-8")
@@ -158,7 +174,7 @@ def localize(project, dictionary, regular_font=None, bold_font=None, extra_dicti
     for source, name in [(regular_font, "SCDream4.otf"), (bold_font, "SCDream6.otf")]:
         if source:
             shutil.copyfile(source, project / "assets/ro/fonts" / name)
-    report = {"catalog_entries": len(entries), "authored_vietnamese_entries": translated, "fallback_entries": len(entries)-translated, "english_fallback_entries": english_fallback, "source_language_fallback_entries": source_fallback, "complete_translation": translated + preserved == len(entries), "protected_english_entries": preserved, "protected_names_count": len(preserve)}
+    report = {"catalog_entries": len(entries), "authored_vietnamese_entries": translated, "fallback_entries": len(entries)-translated, "english_fallback_entries": english_fallback, "source_language_fallback_entries": source_fallback, "complete_translation": translated + preserved == len(entries), "protected_english_entries": preserved, "protected_names_count": len(preserve), "supplemental_ui_entries": supplemental_ui_entries}
     (project.parent / "localization-report.private.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     return report
 
