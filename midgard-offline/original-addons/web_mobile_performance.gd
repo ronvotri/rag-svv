@@ -1,8 +1,8 @@
 extends Node
 ## Web-browser-only raster workload reduction. Never hide map sprites,
 ## change collisions or modify battle state. Native builds are unaffected.
-const MOBILE_LANDSCAPE := Vector2i(960, 540)
-const MOBILE_PORTRAIT := Vector2i(540, 960)
+const MOBILE_LANDSCAPE := Vector2i(800, 450)
+const MOBILE_PORTRAIT := Vector2i(450, 800)
 
 var _mobile_web: bool = false
 
@@ -20,6 +20,8 @@ func _ready() -> void:
 	if detected != true:
 		return
 	_mobile_web = true
+	# Prevent mobile WebGL from chasing high refresh rates during heavy scenes.
+	Engine.max_fps = 30
 	get_window().size_changed.connect(_apply_mobile_scale)
 	_apply_mobile_scale()
 
