@@ -91,6 +91,25 @@ class OriginalLocalization(unittest.TestCase):
                              "Giúp tiến hóa kỹ năng Bash (cấp 5).")
             self.assertGreaterEqual(result["supplemental_ui_entries"], 1)
 
+    def test_reported_town_dialogue_and_character_labels_are_translated(self):
+        root = MODULE_PATH.parents[1]
+        translations = locale.load_translations(root / "patches/vi-ui.json")
+        self.assertEqual(translations["Class"], "Nghề")
+        for key in (
+            "Parties (co-op)",
+            "I can't gather adventurers in the browser yet: group play is coming soon to this version. I'm already waiting for you on PC and Android!",
+            "A pact changes the way you fight. Choose well: you can't have them all at once.",
+            "Pact of Fury",
+            "+40% attack speed (ASPD) for basic attacks.",
+            "Wardrobe",
+            "One for your whole account: it shows over your name in Prontera, in the chat and on the rankings.",
+            "Select\\nCharacter",
+            "←/→ or 1-3: choose   ·   Enter or double click: continue   ·   WASD or click: move   ·   Q: equipment & inventory   ·   Esc: pause",
+        ):
+            self.assertIn(key, translations)
+            self.assertNotEqual(translations[key], key)
+            self.assertEqual(locale.placeholders(key), locale.placeholders(translations[key]))
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
