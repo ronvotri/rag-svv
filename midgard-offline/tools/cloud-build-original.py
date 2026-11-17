@@ -160,6 +160,22 @@ def write_context(project, work, translation):
             pending.append({"msgid": entry["id"], "english": english})
     for start in range(0, len(pending), 200):
         (context / f"translation-worklist-{start//200+1:03d}.json").write_text(json.dumps(pending[start:start+200], ensure_ascii=False, indent=2), encoding="utf-8")
+    # Inspector for the exact recovered character-selection background.
+    # Only sampled UI-construction lines, not the publisher's full source.
+    # Avoid replacing the wrong scene or adding a front-layer image over buttons.
+    menus_source = (project / "scripts/ui/menus.gd").read_text(encoding="utf-8")
+    match = re.search(r"(?m)^func show_class_select\\([^\\n]*\\)[^\\n]*:", menus_source)
+    if match:
+        end = re.search(r"(?m)^func [A-Za-z_]", menus_source[match.end():])
+        block = menus_source[match.start():match.end() + end.start() if end else len(menus_source)]
+        hints = []
+        for index, line in enumerate(block.splitlines(), 1):
+            if re.search(r"bg|back|texture|TextureRect|ColorRect|screen|layer|image|\.png|\.webp|\.jpg|add_child|Panel", line, re.I):
+                hints.append({"relative_line": index, "code": line[:260]})
+        (context / "character-select-background-hints.json").write_text(
+            json.dumps({"method": "show_class_select", "ui_hints": hints[:130]},
+                       ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     interfaces = {}
     for source in (project / "scripts").rglob("*.gd"):
         # Names only: no function bodies, credentials or private endpoint values.
