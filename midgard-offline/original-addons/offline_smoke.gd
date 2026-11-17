@@ -81,10 +81,24 @@ func _run() -> void:
 	check(world.net.mode == "", "network session inactive")
 	check(world.net.eos() == null, "EOS route unavailable")
 	check(not world.cloud._enabled(), "cloud account route disabled")
-	# Use the same choose_start=true route as the visible To adventure! button.
-	# Prior QA called start_run(..., false) and missed the menu-reset loop.
-	world.start_run("swordsman", true)
-	check(world.menus._mode != "class_select", "To adventure keeps the player out of class select")
+	# Real player route: the menu's loading/transition callback, NOT a direct
+	# start_run() call followed by manually closing the class-selection UI.
+	# A previous QA forced menus.close() and could pass while the user was
+	# trapped in a loop between To adventure! and the character selector.
+	world.menus.show_loading(func(): world.start_run("swordsman", true))
+	for frame in 180:
+		if world.running and world.menus._mode not in ["login", "server_select", "class_select"]:
+			break
+		await get_tree().process_frame
+	print("OFFLINE_QA ADVENTURE_TRANSITION state=", world.menus._mode,
+		" running=", world.running, " paused=", get_tree().paused,
+		" stage=", str(world.stage))
+	check(world.running, "real menu loading flow starts battle")
+	check(world.menus._mode not in ["login", "server_select", "class_select"],
+		"To adventure never loops back to the character selector")
+	check(not get_tree().paused or world.menus._mode != "",
+		"gameplay is not silently paused beneath an invisible menu")
+	# Only dismiss the remaining loading overlay after asserting its state.
 	world.menus.close()
 	get_tree().paused = false
 	await get_tree().process_frame
