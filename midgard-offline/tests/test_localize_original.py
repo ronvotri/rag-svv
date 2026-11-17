@@ -44,6 +44,26 @@ class OriginalLocalization(unittest.TestCase):
             self.assertEqual(result["protected_english_entries"], 3)
             self.assertEqual(result["authored_vietnamese_entries"], 1)
 
+    def test_guest_label_gets_translation_even_without_upstream_po_entry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "work" / "project"
+            (root / "scripts/ui").mkdir(parents=True)
+            (root / "locale").mkdir()
+            (root / "project.godot").write_text("[application]\n", encoding="utf-8")
+            (root / "scripts/ui/lang.gd").write_text('const DEFAULT: = "en"\n', encoding="utf-8")
+            (root / "locale/en.po").write_text('msgid "x"\nmsgstr "Play"\n\n', encoding="utf-8")
+            dictionary = root / "l10n.json"
+            dictionary.write_text(json.dumps({
+                "Play": "Chơi", "Guest": "Nhà thám hiểm",
+                "Midgard Survivors": "Quái Triều Xâm Lăng"
+            }, ensure_ascii=False), encoding="utf-8")
+            report = locale.localize(root, dictionary)
+            entries = locale.read_po(root / "locale/vi.po")
+            localized = {entry["id"]: entry["en"] for entry in entries}
+            self.assertEqual(localized["Guest"], "Nhà thám hiểm")
+            self.assertEqual(localized["Midgard Survivors"], "Quái Triều Xâm Lăng")
+            self.assertEqual(report["supplemental_ui_entries"], 2)
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
