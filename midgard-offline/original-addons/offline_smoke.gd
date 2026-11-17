@@ -102,6 +102,8 @@ func _run() -> void:
 	get_tree().paused = false
 	await get_tree().process_frame
 	check(world.running, "original battle starts")
+	check(world.map != null and is_instance_valid(world.map), "actual playable map is loaded")
+	check(world.player != null and is_instance_valid(world.player), "player is spawned into the map")
 	check(world.heroes.size() == 4, "human plus three AI companions")
 	for hero in world.heroes:
 		check(hero != null and is_instance_valid(hero), "party hero alive")
