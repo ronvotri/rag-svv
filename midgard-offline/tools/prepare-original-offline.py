@@ -108,30 +108,46 @@ def patch_party_run_save(text: str) -> str:
     """Extend existing per-hero snapshots to an offline AI party."""
     if '"offline_party"' in text:
         raise ValueError("Party run-save patch already applied")
-    text, count = re.subn(
-        r"(static func hero_snapshot\(w:\s*World)(\)\s*->\s*Dictionary\s*:)",
-        r"\1, p: Player = null\2", text, count=1)
-    if count != 1:
-        # Log a signature and anchor booleans only, never recovered code/assets.
-        # The official 0.2.0 update changed this function interface.
-        signatures = re.findall(r"^(?:static )?func hero_snapshot[^\r\n]*", text, re.MULTILINE)
-        anchors = {
-            "hero_player_binding": "\tvar p:" in text,
-            "coop_guard": "or w.is_coop():" in text,
-            "save_tmp": '\tvar tmp: = path() + ".tmp"' in text,
-            "resume_start": '\tw.start_run(str(d["class"]))' in text,
-            "apply_hero": "\tapply_hero(w, d)" in text,
-        }
-        raise ValueError("Hero snapshot signature changed: " + repr(signatures[:2]) + "; anchors=" + repr(anchors))
-    start = text.index("static func hero_snapshot(")
-    end = text.find("\nstatic func ", start + 1)
-    if end < 0:
-        end = len(text)
-    block = text[start:end]
-    block, count = re.subn(r"\tvar p:\s*= w\.player\s*\n", "\tif p == null:\n\t\tp = w.player\n", block, count=1)
-    if count != 1:
-        raise ValueError("Hero snapshot player binding changed")
-    text = text[:start] + block + text[end:]
+    # 0.1.x used hero_snapshot(w) and an implicit local player binding.
+    # Official 0.2.0 already supports hero_snapshot(w, hero = null), which is
+    # precisely what the offline-party records need. Preserve the original
+    # implementation when this newer, per-hero interface is present.
+    legacy_signature = re.search(
+        r"static func hero_snapshot\(w:\s*World\)\s*->\s*Dictionary\s*:", text)
+    new_signature = re.search(
+        r"static func hero_snapshot\(w:\s*World,\s*hero:\s*Player\s*=\s*null\)\s*->\s*Dictionary\s*:", text)
+    if legacy_signature and not new_signature:
+        text, count = re.subn(
+            r"(static func hero_snapshot\(w:\s*World)(\)\s*->\s*Dictionary\s*:)",
+            r"\1, p: Player = null\2", text, count=1)
+        if count != 1:
+            raise ValueError("Legacy hero snapshot signature patch was ambiguous")
+        start = text.index("static func hero_snapshot(")
+        end = text.find("\nstatic func ", start + 1)
+        if end < 0:
+            end = len(text)
+        block = text[start:end]
+        block, count = re.subn(
+            r"\tvar p:\s*= w\.player\s*\n",
+            "\tif p == null:\n\t\tp = w.player\n", block, count=1)
+        if count != 1:
+            raise ValueError("Legacy hero snapshot player binding changed")
+        text = text[:start] + block + text[end:]
+    elif new_signature and not legacy_signature:
+        start = text.index("static func hero_snapshot(")
+        end = text.find("\nstatic func ", start + 1)
+        if end < 0:
+            end = len(text)
+        body = text[start:end].partition("\n")[2]
+        # A dummy new argument that is never used would silently save the
+        # wrong party member. Require actual per-hero use before patching.
+        if not re.search(r"(?m)^\s+[^#\n]*\bhero\b", body):
+            raise ValueError("0.2.0 hero snapshot ignores explicit hero argument")
+    else:
+        signatures = re.findall(
+            r"^(?:static )?func hero_snapshot[^\r\n]*", text, re.MULTILINE)
+        raise ValueError(
+            "Unsupported hero snapshot signature: " + repr(signatures[:2]))
     if "or w.is_coop():" not in text:
         raise ValueError("Run-save co-op guard changed")
     text = text.replace('or w.is_coop():', 'or w.net.mode != "":', 1)
