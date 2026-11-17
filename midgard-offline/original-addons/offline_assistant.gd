@@ -170,13 +170,13 @@ func _try_support_heal(world: World) -> bool:
 	# the Acolyte is downed, the battle is over, or the party is healthy.
 	if world == null or not world.running:
 		return false
-	var has_living_acolyte := false
-	for ally in world.heroes:
-		if ally != null and is_instance_valid(ally) and ally != world.player:
-			if ally.class_id == "acolyte" and not ally.downed and ally.hp > 0.0:
-				has_living_acolyte = true
-				break
-	if not has_living_acolyte:
+	# The upstream 0.2.0 BotHero's runtime class_id does not reliably
+	# identify its original chosen class. The offline roster remains authoritative.
+	var support_slot: int = world.coop_classes.find("acolyte")
+	if support_slot < 0 or support_slot + 1 >= world.heroes.size():
+		return false
+	var acolyte: Player = world.heroes[support_slot + 1]
+	if acolyte == null or not is_instance_valid(acolyte) or acolyte.downed or acolyte.hp <= 0.0:
 		return false
 	var recipient: Player = null
 	var lowest_health := 0.78
