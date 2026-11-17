@@ -1,12 +1,13 @@
 extends Node
 ## Mobile Web-only adaptive raster quality. The original gameplay, map,
 ## collisions, AI, saves, and native builds remain untouched.
-## A permanent 30 FPS cap felt jerky on fast phones. Let capable mobile
-## browsers reach 60 FPS and reduce the raster workload only when necessary.
+## Larger mobile UI via a smaller virtual canvas (~18% vs. 800x450) with
+## adaptive raster detail. Strong phones can run up to 60 FPS. Never scale
+## native builds or alter gameplay coordinates/collisions.
 
-const HIGH_LANDSCAPE := Vector2i(800, 450)
-const MEDIUM_LANDSCAPE := Vector2i(720, 405)
-const LOW_LANDSCAPE := Vector2i(640, 360)
+const HIGH_LANDSCAPE := Vector2i(680, 382)
+const MEDIUM_LANDSCAPE := Vector2i(640, 360)
+const LOW_LANDSCAPE := Vector2i(600, 338)
 const FPS_TARGET := 60
 const SAMPLE_SECONDS := 5.0
 
