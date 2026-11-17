@@ -69,6 +69,47 @@ SUPPLEMENTAL_UI_KEYS = (
     "Ice shards fall from the sky: they slow enemies and sometimes freeze them.",
 )
 
+# Regression contract for the Collections / Sets screen reported by players.
+# These are descriptions, never names of the original Ragnarok set items.
+COLLECTION_SET_DESCRIPTION_KEYS = (
+    "The sets, legendaries and uniques you've found in any run.",
+    "Poison grows x1.06 per stack (instead of x1.05) and +10% damage",
+    "Poison grows x1.08 per stack, each dose adds one more stack and +15% damage",
+    "Each skill cuts the others' cooldowns by another 0.1 s, -10% cooldown and +15% skill damage",
+    "Each skill cuts the others' cooldowns by another 0.2 s, -10% cooldown and +25% skill damage",
+    "Fire jumps to 2 more monsters when a burning one dies, and +10% damage",
+    "Your burns burn 60% harder, fire jumps to 2 more monsters and +15% damage",
+    "Every bleeding burst heals you 1.5% HP, and +10% attack speed",
+    "Bleeding bursts one stack sooner, the burst leaves those it splashes bleeding and +15% attack speed",
+    "Your statuses last 50% longer, monsters under a status take another +20% and +10% skill damage",
+    "Your status effects last another 50%, monsters with a status effect take another +30% and +15% skill damage",
+    "Your basic attack procs trigger 50% more often, all your procs hit 50% harder and +15% attack speed",
+    "Your basic attack procs trigger another 50% more often, hit another 50% harder and +15% attack speed",
+    "Your when-hit cards trigger 30% more often and hit 20% harder, each heals you another 2%, and +15% max HP",
+    "Your when-hit cards trigger another 50% more often and hit another 30% harder, each heals you another 3%, and +20% max HP",
+)
+
+
+def collection_translation_audit(entries, translations):
+    """Verify that all recognized collection descriptions in this source are
+    translated. A changed upstream English catalog is reported, not invented.
+    """
+    source_strings = {entry.get("en") or entry["id"] for entry in entries}
+    matched = [s for s in COLLECTION_SET_DESCRIPTION_KEYS if s in source_strings]
+    missing = [s for s in matched if s not in translations or translations[s] == s]
+    unknown = [s for s in COLLECTION_SET_DESCRIPTION_KEYS if s not in source_strings]
+    return {
+        "schema": 1,
+        "required": len(COLLECTION_SET_DESCRIPTION_KEYS),
+        "found_in_source": len(matched),
+        "translated": len(matched) - len(missing),
+        "untranslated": missing,
+        "not_found_in_this_source_version": unknown,
+        "passed": not missing,
+        "note": "Only the photographed Collections screen is gated, not complete game localization.",
+    }
+
+
 def protected_names(project, keep_file=None):
     protected = set()
     if keep_file is None:
