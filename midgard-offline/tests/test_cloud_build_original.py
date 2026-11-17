@@ -98,9 +98,9 @@ class CloudInputs(unittest.TestCase):
         # The Web optimizer now rotates the selected viewport dynamically
         # and permits up to 60 FPS instead of hardcoding the old 450x800/30.
         # Keep test expectations in sync with the adaptive quality policy.
-        self.assertIn("HIGH_LANDSCAPE := Vector2i(800, 450)", addon)
-        self.assertIn("MEDIUM_LANDSCAPE := Vector2i(720, 405)", addon)
-        self.assertIn("LOW_LANDSCAPE := Vector2i(640, 360)", addon)
+        self.assertIn("HIGH_LANDSCAPE := Vector2i(680, 382)", addon)
+        self.assertIn("MEDIUM_LANDSCAPE := Vector2i(640, 360)", addon)
+        self.assertIn("LOW_LANDSCAPE := Vector2i(600, 338)", addon)
         self.assertIn("FPS_TARGET := 60", addon)
         self.assertIn("Engine.max_fps = FPS_TARGET", addon)
         self.assertIn("Vector2i(landscape.y, landscape.x)", addon)
@@ -115,8 +115,14 @@ class CloudInputs(unittest.TestCase):
         self.assertIn("SVVSocialCleanup", installer)
         self.assertIn("social_buttons_cleanup.gd", installer)
         self.assertIn("button.hide()", addon)
-        self.assertIn("if button != keep:", addon)
+        self.assertIn("if button != donate and button != discord:", addon)
         self.assertIn('const DISCORD_INVITE_URL := ""', addon)
+        self.assertIn('SAVE_BUTTON_NAME := "SVVSaveBackupButton"', addon)
+        self.assertIn("func _export_save()", addon)
+        self.assertIn("FileAccess.get_file_as_bytes(save_path)", addon)
+        self.assertIn("Marshalls.raw_to_base64", addon)
+        self.assertIn("SVVSaveGuardian.backup_now()", addon)
+        self.assertIn("ImageTexture.create_from_image", addon)
         self.assertIn("discord.com/invite/", addon)
         self.assertIn("discord.gg/", addon)
 
