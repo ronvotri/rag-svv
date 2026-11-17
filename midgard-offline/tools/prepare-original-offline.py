@@ -278,6 +278,22 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
     # startup. Overriding it to show_class_select caused "To adventure!" to
     # jump back to the menu instead of finishing battle initialization.
     # Offline login is redirected by the patched menus.show_login above.
+    # A second regression was possible when a stale login/class-select overlay
+    # survived the preparation callback even after the real battle started.
+    # Only dismiss these impossible *online/pre-run* overlays. Never auto-close
+    # stage selection, leveling, pause or tutorial dialogs here.
+    opening_anchor = "\t_opening_screens(choose_start)"
+    if text.count(opening_anchor) != 1:
+        raise ValueError("Original battle opening anchor changed; inspect source")
+    before, sep, after = text.partition(opening_anchor)
+    # The preceding update was written before this guard is inserted.
+    text = before + opening_anchor + "\n" + "\n".join([
+        '\tif net.mode == "" and running and menus != null:',
+        '\t\tif menus._mode in ["login", "server_select", "class_select"]:',
+        '\t\t\tmenus.close()',
+        '\t\t\tget_tree().paused = false',
+    ]) + after
+    main.write_text(text, encoding="utf-8", newline="\\n")
     assets = output / "scripts/autoload/ro_assets.gd"
     content = assets.read_text(encoding="utf-8")
     audio_anchor = 'var path: = ROOT + "audio/%s.wav" % key'
