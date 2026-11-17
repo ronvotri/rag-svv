@@ -103,11 +103,8 @@ func _run() -> void:
 		check(hero.position.is_finite(), "party position remains finite")
 	# Regression: a living Acolyte must actually restore party HP,
 	# and must not heal while downed or when there is no injury.
-	var test_healer: Player = null
-	for hero in world.heroes:
-		if hero != world.player and hero.class_id == "acolyte":
-			test_healer = hero
-		break
+	var healer_slot: int = world.coop_classes.find("acolyte")
+	var test_healer: Player = world.heroes[healer_slot + 1] if healer_slot >= 0 and healer_slot + 1 < world.heroes.size() else null
 	check(test_healer != null, "offline roster includes Acolyte support")
 	if test_healer != null:
 		for hero in world.heroes:
