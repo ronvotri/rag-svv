@@ -12,7 +12,7 @@ spec.loader.exec_module(locale)
 
 
 class OriginalLocalization(unittest.TestCase):
-    def test_skill_item_and_class_names_stay_english(self):
+    def test_skill_and_item_names_stay_english_but_jobs_are_translated(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "work" / "project"
             (root / "scripts/autoload").mkdir(parents=True)
@@ -36,13 +36,14 @@ class OriginalLocalization(unittest.TestCase):
             }, ensure_ascii=False), encoding="utf-8")
             custom_keep = root / "none.json"
             protected = locale.protected_names(root, custom_keep)
-            self.assertTrue({"Red Potion", "Double Attack", "Mage"} <= protected)
+            self.assertTrue({"Red Potion", "Double Attack"} <= protected)
+            self.assertNotIn("Mage", protected)
             # Explicitly isolated test patch folder; no repository dictionaries.
             result = locale.localize(root, original, extra_dictionary=custom_keep)
             output = locale.read_po(root / "locale/vi.po")
-            self.assertEqual([x["en"] for x in output], ["Red Potion", "Double Attack", "Mage", "Hồi HP"])
-            self.assertEqual(result["protected_english_entries"], 3)
-            self.assertEqual(result["authored_vietnamese_entries"], 1)
+            self.assertEqual([x["en"] for x in output], ["Red Potion", "Double Attack", "Pháp sư", "Hồi HP"])
+            self.assertEqual(result["protected_english_entries"], 2)
+            self.assertEqual(result["authored_vietnamese_entries"], 2)
 
     def test_guest_label_gets_translation_even_without_upstream_po_entry(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -55,13 +56,13 @@ class OriginalLocalization(unittest.TestCase):
             dictionary = root / "l10n.json"
             dictionary.write_text(json.dumps({
                 "Play": "Chơi", "Guest": "Nhà thám hiểm",
-                "Midgard Survivors": "Quái Triều Xâm Lăng"
+                "Midgard Survivors": "Quái triều xâm lăng"
             }, ensure_ascii=False), encoding="utf-8")
             report = locale.localize(root, dictionary)
             entries = locale.read_po(root / "locale/vi.po")
             localized = {entry["id"]: entry["en"] for entry in entries}
             self.assertEqual(localized["Guest"], "Nhà thám hiểm")
-            self.assertEqual(localized["Midgard Survivors"], "Quái Triều Xâm Lăng")
+            self.assertEqual(localized["Midgard Survivors"], "Quái triều xâm lăng")
             self.assertEqual(report["supplemental_ui_entries"], 2)
 
     def test_keep_english_list_contains_core_terminology(self):

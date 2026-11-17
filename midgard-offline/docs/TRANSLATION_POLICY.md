@@ -1,7 +1,7 @@
 # Chính sách Việt hóa Midgard SVV Offline (client gốc)
 
-- **Giữ nguyên tiếng Anh**: tên item/trang bị, skill, card/pet, nghề, và thuật ngữ Ragnarok (HP, SP, ATK, DEF, ASPD, Flee, MVP, Zeny, EXP...). Tên riêng giữ nguyên.
-- **Dịch tiếng Việt**: nút, HUD, mô tả item/skill, hướng dẫn, hội thoại NPC, điều kiện nhiệm vụ, thông báo, tutorial, chú giải của tháp. Dịch tự nhiên, dễ đọc và nhất quán.
+- **Giữ nguyên tiếng Anh**: tên item/trang bị, skill, card/pet và thuật ngữ Ragnarok (HP, SP, ATK, DEF, ASPD, Flee, MVP, Zeny, EXP...). Tên riêng giữ nguyên.
+- **Dịch tiếng Việt**: tên nghề (Kiếm Sĩ, Tu Sĩ...), nút, HUD, mô tả item/skill, hướng dẫn, hội thoại NPC, điều kiện nhiệm vụ, thông báo, tutorial, chú giải của tháp. Dịch tự nhiên, dễ đọc và nhất quán.
 - Bản dịch được thêm theo các file `patches/vi-ui-batch-*.json`. Mỗi key là tiếng Anh gốc; không tự đoán tên item/skill.
 - `localize_original.py` lấy tên gameplay từ `GameData` phục hồi trên runner khi nhận diện được và danh sách `vi-keep-english.json`; các tên đó được giữ tiếng Anh, **kể cả khi từng bị dịch**.
 - Giữ nguyên `%d`, `%s`, `%%`, `\n` và biến động runtime; Python kiểm tra placeholder. Không đổi logic gameplay hay dữ liệu lưu.

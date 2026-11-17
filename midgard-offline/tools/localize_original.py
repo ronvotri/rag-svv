@@ -42,9 +42,9 @@ def placeholders(text):
 
 
 
-# Preserve names harvested from the recovered ORIGINAL GameData tables. These
+# Preserve item, skill, pet and card names from the recovered GameData tables. These
 # are exact names, NOT substring filters: descriptions are still translated.
-PROTECTED_TABLES = ("SKILLS", "ITEMS", "CARDS", "PETS", "CLASSES")
+PROTECTED_TABLES = ("SKILLS", "ITEMS", "CARDS", "PETS")
 KEEP_TERMS_FILE = "vi-keep-english.json"
 # Some offline-only UI overrides are new strings, absent from upstream en.po.
 # Add these keys to vi.po as well so tr("Guest") does not fall back to English.
