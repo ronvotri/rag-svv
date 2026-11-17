@@ -85,8 +85,8 @@ func _cleanup() -> void:
 		donate.name = SAVE_BUTTON_NAME
 		donate.tooltip_text = "Sao lưu save về máy để phòng mất dữ liệu"
 		if donate is Button:
-			(donate as Button).text = "💾 Sao lưu"
-			(donate as Button).icon = null
+			(donate as Button).text = "Sao lưu"
+			(donate as Button).icon = _make_save_icon()
 		if not donate.pressed.is_connected(_show_backup_dialog):
 			donate.pressed.connect(_show_backup_dialog)
 	# Discord is kept; replace its original destination only if the owner
@@ -96,6 +96,20 @@ func _cleanup() -> void:
 		discord.pressed.connect(_open_discord)
 	donate.show()
 	discord.show()
+
+
+func _make_save_icon() -> Texture2D:
+	# Small pixel-art floppy disk so this does not depend on mobile emoji fonts.
+	var pixels: Image = Image.create(24, 24, false, Image.FORMAT_RGBA8)
+	pixels.fill(Color(0, 0, 0, 0))
+	pixels.fill_rect(Rect2i(2, 1, 20, 22), Color("#25415b"))
+	pixels.fill_rect(Rect2i(4, 3, 16, 18), Color("#75b4db"))
+	pixels.fill_rect(Rect2i(7, 3, 10, 8), Color("#f0f3f4"))
+	pixels.fill_rect(Rect2i(14, 4, 2, 5), Color("#35465c"))
+	pixels.fill_rect(Rect2i(6, 13, 12, 8), Color("#ecf0e8"))
+	pixels.fill_rect(Rect2i(8, 15, 8, 2), Color("#9cb9cb"))
+	pixels.fill_rect(Rect2i(8, 18, 8, 1), Color("#9cb9cb"))
+	return ImageTexture.create_from_image(pixels)
 
 
 func _show_backup_dialog() -> void:
