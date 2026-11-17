@@ -15,7 +15,7 @@ spec.loader.exec_module(mod)
 def original_fixture(root):
     source = root / "export"
     source.mkdir()
-    (source / "index.html").write_text("<html><body></body></html>", encoding="utf-8")
+    (source / "index.html").write_text("<html><head></head><body></body></html>", encoding="utf-8")
     (source / "index.js").write_text("console.log('godot');", encoding="utf-8")
     (source / "index.pck").write_bytes(bytes(range(100)))
     (source / "index.wasm").write_bytes(bytes(range(100))[::-1])
@@ -33,7 +33,14 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
             self.assertTrue((public / "index.html").is_file())
             self.assertTrue((public / "game.html").is_file())
             self.assertIn("fullscreen-toggle.js", (public / "game.html").read_text(encoding="utf-8"))
+            self.assertIn("game-entry-guard.js", (public / "game.html").read_text(encoding="utf-8"))
+            self.assertLess(
+                (public / "game.html").read_text(encoding="utf-8").index("game-entry-guard.js"),
+                (public / "game.html").read_text(encoding="utf-8").index("</head>")
+            )
             self.assertTrue((public / "fullscreen-toggle.js").is_file())
+            self.assertTrue((public / "game-entry-guard.js").is_file())
+            self.assertIn("Cache-Control: no-cache", (public / "_headers").read_text(encoding="utf-8"))
             self.assertTrue((public / "godot-split-sw.js").is_file())
             self.assertFalse((public / "index.pck").exists())
             self.assertFalse((public / "index.wasm").exists())
@@ -55,7 +62,7 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
                 ))
             self.assertTrue(all(p.stat().st_size <= 25 for p in public.rglob("*") if p.is_file()
                                 and p.name not in ("index.html", "game.html", "godot-split-sw.js",
-                                                   "asset-map.json", "_headers", "fullscreen-toggle.js")))
+                                                   "asset-map.json", "_headers", "fullscreen-toggle.js", "game-entry-guard.js")))
             asset_map = json.loads((public / "asset-map.json").read_text(encoding="utf-8"))
             self.assertEqual(asset_map["version"], "abcdef0123456")
             self.assertEqual(asset_map["large_assets"], result["large_assets"])
