@@ -72,7 +72,7 @@ def main() -> None:
     with _fetcher.request(opener, url, headers={"Range": "bytes=-131072"}) as response:
         if response.status != 206:
             raise ValueError("Official CDN cannot serve the bounded ZIP tail request")
-        match = re.fullmatch(r"bytes (\\d+)-(\\d+)/(\\d+)", response.headers.get("Content-Range", ""))
+        match = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+)", response.headers.get("Content-Range", ""))
         if not match:
             raise ValueError("Official CDN returned malformed range metadata")
         first, last, archive_size = map(int, match.groups())
