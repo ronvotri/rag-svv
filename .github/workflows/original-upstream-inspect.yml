@@ -1,0 +1,23 @@
+name: Original client - inspect official upstream
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/original-offline]
+    paths:
+      - '.github/workflows/original-upstream-inspect.yml'
+      - 'midgard-offline/tools/inspect-original-upstream.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test official ZIP inspection (synthetic data)
+        run: python -m unittest discover -s midgard-offline/tests -p 'test_inspect_original_upstream.py'
+      - name: Inspect official current PCK without uploading game binaries
+        run: python midgard-offline/tools/inspect-original-upstream.py
