@@ -23,11 +23,26 @@ func _run() -> void:
 		get_tree().quit(2)
 		return
 	check(GameData.CLASSES.size() == 11, "11 original base classes")
-	check(GameData.STAGES.size() == 20, "20 original stages")
-	check(GameData.SKILLS.size() == 349, "349 original skill records")
-	check(GameData.CARDS.size() == 163, "163 original cards")
-	check(GameData.ITEMS.size() == 209, "209 original items")
-	check(GameData.PETS.size() == 46, "46 original pets")
+	# Content evolves upstream. Verify a conservative baseline instead of
+	# rejecting a legitimate release whenever it adds maps, equipment or pets.
+	# The official 0.2.0 notes announce three additional playable maps.
+	var stage_ids: Array[String] = []
+	for stage_entry in GameData.STAGES:
+		if stage_entry is Dictionary:
+			stage_ids.append(str(stage_entry.get("id", stage_entry.get("key", stage_entry.get("name", "")))))
+		else:
+			stage_ids.append(str(stage_entry))
+	print("OFFLINE_QA ORIGINAL_STAGE_IDS ", stage_ids)
+	print("OFFLINE_QA ORIGINAL_COUNTS stages=", GameData.STAGES.size(),
+		" skills=", GameData.SKILLS.size(),
+		" cards=", GameData.CARDS.size(),
+		" items=", GameData.ITEMS.size(),
+		" pets=", GameData.PETS.size())
+	check(GameData.STAGES.size() >= 23, "0.2.0 stage catalog includes three new maps")
+	check(GameData.SKILLS.size() >= 349, "original skill catalog not truncated")
+	check(GameData.CARDS.size() >= 163, "original card catalog not truncated")
+	check(GameData.ITEMS.size() >= 209, "original item catalog not truncated")
+	check(GameData.PETS.size() >= 46, "original pet catalog not truncated")
 	check(not Updater._enabled(), "updater disabled")
 	check(not Leaderboard.enabled(), "external leaderboard disabled")
 	check(not ClassDB.class_exists("EOSGMultiplayerPeer"), "native EOS dependency removed")
