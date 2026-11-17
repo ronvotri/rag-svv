@@ -11,6 +11,13 @@ var open_button: Button
 var veil: ColorRect
 var was_paused := false
 var available_ids: Array[String] = []
+# Offline-only safety net: a limited recovery pulse for a living Acolyte party member.
+# This is a separate support perk, NOT a pretend cast of the original Heal skill.
+var support_hint: Label
+var support_check_seconds := 0.0
+var support_cooldown_seconds := 0.0
+var support_world_id := 0
+var support_flash_seconds := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -21,6 +28,13 @@ func _ready() -> void:
 	open_button.custom_minimum_size = Vector2(168, 36)
 	open_button.pressed.connect(_open)
 	add_child(open_button)
+	support_hint = Label.new()
+	support_hint.text = ""
+	support_hint.add_theme_color_override("font_color", Color("a5f1ba"))
+	support_hint.add_theme_font_size_override("font_size", 14)
+	support_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	support_hint.hide()
+	add_child(support_hint)
 	veil = ColorRect.new()
 	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	veil.color = Color(0, 0, 0, 0.6)
@@ -53,7 +67,7 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 23)
 	column.add_child(title)
 	status = Label.new()
-	status.text = "Chọn tối đa 3 đồng đội. Party hoạt động offline, không ghép người chơi thật."
+	status.text = "Chọn tối đa 3 đồng đội. Tu Sĩ có Tiếp Sức hồi máu khẩn cấp trong party offline."
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status)
 	for key in GameData.CLASSES:
@@ -114,12 +128,73 @@ func _ready() -> void:
 func _fit() -> void:
 	var size := get_viewport().get_visible_rect().size
 	open_button.position = Vector2(maxf(12, (size.x - 168) / 2), 10)
+	support_hint.position = Vector2(maxf(12, (size.x - 220) / 2), 49)
 	var width := minf(520, size.x - 24)
 	var height := minf(550, size.y - 24)
 	panel.offset_left = -width / 2
 	panel.offset_right = width / 2
 	panel.offset_top = -height / 2
 	panel.offset_bottom = height / 2
+
+func _process(delta: float) -> void:
+	if get_tree().paused:
+		return
+	if support_flash_seconds > 0.0:
+		support_flash_seconds = maxf(0.0, support_flash_seconds - delta)
+		if support_flash_seconds == 0.0:
+			support_hint.hide()
+	support_check_seconds += delta
+	if support_check_seconds < 0.4:
+		return
+	var elapsed := support_check_seconds
+	support_check_seconds = 0.0
+	var world := _world()
+	if world == null or not world.running:
+		support_cooldown_seconds = 0.0
+		support_world_id = 0
+		return
+	var current_id := world.get_instance_id()
+	if current_id != support_world_id:
+		support_world_id = current_id
+		support_cooldown_seconds = 3.0
+	support_cooldown_seconds = maxf(0.0, support_cooldown_seconds - elapsed)
+	if support_cooldown_seconds > 0.0:
+		return
+	if _try_support_heal(world):
+		support_cooldown_seconds = 9.0
+	else:
+		support_cooldown_seconds = 0.8
+
+func _try_support_heal(world: World) -> bool:
+	# Support only NPC party members, not the human Acolyte. No effect when
+	# the Acolyte is downed, the battle is over, or the party is healthy.
+	if world == null or not world.running:
+		return false
+	var has_living_acolyte := false
+	for ally in world.heroes:
+		if ally != null and is_instance_valid(ally) and ally != world.player:
+			if ally.class_id == "acolyte" and not ally.downed and ally.hp > 0.0:
+				has_living_acolyte = true
+				break
+	if not has_living_acolyte:
+		return false
+	var recipient: Player = null
+	var lowest_health := 0.78
+	for ally in world.heroes:
+		if ally == null or not is_instance_valid(ally) or ally.downed or ally.hp <= 0.0 or ally.max_hp <= 0.0:
+			continue
+		var health_ratio: float = ally.hp / ally.max_hp
+		if health_ratio < lowest_health:
+			lowest_health = health_ratio
+			recipient = ally
+	if recipient == null:
+		return false
+	var recovered: float = ceilf(recipient.max_hp * 0.17)
+	recipient.hp = minf(recipient.max_hp, recipient.hp + recovered)
+	support_hint.text = "✚ Tu Sĩ tiếp sức: +%d HP" % int(recovered)
+	support_hint.show()
+	support_flash_seconds = 1.5
+	return true
 
 func _restore_party() -> void:
 	var ids = Save.setting("svv_offline_party", ["acolyte", "mage", "archer"])
