@@ -101,6 +101,33 @@ func _run() -> void:
 	check(world.time > 0.0, "battle simulation advances")
 	for hero in world.heroes:
 		check(hero.position.is_finite(), "party position remains finite")
+	# Regression: a living Acolyte must actually restore party HP,
+	# and must not heal while downed or when there is no injury.
+	var test_healer: Player = null
+	for hero in world.heroes:
+		if hero != world.player and hero.class_id == "acolyte":
+			test_healer = hero
+		break
+	check(test_healer != null, "offline roster includes Acolyte support")
+	if test_healer != null:
+		for hero in world.heroes:
+			hero.downed = false
+			hero.hp = hero.max_hp
+		world.player.hp = maxf(1.0, world.player.max_hp * 0.42)
+		var before_heal: float = world.player.hp
+		check(SVVAssistant._try_support_heal(world), "Acolyte emergency support activates below HP threshold")
+		check(world.player.hp > before_heal and world.player.hp <= world.player.max_hp, "support restores real player HP without overhealing")
+		world.player.hp = maxf(1.0, world.player.max_hp * 0.35)
+		test_healer.downed = true
+		test_healer.hp = 0.0
+		var downed_hp: float = world.player.hp
+		check(not SVVAssistant._try_support_heal(world), "downed Acolyte cannot support")
+		check(is_equal_approx(world.player.hp, downed_hp), "downed Acolyte never restores HP")
+		test_healer.downed = false
+		test_healer.hp = test_healer.max_hp
+		for hero in world.heroes:
+			hero.hp = hero.max_hp
+		check(not SVVAssistant._try_support_heal(world), "healthy party does not waste healing")
 	var ally: Player = world.heroes[1]
 	ally.level = 4
 	ally.xp = 3.0
