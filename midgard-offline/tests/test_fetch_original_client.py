@@ -1,5 +1,6 @@
 """Small synthetic archive tests. No official asset download or account required."""
 import hashlib
+import io
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -44,6 +45,34 @@ class FetchOriginalClientTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fetcher.extract_pck(archive, output, config)
             self.assertEqual(output.read_bytes(), data)
+
+    def test_repacked_zip_size_is_allowed_only_for_the_same_pck(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            archive, config, data = self.fixture(folder)
+            config["archive_size"] += 17  # stale wrapper pin; PCK remains pinned
+            payload = archive.read_bytes()
+
+            class RangeResponse(io.BytesIO):
+                status = 206
+
+                def __init__(self):
+                    super().__init__(payload)
+                    self.headers = {"Content-Range": f"bytes 0-{len(payload)-1}/{len(payload)}"}
+
+            class RangeOpener:
+                def open(self, _req, timeout=60):
+                    return RangeResponse()
+
+            inspection = fetcher.metadata(RangeOpener(), "https://nearq.itch.io/test", config)
+            self.assertEqual(inspection["archive_size"], len(payload))
+            self.assertEqual(inspection["original_archive_size"], config["archive_size"])
+            destination = folder / "verified.pck"
+            fetcher.extract_pck(archive, destination, config)
+            self.assertEqual(destination.read_bytes(), data)
+            config["pck_sha256"] = "f" * 64
+            with self.assertRaisesRegex(ValueError, "SHA-256"):
+                fetcher.extract_pck(archive, folder / "wrong.pck", config)
 
     def test_wrong_sha_does_not_create_output(self):
         with tempfile.TemporaryDirectory() as temporary:

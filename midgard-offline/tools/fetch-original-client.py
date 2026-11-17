@@ -3,7 +3,7 @@
 
 Python standard library only; no account, API key or machine-local game required.
 Temporary itch.io cookies/CSRF and signed CDN URLs are never printed or persisted.
-The upstream upload may change; size/CRC/SHA mismatch is a hard failure.
+An outer ZIP may be repacked, but the pinned PCK size, CRC and SHA-256 must match.
 """
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = "https://nearq.itch.io/midgard-survivors"
 USER_AGENT = "RAG-SVV-official-client-fetch/1.0 (+https://github.com/ronvotri/rag-svv)"
+# Bounds a changed ZIP wrapper without silently accepting a changed game PCK.
+MAX_ARCHIVE_BYTES = 800 * 1024 * 1024
 
 
 def safe_member(name: str) -> None:
@@ -116,8 +118,11 @@ def metadata(opener, url, config):
         if response.status != 206:
             raise ValueError("Official CDN did not honor the small metadata range request.")
         content_range = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+)", response.headers.get("Content-Range", ""))
-        if not content_range or int(content_range.group(3)) != config["archive_size"]:
-            raise ValueError("Upstream archive size changed; refusing a different client.")
+        if not content_range:
+            raise ValueError("Official CDN returned an invalid archive size range.")
+        archive_size = int(content_range.group(3))
+        if not 0 < archive_size <= MAX_ARCHIVE_BYTES:
+            raise ValueError("Official archive exceeds the maximum supported download size.")
         tail = response.read(131073)
     if len(tail) > 131072:
         raise ValueError("Metadata response exceeded the requested range.")
@@ -127,7 +132,9 @@ def metadata(opener, url, config):
     _, disk, central_disk, disk_count, count, central_size, central_offset, comment = struct.unpack_from("<4s4H2IH", tail, eocd)
     if disk or central_disk or disk_count != count or count > config["max_archive_entries"] or comment:
         raise ValueError("Unsupported ZIP directory layout.")
-    at = central_offset - (config["archive_size"] - len(tail))
+    if int(content_range.group(1)) != archive_size - len(tail) or int(content_range.group(2)) != archive_size - 1:
+        raise ValueError("Official CDN returned a non-tail metadata range.")
+    at = central_offset - (archive_size - len(tail))
     if at < 0 or at + central_size != eocd:
         raise ValueError("ZIP directory does not fit the bounded metadata read.")
     entries = []
@@ -148,28 +155,33 @@ def metadata(opener, url, config):
     pcks = [item for item in entries if item["name"] == config["pck_member"]]
     if len(pcks) != 1 or pcks[0]["size"] != config["pck_size"] or pcks[0]["crc32"] != config["pck_crc32"]:
         raise ValueError("Official archive PCK metadata does not match the pinned local base.")
-    return {"source_page": PAGE, "upload_id": config["upload_id"], "archive_size": config["archive_size"], "entries": entries,
+    return {"source_page": PAGE, "upload_id": config["upload_id"], "archive_size": archive_size,
+            "original_archive_size": config["archive_size"], "entries": entries,
             "pck_sha256_verified": False, "metadata_only": True}
 
 
-def download_archive(opener, url, destination, config):
+def download_archive(opener, url, destination, expected_size):
+    if not 0 < expected_size <= MAX_ARCHIVE_BYTES:
+        raise ValueError("Official archive exceeds the maximum supported download size.")
     with request(opener, url) as response:
-        if response.status != 200 or int(response.headers.get("Content-Length", "0")) != config["archive_size"]:
-            raise ValueError("Official archive response size changed.")
+        if response.status != 200 or int(response.headers.get("Content-Length", "0")) != expected_size:
+            raise ValueError("Official archive response differs from inspected metadata.")
         total = 0
         with destination.open("xb") as output:
             while chunk := response.read(1024 * 1024):
                 total += len(chunk)
-                if total > config["archive_size"]:
-                    raise ValueError("Archive exceeded pinned size.")
+                if total > expected_size:
+                    raise ValueError("Archive exceeded its verified metadata length.")
                 output.write(chunk)
-    if total != config["archive_size"]:
+    if total != expected_size:
         raise ValueError("Incomplete official archive download.")
 
 
 def extract_pck(archive, destination, config):
-    if archive.stat().st_size != config["archive_size"]:
-        raise ValueError("Archive does not match the pinned size.")
+    if not 0 < archive.stat().st_size <= MAX_ARCHIVE_BYTES:
+        raise ValueError("Archive exceeds the maximum supported download size.")
+    # The ZIP wrapper may change (e.g. recompression), never the pinned game.
+    # PCK CRC, uncompressed length and SHA-256 are all verified below.
     with zipfile.ZipFile(archive) as source:
         infos = source.infolist()
         if len(infos) > config["max_archive_entries"] or sum(item.file_size for item in infos) > config["max_total_uncompressed"]:
@@ -243,7 +255,7 @@ def main():
             output.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(prefix="official-download-", dir=output.parent) as temporary:
                 archive = Path(temporary) / "official-client.zip"
-                download_archive(opener, url, archive, config)
+                download_archive(opener, url, archive, inspection["archive_size"])
                 result = extract_pck(archive, output, config)
         print(json.dumps(result, ensure_ascii=True))
     except (OSError, ValueError, KeyError, zipfile.BadZipFile, json.JSONDecodeError):
