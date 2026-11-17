@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/original-web-qa.yml'
       - 'midgard-offline/tools/cloud-build-original.py'
+      - 'midgard-offline/tools/fetch-original-client.py'
+      - 'midgard-offline/tests/test_fetch_original_client.py'
+      - 'midgard-offline/config/official-client.json'
       - 'midgard-offline/tools/prepare-original-offline.py'
       - 'midgard-offline/tools/diagnose-original-flow.py'
       - 'midgard-offline/tools/localize_original.py'
