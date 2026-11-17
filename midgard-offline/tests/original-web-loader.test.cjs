@@ -12,6 +12,7 @@ async function simulate(assetBytes, assetParts, extra = {}) {
   const handlers = {};
   const base = 'https://ragnarok.example/';
   const files = {};
+  const cacheMemory = extra.cacheMemory || new Map();
   assetParts.forEach((bytes, i) => {
     files[`parts/abcdef0/index.wasm/${String(i).padStart(4,'0')}.bin`] = bytes;
   });
@@ -39,6 +40,23 @@ async function simulate(assetBytes, assetParts, extra = {}) {
     return new Response('Not found', { status: 404 });
   };
   const self = {
+    caches: extra.enableCache ? {
+      async open() {
+        return {
+          async match(uri) {
+            const value = cacheMemory.get(uri);
+            return value ? new Response(value) : undefined;
+          },
+          async put(uri, response) {
+            if (extra.failCachePut) throw new Error('Simulated cache quota exhaustion');
+            const bytes = await response.arrayBuffer();
+            cacheMemory.set(uri, new Uint8Array(bytes));
+          },
+          async delete(uri) { return cacheMemory.delete(typeof uri === 'string' ? uri : uri.url); },
+          async keys() { return [...cacheMemory.keys()].map(x => new Request(x)); }
+        };
+      }
+    } : undefined,
     registration: { scope: base },
     addEventListener(type, cb) { handlers[type] = cb; },
     skipWaiting: async () => {},
@@ -57,7 +75,7 @@ async function simulate(assetBytes, assetParts, extra = {}) {
     const value = await Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('Service Worker request promise never settled')), 2500))]);
     return value;
   }
-  return { manifest, files, request, fetches, ...extra };
+  return { manifest, files, request, fetches, cacheMemory, ...extra };
 }
 
 test('original wasm bytes are streamed in the exact order from Pages parts', async () => {
@@ -183,4 +201,36 @@ test('bootstrap has bounded worker startup and a non-save-deleting recovery acti
   assert.match(bootstrap, /registration\.unregister\(\)/);
   assert.match(bootstrap, /navigator\.serviceWorker\.controller/);
   assert.match(bootstrap, /timeout\(registration\.update\(\), 12000/);
+});
+
+
+test('first full game load saves immutable chunks and second load needs zero chunk downloads', async () => {
+  const expected = Uint8Array.from({ length: 101 }, (_, i) => i);
+  const chunks = [expected.slice(0, 16), expected.slice(16, 44), expected.slice(44)];
+  const memory = new Map();
+  const cold = await simulate(expected, chunks, { enableCache: true, cacheMemory: memory });
+  const first = await cold.request('index.wasm');
+  assert.deepEqual(Buffer.from(await first.arrayBuffer()), Buffer.from(expected));
+  assert.equal(cold.fetches.filter(x => x.startsWith('/parts/')).length, 3);
+  assert.equal(memory.size, 3, 'all successful chunks should be persisted after the first load');
+
+  const warm = await simulate(expected, chunks, { enableCache: true, cacheMemory: memory });
+  const second = await warm.request('index.wasm');
+  assert.deepEqual(Buffer.from(await second.arrayBuffer()), Buffer.from(expected));
+  assert.equal(warm.fetches.filter(x => x.startsWith('/parts/')).length, 0,
+    'a refresh should read PCK/WASM parts locally, not fetch them again');
+
+  const range = await warm.request('index.wasm', { Range: 'bytes=9-22' });
+  assert.deepEqual(Buffer.from(await range.arrayBuffer()), Buffer.from(expected.slice(9, 23)));
+  assert.equal(warm.fetches.filter(x => x.startsWith('/parts/')).length, 0);
+});
+
+test('cache write errors do not stop gameplay or corrupt normal network downloads', async () => {
+  const expected = Uint8Array.from({ length: 33 }, (_, i) => i);
+  const app = await simulate(expected, [expected.slice(0, 17), expected.slice(17)], {
+    enableCache: true, failCachePut: true
+  });
+  const response = await app.request('index.wasm');
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from(expected));
+  assert.equal(app.cacheMemory.size, 0);
 });
