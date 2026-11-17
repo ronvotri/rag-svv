@@ -107,11 +107,14 @@ func _run() -> void:
 		check(hero != null and is_instance_valid(hero), "party hero alive")
 		if hero != world.player:
 			check(hero.input is HeroInput.BotHero, "companion uses original tactical bot")
+	var time_before: float = world.time
 	for step in 120:
-		world.menus.close()
-		get_tree().paused = false
+		# Do not force-close menus or unpause every frame: that would mask a
+		# real-world re-entry loop or an invisible modal trapping gameplay.
 		await get_tree().process_frame
-	check(world.time > 0.0, "battle simulation advances")
+	check(world.time > time_before, "battle simulation advances without QA forcing menu closed")
+	check(world.menus._mode not in ["login", "server_select", "class_select"],
+		"real gameplay does not bounce back to login or character selection")
 	for hero in world.heroes:
 		check(hero.position.is_finite(), "party position remains finite")
 	# Regression: a living Acolyte must actually restore party HP,
