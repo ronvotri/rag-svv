@@ -95,9 +95,18 @@ class CloudInputs(unittest.TestCase):
         self.assertIn("JavaScriptBridge.eval(", addon)
         self.assertIn("CONTENT_SCALE_MODE_VIEWPORT", addon)
         self.assertIn("CONTENT_SCALE_ASPECT_EXPAND", addon)
-        self.assertIn("Vector2i(800, 450)", addon)
-        self.assertIn("Vector2i(450, 800)", addon)
-        self.assertIn("Engine.max_fps = 30", addon)
+        # The Web optimizer now rotates the selected viewport dynamically
+        # and permits up to 60 FPS instead of hardcoding the old 450x800/30.
+        # Keep test expectations in sync with the adaptive quality policy.
+        self.assertIn("HIGH_LANDSCAPE := Vector2i(800, 450)", addon)
+        self.assertIn("MEDIUM_LANDSCAPE := Vector2i(720, 405)", addon)
+        self.assertIn("LOW_LANDSCAPE := Vector2i(640, 360)", addon)
+        self.assertIn("FPS_TARGET := 60", addon)
+        self.assertIn("Engine.max_fps = FPS_TARGET", addon)
+        self.assertIn("Vector2i(landscape.y, landscape.x)", addon)
+        self.assertIn("if window.size.y > window.size.x else landscape", addon)
+        self.assertIn("Engine.get_frames_per_second()", addon)
+        self.assertNotIn("Engine.max_fps = 30", addon)
 
     def test_cache_seeding_does_not_restore_native_extensions_or_old_fonts(self):
         with tempfile.TemporaryDirectory() as directory:
