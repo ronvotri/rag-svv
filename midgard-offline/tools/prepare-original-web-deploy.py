@@ -90,7 +90,8 @@ def stage(source: Path, output: Path, version: str,
         "static_assets": [], "large_assets": {},
     }
     reserved = {"_headers", "_redirects", "_routes.json", "_worker.js",
-                "godot-split-sw.js", "asset-map.json", "game.html", "fullscreen-toggle.js"}
+                "godot-split-sw.js", "asset-map.json", "game.html", "fullscreen-toggle.js",
+                "game-entry-guard.js"}
     for file in files:
         name = file.name
         if (name.startswith(".") or not re.fullmatch(r"[A-Za-z0-9_.-]+", name)
@@ -111,6 +112,15 @@ def stage(source: Path, output: Path, version: str,
                 html = file.read_text(encoding="utf-8")
                 if html.lower().count("</body>") != 1:
                     raise ValueError("Unexpected original Godot HTML body")
+                # Directly opening /game.html bypasses the bootstrap and causes
+                # the multi-hundred-MiB Godot loader to hang without its SW.
+                # Place the guard before Godot's own HEAD scripts execute.
+                match = re.search(r"<head(?:\s[^>]*)?>", html, flags=re.IGNORECASE)
+                if not match:
+                    raise ValueError("Expected original Godot HTML head")
+                html = (html[:match.end()] +
+                        '\n<script src="./game-entry-guard.js"></script>\n' +
+                        html[match.end():])
                 html = re.sub(
                     r"</body>",
                     '<script src="./fullscreen-toggle.js" defer></script>\\n</body>',
@@ -139,10 +149,13 @@ def stage(source: Path, output: Path, version: str,
         "// Ragnarok Pages build: " + version + "\n" + worker, encoding="utf-8"
     )
     shutil.copyfile(ROOT / "cloudflare/fullscreen-toggle.js", public / "fullscreen-toggle.js")
+    shutil.copyfile(ROOT / "cloudflare/game-entry-guard.js", public / "game-entry-guard.js")
     shutil.copyfile(ROOT / "cloudflare/pages-bootstrap.html", public / "index.html")
     (public / "_headers").write_text(
         "/index.html\n  Cache-Control: no-cache\n"
         "/game.html\n  Cache-Control: no-cache\n"
+        "/game-entry-guard.js\n  Cache-Control: no-cache\n"
+        "/fullscreen-toggle.js\n  Cache-Control: no-cache\n"
         "/asset-map.json\n  Cache-Control: no-store\n"
         "/godot-split-sw.js\n  Cache-Control: no-cache\n"
         "/parts/*\n  Cache-Control: public, max-age=31536000, immutable\n"
