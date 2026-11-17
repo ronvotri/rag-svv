@@ -80,6 +80,22 @@ class CloudInputs(unittest.TestCase):
         source = script.read_text(encoding="utf-8")
         self.assertIn("progressive_web_app/enabled=false", source)
         self.assertNotIn("progressive_web_app/enabled=true", source)
+        self.assertIn('custom_template/release="{web_release}"', source)
+        self.assertIn('web_release = (templates / "web_nothreads_release.zip").as_posix()', source)
+
+    def test_web_uses_release_build_and_mobile_optimizer_autoload(self):
+        root = Path(__file__).resolve().parents[1]
+        build_script = (root / "tools/cloud-build-original.py").read_text(encoding="utf-8")
+        installer = (root / "tools/install-original-assistant.py").read_text(encoding="utf-8")
+        addon = (root / "original-addons/web_mobile_performance.gd").read_text(encoding="utf-8")
+        self.assertIn('"--export-release", "Web Offline"', build_script)
+        self.assertIn("web_mobile_performance.gd", installer)
+        self.assertIn("SVVWebMobilePerformance", installer)
+        self.assertIn('OS.has_feature("web")', addon)
+        self.assertIn("JavaScriptBridge.eval(", addon)
+        self.assertIn("CONTENT_SCALE_MODE_VIEWPORT", addon)
+        self.assertIn("CONTENT_SCALE_ASPECT_EXPAND", addon)
+        self.assertIn("Vector2i(960, 540)", addon)
 
     def test_cache_seeding_does_not_restore_native_extensions_or_old_fonts(self):
         with tempfile.TemporaryDirectory() as directory:

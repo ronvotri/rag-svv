@@ -12,6 +12,11 @@ def install(project):
     destination = project / "addons/svv_offline/offline_assistant.gd"
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
+    # Web optimization is a no-op on native platforms; ship one reproducible addon.
+    web_perf_source = source.parent / "web_mobile_performance.gd"
+    if not web_perf_source.is_file():
+        raise ValueError("Authored mobile web optimizer missing")
+    shutil.copyfile(web_perf_source, destination.parent / web_perf_source.name)
     guardian_source = source.parent / "offline_save_guardian.gd"
     if not guardian_source.is_file():
         raise ValueError("Authored offline save guardian missing")
@@ -36,6 +41,7 @@ def install(project):
     for registration in (
         'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
+        'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
     ):
         if registration not in block:
             block = block.rstrip() + "\n" + registration + "\n"

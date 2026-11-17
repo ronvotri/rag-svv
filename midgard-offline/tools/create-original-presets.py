@@ -15,6 +15,7 @@ destination = project / "export_presets.cfg"
 if destination.exists():
     parser.error("Export presets already exist; refusing to overwrite")
 web = (templates / "web_nothreads_debug.zip").as_posix()
+web_release = (templates / "web_nothreads_release.zip").as_posix()
 windows = (templates / "windows_debug_x86_64.exe").as_posix()
 destination.write_text(f'''[preset.0]
 
@@ -33,7 +34,7 @@ script_export_mode=2
 [preset.0.options]
 
 custom_template/debug="{web}"
-custom_template/release=""
+custom_template/release="{web_release}"
 variant/extensions_support=false
 variant/thread_support=false
 vram_texture_compression/for_desktop=true

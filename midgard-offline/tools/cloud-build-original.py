@@ -220,7 +220,9 @@ def build(target):
     elif target == "web":
         folder = output / "MidgardSVV-Original-Offline-Web-TEST"
         folder.mkdir(exist_ok=True)
-        run([godot, "--headless", "--path", project, "--export-debug", "Web Offline", folder / "index.html"])
+        # The Godot debug Web runtime adds overhead on mobile browsers; keep
+        # headless gameplay QA separate and ship the optimized release template.
+        run([godot, "--headless", "--path", project, "--export-release", "Web Offline", folder / "index.html"])
         (folder / "READ-ME.txt").write_text(notice + "Serve through localhost or install the PWA; file:// is unsupported.\n", encoding="utf-8")
         archive_folder(folder, output / (folder.name + ".zip"))
     else:
