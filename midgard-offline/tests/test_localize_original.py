@@ -189,6 +189,19 @@ class OriginalLocalization(unittest.TestCase):
                                  "Formatting mismatch: " + english)
                 self.assertEqual(merged[english], vietnamese)
 
+    def test_collection_audit_detects_real_english_fallback_in_source(self):
+        desc = "Poison grows x1.06 per stack (instead of x1.05) and +10% damage"
+        catalog = [{"id": "El veneno crece...", "en": desc}]
+        untranslated = locale.collection_translation_audit(catalog, {})
+        self.assertFalse(untranslated["passed"])
+        self.assertEqual(untranslated["untranslated"], [desc])
+        translated = locale.collection_translation_audit(catalog, {desc: "Mỗi tầng Độc tăng x1,06."})
+        self.assertTrue(translated["passed"])
+        self.assertEqual(translated["translated"], 1)
+        self.assertEqual(translated["found_in_source"], 1)
+        self.assertEqual(translated["required"],
+                         len(locale.COLLECTION_SET_DESCRIPTION_KEYS))
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
