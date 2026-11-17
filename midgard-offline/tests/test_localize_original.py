@@ -239,6 +239,40 @@ class OriginalLocalization(unittest.TestCase):
         self.assertIn("tỉ lệ chí mạng", translations[
             "Chance of a critical hit, up to 100%%. Anything past 100%% is not wasted: every extra 1%% is +%d%% crit damage."].lower())
 
+    def test_new_combat_guide_and_skill_localization_both_batches(self):
+        """The original names stay English, while player-visible descriptions
+        in the newly audited Godot catalog cannot silently fall back.
+        """
+        root = MODULE_PATH.parents[1]
+        patches = root / "patches"
+        merged = locale.load_translations(patches / "vi-ui.json")
+        total = 0
+        for filename, expected in (
+            ("vi-ui-batch-018.json", 86),
+            ("vi-ui-batch-019.json", 91),
+        ):
+            entries = json.loads((patches / filename).read_text(encoding="utf-8"))
+            self.assertEqual(len(entries), expected)
+            total += len(entries)
+            for source, translated in entries.items():
+                with self.subTest(filename=filename, source=source):
+                    self.assertNotEqual(source, translated)
+                    self.assertEqual(locale.placeholders(source),
+                                     locale.placeholders(translated))
+                    self.assertEqual(merged[source], translated)
+        self.assertEqual(total, 177)
+        for name in ("Bash", "Flying Side Kick", "Peco Peco", "Niflheim",
+                     "Star Crumb", "Raging Thrust", "Huuma", "Gatling Fever"):
+            self.assertNotIn(name, merged,
+                             "Important named game terms must not be localized")
+        for source in (
+            "On the 9th floor of each stretch comes the shadow of the MVP waiting on the 10th, with one of its mechanics",
+            "Tornado Stance: sometimes after a hit you spin, kicking everyone around you and pushing them back.",
+            "Passive: your poison, bleed and burn deal more damage.",
+        ):
+            self.assertIn(source, merged)
+            self.assertNotEqual(merged[source], source)
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
