@@ -108,6 +108,18 @@ class CloudInputs(unittest.TestCase):
         self.assertIn("Engine.get_frames_per_second()", addon)
         self.assertNotIn("Engine.max_fps = 30", addon)
 
+    def test_social_strip_removes_publisher_links_but_not_discord(self):
+        root = Path(__file__).resolve().parents[1]
+        installer = (root / "tools/install-original-assistant.py").read_text(encoding="utf-8")
+        addon = (root / "original-addons/social_buttons_cleanup.gd").read_text(encoding="utf-8")
+        self.assertIn("SVVSocialCleanup", installer)
+        self.assertIn("social_buttons_cleanup.gd", installer)
+        self.assertIn("button.hide()", addon)
+        self.assertIn("if button != keep:", addon)
+        self.assertIn('const DISCORD_INVITE_URL := ""', addon)
+        self.assertIn("discord.com/invite/", addon)
+        self.assertIn("discord.gg/", addon)
+
     def test_cache_seeding_does_not_restore_native_extensions_or_old_fonts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
