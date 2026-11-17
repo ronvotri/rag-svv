@@ -91,8 +91,7 @@ func _run() -> void:
 			break
 		await get_tree().process_frame
 	print("OFFLINE_QA ADVENTURE_TRANSITION state=", world.menus._mode,
-		" running=", world.running, " paused=", get_tree().paused,
-		" stage=", str(world.stage))
+		" running=", world.running, " paused=", get_tree().paused)
 	check(world.running, "real menu loading flow starts battle")
 	check(world.menus._mode not in ["login", "server_select", "class_select"],
 		"To adventure never loops back to the character selector")
