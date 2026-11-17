@@ -27,8 +27,12 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             source = original_fixture(root)
+            # 64-byte artificial ceiling exceeds the minimal HTML fixture
+            # (~40 bytes), yet still forces the 100-byte PCK/WASM to split.
+            # A 32-byte ceiling wrongly rejects this valid fixture HTML.
+            self.assertLess((source / "index.html").stat().st_size, 64)
             result = mod.stage(source, root / "deploy", "abcdef0123456",
-                               limit=32, part_bytes=16)
+                               limit=64, part_bytes=16)
             public = root / "deploy/public"
             self.assertTrue((public / "index.html").is_file())
             self.assertTrue((public / "game.html").is_file())
@@ -71,8 +75,8 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             source = original_fixture(root)
-            first = mod.stage(source, root / "one", "abcdef0123456", limit=32, part_bytes=16)
-            second = mod.stage(source, root / "two", "abcdef0123457", limit=32, part_bytes=16)
+            first = mod.stage(source, root / "one", "abcdef0123456", limit=64, part_bytes=16)
+            second = mod.stage(source, root / "two", "abcdef0123457", limit=64, part_bytes=16)
             pck_first = first["large_assets"]["index.pck"]["parts"]
             pck_second = second["large_assets"]["index.pck"]["parts"]
             self.assertEqual([p["path"] for p in pck_first],
@@ -82,7 +86,7 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
             changed = bytearray((source / "index.pck").read_bytes())
             changed[0] ^= 0xFF
             (source / "index.pck").write_bytes(changed)
-            third = mod.stage(source, root / "three", "abcdef0123458", limit=32, part_bytes=16)
+            third = mod.stage(source, root / "three", "abcdef0123458", limit=64, part_bytes=16)
             pck_third = third["large_assets"]["index.pck"]["parts"]
             self.assertNotEqual(pck_first[0]["path"], pck_third[0]["path"])
             self.assertEqual([p["path"] for p in pck_first[1:]],
