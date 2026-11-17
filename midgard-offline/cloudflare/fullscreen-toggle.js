@@ -33,10 +33,22 @@
       color: '#fff', font: '500 15px/1.5 system-ui,sans-serif',
       textAlign: 'center', pointerEvents: 'none', display: 'none'
     });
+    // Keep the top-right minimap completely visible in landscape mobile.
+    // Use responsive horizontal clearance rather than screen-height offsets,
+    // so the control does not obstruct the movement/attack joysticks below.
+    const positionButton = () => {
+      const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      button.style.right = touch ? 'max(168px, 19vw)' : '12px';
+      button.style.top = touch ? 'max(6px, env(safe-area-inset-top, 0px))' : '12px';
+      button.style.width = touch ? '44px' : '46px';
+      button.style.height = touch ? '44px' : '46px';
+    };
+
     let attemptedLandscape = false;
     const mobile = () => window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     const portrait = () => window.innerHeight > window.innerWidth;
     const sync = () => {
+      positionButton();
       const enabled = !!document.fullscreenElement;
       button.textContent = enabled ? '⤢' : '⛶';
       button.title = enabled ? 'Thoát toàn màn hình' : 'Toàn màn hình và xoay ngang';
