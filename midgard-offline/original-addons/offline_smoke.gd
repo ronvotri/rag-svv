@@ -19,6 +19,7 @@ func _run() -> void:
 	check(Save._name == "profile_offline_test", "isolated QA profile")
 	check(RunSave.path().contains("profile_offline_test"), "QA run snapshot isolated from player")
 	check(get_tree().root.get_node_or_null("SVVAssistant") != null, "authored party and NPC assistant loaded")
+	check(SVVAssistant.open_button.text == "Tìm party", "party discovery UI uses natural wording")
 	if Save._name != "profile_offline_test":
 		get_tree().quit(2)
 		return
