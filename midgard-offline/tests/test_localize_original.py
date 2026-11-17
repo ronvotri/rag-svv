@@ -110,6 +110,27 @@ class OriginalLocalization(unittest.TestCase):
             self.assertNotEqual(translations[key], key)
             self.assertEqual(locale.placeholders(key), locale.placeholders(translations[key]))
 
+    def test_new_quest_skill_and_battle_batches_preserve_formatting(self):
+        root = MODULE_PATH.parents[1]
+        patches = root / "patches"
+        dictionary = locale.load_translations(patches / "vi-ui.json")
+        for name in ("vi-ui-batch-008.json", "vi-ui-batch-009.json", "vi-ui-batch-010.json"):
+            entries = json.loads((patches / name).read_text(encoding="utf-8"))
+            self.assertGreaterEqual(len(entries), 100)
+            for source, translated in entries.items():
+                self.assertTrue(source and translated)
+                self.assertEqual(
+                    locale.placeholders(source), locale.placeholders(translated),
+                    "Formatting mismatch for " + source
+                )
+                self.assertEqual(dictionary[source], translated)
+        for term in ("Cold Bolt", "Energy Coat", "Klaws", "Prontera", "MVP", "ASPD"):
+            self.assertNotIn(term, {
+                source for name in ("vi-ui-batch-008.json", "vi-ui-batch-009.json", "vi-ui-batch-010.json")
+                for source in json.loads((patches / name).read_text(encoding="utf-8"))
+                if source == term
+            })
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
