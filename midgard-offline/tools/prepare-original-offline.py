@@ -293,7 +293,7 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
         '\t\t\tmenus.close()',
         '\t\t\tget_tree().paused = false',
     ]) + after
-    main.write_text(text, encoding="utf-8", newline="\\n")
+    main.write_text(text, encoding="utf-8", newline="\n")
     assets = output / "scripts/autoload/ro_assets.gd"
     content = assets.read_text(encoding="utf-8")
     audio_anchor = 'var path: = ROOT + "audio/%s.wav" % key'
