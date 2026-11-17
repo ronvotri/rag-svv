@@ -499,5 +499,11 @@
   "Monster count: +%d%%": "Số quái: +%d%%",
   "Monster speed: +%d%%": "Tốc độ quái: +%d%%",
   "Minimum Danger on this map: %d": "Độ nguy hiểm tối thiểu: %d",
-  "This map starts at Danger %d": "Bản đồ bắt đầu ở độ nguy hiểm %d"
+  "This map starts at Danger %d": "Bản đồ bắt đầu ở độ nguy hiểm %d",
+  "Guest": "Nhà thám hiểm",
+  "Guest mode": "Chế độ chơi không cần tài khoản",
+  "Guest account": "Hồ sơ offline",
+  "Play as guest": "Chơi offline",
+  "Continue as guest": "Tiếp tục chơi offline",
+  "Midgard Survivors": "Quái Triều Xâm Lăng"
 }
