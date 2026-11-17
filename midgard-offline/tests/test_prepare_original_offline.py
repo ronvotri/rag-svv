@@ -54,5 +54,57 @@ class OriginalPartyBootstrap(unittest.TestCase):
 
 
 
+
+class RunSaveVersionCompatibility(unittest.TestCase):
+    @staticmethod
+    def fixture(hero_snapshot: str) -> str:
+        return "\n".join([
+            hero_snapshot,
+            "static func save(w: World) -> void:",
+            "\tif w.is_dead() or w.is_coop():",
+            "\t\treturn",
+            '\tvar tmp: = path() + ".tmp"',
+            "",
+            "static func resume(w: World, d: Dictionary) -> void:",
+            '\tw.start_run(str(d["class"]))',
+            "\tapply_hero(w, d)",
+            "",
+        ])
+
+    def test_0_2_0_native_per_hero_snapshot_remains_unchanged(self):
+        snapshot = "\n".join([
+            "static func hero_snapshot(w: World, hero: Player = null) -> Dictionary:",
+            "\tvar p: = hero if hero != null else w.player",
+            '\treturn {"class": p.class_id}',
+            "",
+        ])
+        result = prepare.patch_party_run_save(self.fixture(snapshot))
+        self.assertIn(snapshot, result)
+        self.assertIn("hero_snapshot(w, offline_hero)", result)
+        self.assertIn('d["offline_party"] = offline_party', result)
+        self.assertIn("apply_hero(w, offline_record, offline_hero, false)", result)
+
+    def test_0_1_x_legacy_snapshot_is_extended(self):
+        snapshot = "\n".join([
+            "static func hero_snapshot(w: World) -> Dictionary:",
+            "\tvar p: = w.player",
+            '\treturn {"class": p.class_id}',
+            "",
+        ])
+        result = prepare.patch_party_run_save(self.fixture(snapshot))
+        self.assertIn("static func hero_snapshot(w: World, p: Player = null)", result)
+        self.assertIn("\tif p == null:\n\t\tp = w.player", result)
+
+    def test_changed_snapshot_without_per_hero_binding_fails_closed(self):
+        snapshot = "\n".join([
+            "static func hero_snapshot(w: World, hero: Player = null) -> Dictionary:",
+            "\tvar p: = w.player",
+            '\treturn {"class": p.class_id}',
+            "",
+        ])
+        with self.assertRaisesRegex(ValueError, "ignores explicit hero"):
+            prepare.patch_party_run_save(self.fixture(snapshot))
+
+
 if __name__ == "__main__":
     unittest.main()
