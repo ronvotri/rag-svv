@@ -51,6 +51,12 @@ KEEP_TERMS_FILE = "vi-keep-english.json"
 SUPPLEMENTAL_UI_KEYS = (
     "Guest", "Guest mode", "Guest account", "Play as guest",
     "Continue as guest", "Midgard Survivors",
+    # Skill descriptions exposed by the mobile level-up UI. The names of
+    # skills remain English; only explanatory prose is localized.
+    "Passive: more sword damage on basic attacks.",
+    "Lets you evolve: Bash (Lv 5)",
+    "First aid: you heal every few seconds and bandage yourself: a barrier that holds a share of your max HP.",
+    "+5D and +3% max HP, more regeneration, -0.5% damage taken, +3% healing received and +0.5% to the barriers you get. Your autocasts when hit grow with the higher of STR and VIT.",
 )
 
 def protected_names(project, keep_file=None):
