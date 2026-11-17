@@ -16,6 +16,8 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+MAX_UNCOMPRESSED_INSPECTION = 2 * 1024 * 1024 * 1024
+MAX_PCK_INSPECTION = 1024 * 1024 * 1024
 FETCHER = ROOT / "tools/fetch-original-client.py"
 _spec = importlib.util.spec_from_file_location("svv_fetch_original_client", FETCHER)
 _fetcher = importlib.util.module_from_spec(_spec)
@@ -29,7 +31,7 @@ def inspect_archive(path: Path, config: dict) -> dict:
         entries = packed.infolist()
         if len(entries) > config["max_archive_entries"]:
             raise ValueError("Official ZIP has too many members")
-        if sum(item.file_size for item in entries) > config["max_total_uncompressed"]:
+        if sum(item.file_size for item in entries) > MAX_UNCOMPRESSED_INSPECTION:
             raise ValueError("Official ZIP has excessive uncompressed content")
         for item in entries:
             _fetcher.safe_member(item.filename)
@@ -44,7 +46,7 @@ def inspect_archive(path: Path, config: dict) -> dict:
         with packed.open(pck) as source:
             while chunk := source.read(1024 * 1024):
                 amount += len(chunk)
-                if amount > config["max_total_uncompressed"]:
+                if amount > MAX_PCK_INSPECTION:
                     raise ValueError("PCK exceeds the uncompressed safety bound")
                 digest.update(chunk)
         if amount != pck.file_size:
