@@ -112,7 +112,17 @@ def patch_party_run_save(text: str) -> str:
         r"(static func hero_snapshot\(w:\s*World)(\)\s*->\s*Dictionary\s*:)",
         r"\1, p: Player = null\2", text, count=1)
     if count != 1:
-        raise ValueError("Hero snapshot signature changed")
+        # Log a signature and anchor booleans only, never recovered code/assets.
+        # The official 0.2.0 update changed this function interface.
+        signatures = re.findall(r"^(?:static )?func hero_snapshot[^\\r\\n]*", text, re.MULTILINE)
+        anchors = {
+            "hero_player_binding": "\\tvar p:" in text,
+            "coop_guard": "or w.is_coop():" in text,
+            "save_tmp": "\\tvar tmp: = path() + \\".tmp\\"" in text,
+            "resume_start": "\\tw.start_run(str(d[\\"class\\"]))" in text,
+            "apply_hero": "\\tapply_hero(w, d)" in text,
+        }
+        raise ValueError("Hero snapshot signature changed: " + repr(signatures[:2]) + "; anchors=" + repr(anchors))
     start = text.index("static func hero_snapshot(")
     end = text.find("\nstatic func ", start + 1)
     if end < 0:
