@@ -32,8 +32,6 @@ def sha256(path: Path) -> str:
 
 def _split(source: Path, public: Path, version: str, part_bytes: int) -> dict:
     name = source.name
-    output = public / "parts" / version / name
-    output.mkdir(parents=True)
     full_hash = hashlib.sha256()
     pieces = []
     with source.open("rb") as reader:
@@ -43,13 +41,18 @@ def _split(source: Path, public: Path, version: str, part_bytes: int) -> dict:
             if not payload:
                 break
             full_hash.update(payload)
-            relative = f"parts/{version}/{name}/{index:04d}.bin"
+            # Content-addressed chunk URLs survive code-only updates. If a
+            # 16 MiB piece does not change, browser/cache need not download
+            # it again when the next version of the game is published.
+            piece_hash = hashlib.sha256(payload).hexdigest()
+            relative = f"parts/{piece_hash}/{name}/{index:04d}.bin"
             destination = public / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(payload)
             pieces.append({
                 "path": relative,
                 "size": len(payload),
-                "sha256": hashlib.sha256(payload).hexdigest(),
+                "sha256": piece_hash,
             })
             index += 1
     if not pieces or sum(x["size"] for x in pieces) != source.stat().st_size:
