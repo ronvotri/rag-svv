@@ -131,6 +131,64 @@ class OriginalLocalization(unittest.TestCase):
                 if source == term
             })
 
+    def test_collection_sets_and_rewards_no_longer_fall_back_to_english(self):
+        """Actual strings from the collection screenshot: descriptions get Vietnamese,
+        named Ragnarok sets keep their original English names.
+        """
+        root = MODULE_PATH.parents[1]
+        dictionary = locale.load_translations(root / "patches/vi-ui.json")
+        required = (
+            "The sets, legendaries and uniques you've found in any run.",
+            "Sets  %d / %d",
+            "Legendaries  %d / %d",
+            "Uniques  %d / %d",
+            "Poison grows x1.06 per stack (instead of x1.05) and +10% damage",
+            "Poison grows x1.08 per stack, each dose adds one more stack and +15% damage",
+            "Each skill cuts the others' cooldowns by another 0.1 s, -10% cooldown and +15% skill damage",
+            "Each skill cuts the others' cooldowns by another 0.2 s, -10% cooldown and +25% skill damage",
+            "Fire jumps to 2 more monsters when a burning one dies, and +10% damage",
+            "Your burns burn 60% harder, fire jumps to 2 more monsters and +15% damage",
+            "Every bleeding burst heals you 1.5% HP, and +10% attack speed",
+            "Bleeding bursts one stack sooner, the burst leaves those it splashes bleeding and +15% attack speed",
+            "Your statuses last 50% longer, monsters under a status take another +20% and +10% skill damage",
+            "Your status effects last another 50%, monsters with a status effect take another +30% and +15% skill damage",
+            "Your basic attack procs trigger 50% more often, all your procs hit 50% harder and +15% attack speed",
+            "Your basic attack procs trigger another 50% more often, hit another 50% harder and +15% attack speed",
+            "Your when-hit cards trigger 30% more often and hit 20% harder, each heals you another 2%, and +15% max HP",
+            "Your when-hit cards trigger another 50% more often and hit another 30% harder, each heals you another 3%, and +20% max HP",
+            "Your buffs are another 50% stronger, your heals heal another 30% and -10% cooldown",
+            "Your buffs are another 50% stronger, your heals heal another 50% and -10% cooldown",
+        )
+        for english in required:
+            with self.subTest(english=english):
+                translated = dictionary.get(english)
+                self.assertIsNotNone(translated, "Missing Vietnamese: " + english)
+                self.assertNotEqual(translated, english)
+                self.assertEqual(locale.placeholders(english), locale.placeholders(translated))
+        # Set names are owned by the original game data; no altered set labels.
+        for set_name in ("Diabolus: Venom", "Diabolus: Arcane",
+                         "Flames of Ifrit", "Vampire Blood", "Dream of Morpheus",
+                         "Flame Rings", "Bloody Oath", "Odin's Grace"):
+            self.assertNotIn(set_name, dictionary)
+
+    def test_new_collection_and_skill_batches_have_no_placeholder_errors(self):
+        root = MODULE_PATH.parents[1]
+        patches = root / "patches"
+        expected_minimums = {
+            "vi-ui-batch-011.json": 50,
+            "vi-ui-batch-012.json": 100,
+            "vi-ui-batch-013.json": 35,
+        }
+        merged = locale.load_translations(patches / "vi-ui.json")
+        for name, minimum in expected_minimums.items():
+            entries = json.loads((patches / name).read_text(encoding="utf-8"))
+            self.assertGreaterEqual(len(entries), minimum)
+            for english, vietnamese in entries.items():
+                self.assertNotEqual(english, vietnamese)
+                self.assertEqual(locale.placeholders(english), locale.placeholders(vietnamese),
+                                 "Formatting mismatch: " + english)
+                self.assertEqual(merged[english], vietnamese)
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
