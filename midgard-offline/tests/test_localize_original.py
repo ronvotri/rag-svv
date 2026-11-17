@@ -65,6 +65,32 @@ class OriginalLocalization(unittest.TestCase):
             self.assertEqual(localized["Midgard Survivors"], "Quái triều xâm lăng")
             self.assertEqual(report["supplemental_ui_entries"], 2)
 
+    def test_mobile_skill_descriptions_are_translated_without_renaming_skills(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "work" / "project"
+            (root / "scripts/ui").mkdir(parents=True)
+            (root / "locale").mkdir()
+            (root / "project.godot").write_text("[application]\n", encoding="utf-8")
+            (root / "scripts/ui/lang.gd").write_text('const DEFAULT: = "en"\n', encoding="utf-8")
+            (root / "locale/en.po").write_text(
+                'msgid "Sword Mastery"\nmsgstr "Sword Mastery"\n\n'
+                'msgid "description"\nmsgstr "Passive: more sword damage on basic attacks."\n\n',
+                encoding="utf-8")
+            dictionary = root / "l10n.json"
+            dictionary.write_text(json.dumps({
+                "Sword Mastery": "Sword Mastery",
+                "Passive: more sword damage on basic attacks.":
+                    "Nội tại: tăng sát thương kiếm cho các đòn đánh thường.",
+                "Lets you evolve: Bash (Lv 5)": "Giúp tiến hóa kỹ năng Bash (cấp 5)."
+            }, ensure_ascii=False), encoding="utf-8")
+            result = locale.localize(root, dictionary)
+            entries = {row["id"]: row["en"] for row in locale.read_po(root / "locale/vi.po")}
+            self.assertEqual(entries["Sword Mastery"], "Sword Mastery")
+            self.assertIn("tăng sát thương kiếm", entries["description"])
+            self.assertEqual(entries["Lets you evolve: Bash (Lv 5)"],
+                             "Giúp tiến hóa kỹ năng Bash (cấp 5).")
+            self.assertGreaterEqual(result["supplemental_ui_entries"], 1)
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
