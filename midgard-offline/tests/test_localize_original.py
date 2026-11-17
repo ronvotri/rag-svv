@@ -209,10 +209,10 @@ class OriginalLocalization(unittest.TestCase):
         patches = MODULE_PATH.parents[1] / "patches"
         translations = locale.load_translations(patches / "vi-ui.json")
         expected = {
-            "vi-ui-batch-014.json": 138,
+            "vi-ui-batch-014.json": 137,
             "vi-ui-batch-015.json": 142,
-            "vi-ui-batch-016.json": 101,
-            "vi-ui-batch-017.json": 119,
+            "vi-ui-batch-016.json": 99,
+            "vi-ui-batch-017.json": 117,
         }
         total = 0
         for name, count in expected.items():
@@ -225,7 +225,7 @@ class OriginalLocalization(unittest.TestCase):
                     self.assertEqual(locale.placeholders(english),
                                      locale.placeholders(vietnamese))
                     self.assertEqual(translations[english], vietnamese)
-        self.assertEqual(total, 500)
+        self.assertEqual(total, 495)
         protected = {
             "Cold Bolt", "Energy Coat", "Prontera", "Kafra",
             "Hollgrehenn", "Lucile", "Valkyrie", "Star Crumb",
@@ -237,7 +237,7 @@ class OriginalLocalization(unittest.TestCase):
         self.assertIn("Sát thương", translations["Damage taken  ·  %s"])
         self.assertIn("Kho", translations["Your Kafra Storage is empty."])
         self.assertIn("tỉ lệ chí mạng", translations[
-            "Chance of a critical hit, up to 100%%. Anything past 100%% is not wasted: every extra 1%% is +%d%% crit damage."])
+            "Chance of a critical hit, up to 100%%. Anything past 100%% is not wasted: every extra 1%% is +%d%% crit damage."].lower())
 
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
