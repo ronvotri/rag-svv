@@ -120,7 +120,7 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
             try:
                 mod.MAX_FREE_FILES = 2
                 with self.assertRaises(ValueError):
-                    mod.stage(source, root / "out", "abcdef0123456", limit=25, part_bytes=16)
+                    mod.stage(source, root / "out", "abcdef0123456", limit=64, part_bytes=16)
             finally:
                 mod.MAX_FREE_FILES = old
 
