@@ -202,6 +202,43 @@ class OriginalLocalization(unittest.TestCase):
         self.assertEqual(translated["required"],
                          len(locale.COLLECTION_SET_DESCRIPTION_KEYS))
 
+    def test_new_town_tower_and_kafra_translation_batches(self):
+        """No omitted placeholders or untranslated prose in the four new batches.
+        Names of skills, items and places are not rewritten as dictionary keys.
+        """
+        patches = MODULE_PATH.parents[1] / "patches"
+        translations = locale.load_translations(patches / "vi-ui.json")
+        expected = {
+            "vi-ui-batch-014.json": 138,
+            "vi-ui-batch-015.json": 142,
+            "vi-ui-batch-016.json": 101,
+            "vi-ui-batch-017.json": 119,
+        }
+        total = 0
+        for name, count in expected.items():
+            entries = json.loads((patches / name).read_text(encoding="utf-8"))
+            self.assertEqual(len(entries), count, name)
+            total += count
+            for english, vietnamese in entries.items():
+                with self.subTest(batch=name, source=english):
+                    self.assertNotEqual(english, vietnamese)
+                    self.assertEqual(locale.placeholders(english),
+                                     locale.placeholders(vietnamese))
+                    self.assertEqual(translations[english], vietnamese)
+        self.assertEqual(total, 500)
+        protected = {
+            "Cold Bolt", "Energy Coat", "Prontera", "Kafra",
+            "Hollgrehenn", "Lucile", "Valkyrie", "Star Crumb",
+            "Double Casting", "Ymir",
+        }
+        for original_name in protected:
+            self.assertNotIn(original_name, translations,
+                             "Do not translate source proper name: " + original_name)
+        self.assertIn("Sát thương", translations["Damage taken  ·  %s"])
+        self.assertIn("Kho", translations["Your Kafra Storage is empty."])
+        self.assertIn("tỉ lệ chí mạng", translations[
+            "Chance of a critical hit, up to 100%%. Anything past 100%% is not wasted: every extra 1%% is +%d%% crit damage."])
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
