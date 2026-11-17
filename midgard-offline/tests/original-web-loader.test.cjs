@@ -99,3 +99,88 @@ test('ordinary Godot JS is not replaced by the split loader', async () => {
   assert.equal(response.status, 404);
   assert.equal(app.fetches.filter(x => x.includes('/parts/')).length, 0);
 });
+
+
+test('shared or refreshed game.html is redirected to the bootstrap', () => {
+  const vm = require('node:vm');
+  const guard = fs.readFileSync(path.resolve(__dirname, '../cloudflare/game-entry-guard.js'), 'utf8');
+  const run = (hasHandoff, controlled) => {
+    const redirects = [];
+    const store = new Map(hasHandoff ? [['svv-web-handoff', 'abcdef0']] : []);
+    const context = {
+      URL, location: {
+        href: 'https://ragnarok.example/game.html',
+        replace(url) { redirects.push(url.href); }
+      },
+      navigator: { serviceWorker: { controller: controlled ? {} : null } },
+      sessionStorage: {
+        getItem(key) { return store.get(key) ?? null; },
+        removeItem(key) { store.delete(key); }
+      }
+    };
+    vm.runInNewContext(guard, context);
+    return { redirects, remaining: store.size };
+  };
+  assert.equal(run(false, true).redirects[0], 'https://ragnarok.example/?entry=game');
+  assert.equal(run(true, false).redirects[0], 'https://ragnarok.example/?entry=game');
+  const launched = run(true, true);
+  assert.deepEqual(launched.redirects, []);
+  assert.equal(launched.remaining, 0, 'handoff must be consumed on first launch');
+});
+
+test('mobile fullscreen requests landscape and supports manual rotation fallback', async () => {
+  const vm = require('node:vm');
+  const code = fs.readFileSync(path.resolve(__dirname, '../cloudflare/fullscreen-toggle.js'), 'utf8');
+  const created = [];
+  const calls = [];
+  function element() {
+    return {
+      style: {}, handlers: {},
+      setAttribute() {},
+      addEventListener(name, handler) { this.handlers[name] = handler; }
+    };
+  }
+  const doc = {
+    readyState: 'complete', fullscreenElement: null, handlers: {},
+    getElementById() { return null; },
+    createElement() { const node = element(); created.push(node); return node; },
+    addEventListener(name, handler) { this.handlers[name] = handler; },
+    body: { appendChild() {} },
+    documentElement: {
+      async requestFullscreen() { doc.fullscreenElement = doc.documentElement; },
+    },
+    async exitFullscreen() { doc.fullscreenElement = null; },
+  };
+  const win = {
+    innerWidth: 390, innerHeight: 830, handlers: {},
+    matchMedia() { return { matches: true }; },
+    addEventListener(name, cb) { this.handlers[name] = cb; }
+  };
+  const orientation = {
+    async lock(value) { calls.push(value); },
+    unlock() { calls.push('unlock'); },
+    addEventListener() {}
+  };
+  vm.runInNewContext(code, { document: doc, window: win, screen: { orientation }, console });
+  const button = created.find(x => x.id === 'svv-fullscreen');
+  const hint = created.find(x => x.id === 'svv-landscape-hint');
+  assert.ok(button && hint);
+  const event = { preventDefault() {}, stopPropagation() {} };
+  await button.handlers.click(event);
+  assert.deepEqual(calls, ['landscape']);
+  assert.equal(hint.style.display, 'block', 'portrait remains visible until device rotates');
+  win.innerWidth = 830; win.innerHeight = 390;
+  win.handlers.resize();
+  assert.equal(hint.style.display, 'none');
+  await button.handlers.click(event);
+  assert.deepEqual(calls, ['landscape', 'unlock']);
+});
+
+test('bootstrap has bounded worker startup and a non-save-deleting recovery action', () => {
+  const bootstrap = fs.readFileSync(path.resolve(__dirname, '../cloudflare/pages-bootstrap.html'), 'utf8');
+  assert.match(bootstrap, /svv-web-handoff/);
+  assert.match(bootstrap, /Làm mới trình tải/);
+  assert.match(bootstrap, /registration\.unregister\(\)/);
+  assert.match(bootstrap, /navigator\.serviceWorker\.controller/);
+  assert.match(bootstrap, /timeout\(registration\.update\(\), 12000/);
+});
