@@ -57,6 +57,16 @@ SUPPLEMENTAL_UI_KEYS = (
     "Lets you evolve: Bash (Lv 5)",
     "First aid: you heal every few seconds and bandage yourself: a barrier that holds a share of your max HP.",
     "+5D and +3% max HP, more regeneration, -0.5% damage taken, +3% healing received and +0.5% to the barriers you get. Your autocasts when hit grow with the higher of STR and VIT.",
+    # Observed Web UI strings absent from upstream en.po on some clients.
+    # Supplemental catalog entries help when code calls tr() dynamically.
+    "Guard the Chef's cart for 60 s.",
+    "Klaws opens a stall in Prontera",
+    "Not now",
+    "I'll help!",
+    "A Golden Poring with treasure! Hit it before it gets away",
+    "Magic skills: +15% damage, +6% area and +0.4% chance to cast twice (max 25%).",
+    "A recharging energy shield.",
+    "Ice shards fall from the sky: they slow enemies and sometimes freeze them.",
 )
 
 def protected_names(project, keep_file=None):
