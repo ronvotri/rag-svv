@@ -145,8 +145,16 @@ def write_context(project, work, translation):
     localizer = own_tool("localize_original")
     dictionary = localizer.load_translations(ROOT / "patches/vi-ui.json")
     protected = localizer.protected_names(project)
+    source_entries = localizer.read_po(project / "locale/en.po")
+    collection_audit = localizer.collection_translation_audit(source_entries, dictionary)
+    (context / "collection-translation-qa.json").write_text(
+        json.dumps(collection_audit, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    if not collection_audit["passed"]:
+        raise ValueError("Collections screen still has untranslated descriptions: "
+                         + repr(collection_audit["untranslated"][:6]))
     pending = []
-    for entry in localizer.read_po(project / "locale/en.po"):
+    for entry in source_entries:
         english = entry.get("en") or entry["id"]
         if english not in dictionary and english not in protected:
             pending.append({"msgid": entry["id"], "english": english})
