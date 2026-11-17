@@ -67,6 +67,27 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
             self.assertEqual(asset_map["version"], "abcdef0123456")
             self.assertEqual(asset_map["large_assets"], result["large_assets"])
 
+    def test_unchanged_chunks_keep_urls_across_commits(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = original_fixture(root)
+            first = mod.stage(source, root / "one", "abcdef0123456", limit=32, part_bytes=16)
+            second = mod.stage(source, root / "two", "abcdef0123457", limit=32, part_bytes=16)
+            pck_first = first["large_assets"]["index.pck"]["parts"]
+            pck_second = second["large_assets"]["index.pck"]["parts"]
+            self.assertEqual([p["path"] for p in pck_first],
+                             [p["path"] for p in pck_second])
+            self.assertTrue(all(part["sha256"] in part["path"] for part in pck_first))
+
+            changed = bytearray((source / "index.pck").read_bytes())
+            changed[0] ^= 0xFF
+            (source / "index.pck").write_bytes(changed)
+            third = mod.stage(source, root / "three", "abcdef0123458", limit=32, part_bytes=16)
+            pck_third = third["large_assets"]["index.pck"]["parts"]
+            self.assertNotEqual(pck_first[0]["path"], pck_third[0]["path"])
+            self.assertEqual([p["path"] for p in pck_first[1:]],
+                             [p["path"] for p in pck_third[1:]])
+
     def test_invalid_version_no_export_or_reusing_output_fails_closed(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
