@@ -12,6 +12,8 @@ on:
       - 'midgard-offline/tools/prepare-original-offline.py'
       - 'midgard-offline/tools/diagnose-original-flow.py'
       - 'midgard-offline/tools/localize_original.py'
+      - 'midgard-offline/tests/test_localize_original.py'
+      - 'midgard-offline/tools/install-original-assistant.py'
       - 'midgard-offline/tests/test_prepare_original_offline.py'
       - 'midgard-offline/tools/prepare-original-web-deploy.py'
       - 'midgard-offline/cloudflare/**'
