@@ -420,6 +420,31 @@ class OriginalLocalization(unittest.TestCase):
         self.assertTrue(translations["Baphomet's unique: your basic attack reaps in a crescent around you, and every 7 hits the Demon Lord's scythe falls on everyone around you and heals you for each one ×Lv."].startswith("Unique của Baphomet"))
         self.assertEqual(translations["Open slot"], "Mở ô Card")
 
+    def test_qa182_remaining_boss_and_localization_batches(self):
+        """Exact untranslated source strings taken from QA 182 Godot worklist."""
+        root = MODULE_PATH.parents[1] / "patches"
+        translated = locale.load_translations(root / "vi-ui.json")
+        counts = {"vi-ui-batch-042.json": 83,
+                  "vi-ui-batch-043.json": 90,
+                  "vi-ui-batch-044.json": 66}
+        seen = set()
+        for name, count in counts.items():
+            records = json.loads((root / name).read_text(encoding="utf-8"))
+            self.assertEqual(len(records), count, name)
+            for original, target in records.items():
+                with self.subTest(batch=name, source=original):
+                    self.assertNotEqual(original, target)
+                    self.assertNotIn(original, seen, "Duplicate new translation key")
+                    self.assertEqual(locale.placeholders(original),
+                                     locale.placeholders(target))
+                    self.assertEqual(translated[original], target)
+                    seen.add(original)
+        self.assertEqual(len(seen), 239)
+        self.assertEqual(translated["Update available!"], "Đã có bản cập nhật!")
+        self.assertTrue(translated["Icy Breath: get out from in front of Ktullanux!"].startswith("Icy Breath: tránh"))
+        self.assertNotIn("Baphomet", seen)
+        self.assertNotIn("Oridecon", seen)
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
