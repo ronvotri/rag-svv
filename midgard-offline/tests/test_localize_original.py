@@ -482,6 +482,9 @@ class OriginalLocalization(unittest.TestCase):
                "can break (the % is the risk).")
         self.assertEqual(locale.placeholders(src), [])
         self.assertEqual(locale.placeholders("30% is safe"), [])
+        self.assertEqual(locale.placeholders("Survive %ds"), ["%d"])
+        self.assertEqual(locale.placeholders("On the %dth cut"), ["%d"])
+        self.assertEqual(locale.placeholders("Cost %sM zeny"), ["%s"])
         self.assertEqual(locale.placeholders("Works at %d%%, and %s HP"),
                          ["%d", "%s"])
 
