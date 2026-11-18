@@ -579,6 +579,27 @@ class OriginalLocalization(unittest.TestCase):
                           "Red Potion", "Prontera", "Kafra"):
             self.assertNotIn(game_name, rows)
 
+    def test_qa216_account_hud_localization_batch_057(self):
+        """QA 216 remaining interface strings: real catalog keys, preserved tokens."""
+        patches = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(patches / "vi-ui.json")
+        rows = json.loads((patches / "vi-ui-batch-057.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(rows), 18)
+        for english, vietnamese in rows.items():
+            with self.subTest(english=english):
+                self.assertTrue(english.strip() and vietnamese.strip())
+                self.assertNotEqual(english, vietnamese)
+                self.assertEqual(locale.placeholders(english),
+                                 locale.placeholders(vietnamese))
+                self.assertEqual(merged[english], vietnamese)
+        self.assertEqual(rows["Lv %d/%d"], "Cấp %d/%d")
+        self.assertIn("nearQ", rows["The leader starts with nearQ"])
+        self.assertEqual(rows["Oath"], "Lời thề")
+        self.assertEqual(rows["Stance"], "Thế chiến đấu")
+        for protected in ("Baphomet", "Prontera", "Oridecon",
+                          "Red Potion", "Double Attack", "Eternal Card"):
+            self.assertNotIn(protected, rows)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
