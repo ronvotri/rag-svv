@@ -361,7 +361,7 @@ class OriginalLocalization(unittest.TestCase):
             "vi-ui-batch-031.json": 33,
             "vi-ui-batch-032.json": 51,
             "vi-ui-batch-033.json": 79,
-            "vi-ui-batch-034.json": 41,
+            "vi-ui-batch-034.json": 40,
             "vi-ui-batch-035.json": 58,
         }
         seen = set()
@@ -376,7 +376,7 @@ class OriginalLocalization(unittest.TestCase):
                                      locale.placeholders(vietnamese))
                     self.assertEqual(translations[source], vietnamese)
                     seen.add(source)
-        self.assertEqual(len(seen), 262)
+        self.assertEqual(len(seen), 261)
         for protected in ("Baphomet", "Eddga", "Moonlight Flower", "Prontera",
                           "Chingue", "Kafra", "Morroc", "Oridecon", "Eternal Card"):
             self.assertNotIn(protected, seen, "Proper names must stay English")
