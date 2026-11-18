@@ -67,7 +67,7 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 23)
 	column.add_child(title)
 	status = Label.new()
-	status.text = "Chọn tối đa 3 đồng đội. Tu Sĩ có Tiếp Sức hồi máu khẩn cấp trong party offline."
+	status.text = "Chọn tối đa 3 đồng đội. Tu sĩ có Tiếp Sức hồi máu khẩn cấp trong party offline."
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status)
 	for key in GameData.CLASSES:
@@ -272,13 +272,13 @@ func _answer(input: String) -> void:
 	elif _has(query, ["boss", "mvp", "thủ lĩnh"]):
 		answer = "Giữ khoảng trống để né dấu cảnh báo và đòn diện rộng. Nâng sát thương chính trước khi đấu MVP; đừng lao vào nhặt đồ giữa lúc boss chuẩn bị ra đòn. Kiểm tra hệ và khả năng phòng thủ của bộ trang bị."
 	elif _has(query, ["thẻ", "hợp nhất", "card"]):
-		answer = "Mở Bộ sưu tập để xem thẻ đã có, nguồn rơi và hiệu ứng. Hợp nhất cần đủ bản sao đúng loại; thẻ Vĩnh cửu dùng trong hệ khảm. Đọc số ô và giới hạn trước khi gắn thẻ."
+		answer = "Mở Bộ sưu tập để xem thẻ đã có, nguồn rơi và hiệu ứng. Hợp nhất cần đủ bản sao đúng loại; Eternal Card dùng trong hệ khảm. Đọc số ô và giới hạn trước khi gắn thẻ."
 	elif _has(query, ["trang bị", "tinh luyện", "khảm", "kho", "zeny"]):
 		answer = "Kho Kafra giữ vật phẩm giữa các lượt. Chọn bộ khởi đầu phù hợp nghề; tinh luyện, phẩm cấp và khảm thẻ dùng nguyên liệu riêng. Vượt ngưỡng an toàn có thể thất bại, nên đọc tỉ lệ và hậu quả trước khi xác nhận."
 	elif _has(query, ["nghề", "kỹ năng", "nâng cấp", "build"]):
 		answer = "Ưu tiên kỹ năng chính và chỉ số ghi trong phần mô tả. Kỹ năng vật lý thường tăng theo STR, phép theo INT; tiến hóa cần đúng kỹ năng và bị động. Chọn một nhánh tấn công rồi thêm hồi phục hoặc phòng thủ."
 	elif _has(query, ["nhiệm vụ", "thành tựu", "pet", "thú cưng", "tái sinh", "tháp"]):
-		answer = "Bộ sưu tập theo dõi nhiệm vụ, thành tựu và thú cưng. Hoàn thành điều kiện bản đồ để mở vùng mới; Tháp Vô Tận và tái sinh có yêu cầu riêng. Hãy xem phần điều kiện trên từng màn thay vì tiêu tài nguyên trước."
+		answer = "Bộ sưu tập theo dõi nhiệm vụ, thành tựu và thú cưng. Hoàn thành điều kiện bản đồ để mở vùng mới; Endless Tower và tái sinh có yêu cầu riêng. Hãy xem phần điều kiện trên từng màn thay vì tiêu tài nguyên trước."
 	elif _has(query, ["máu", "chết", "khó", "hồi phục"]):
 		var world := _world()
 		if world != null and world.player != null:
