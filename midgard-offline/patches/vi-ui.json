@@ -1,6 +1,6 @@
 {
-  "Endless Tower": "Tháp Vô Tận",
-  "The endless tower": "Tháp vô tận",
+  "Endless Tower": "Endless Tower",
+  "The endless tower": "Endless Tower",
   "Refining...": "Đang tinh luyện...",
   "Enchanting sockets...": "Đang khảm thẻ...",
   "Checking their gear": "Đang xem trang bị",
@@ -447,7 +447,7 @@
   "Rebirth %s": "Tái sinh %s",
   "Class level %d!": "Nghề đạt cấp %d!",
   "Free points: %d": "Điểm chưa dùng: %d",
-  "Fragments of Ymir %d/%d  ·  Level %d/%d": "Mảnh Ymir %d/%d  ·  Cấp %d/%d",
+  "Fragments of Ymir %d/%d  ·  Level %d/%d": "Fragments of Ymir %d/%d  ·  Cấp %d/%d",
   "%s z": "%s z",
   "%d Poring Coins": "%d Xu Poring",
   "Claim all  (+%d)": "Nhận tất cả  (+%d)",
