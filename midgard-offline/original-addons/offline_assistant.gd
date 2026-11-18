@@ -268,7 +268,7 @@ func _answer(input: String) -> void:
 	elif _has(query, ["party", "tìm party", "tổ đội", "đồng đội", "đội hình", "bot", "hồi sinh"]):
 		answer = "Mở Tìm party, chọn tối đa ba nghề rồi xác nhận. Party mới tham gia từ lượt tiếp theo. Đồng đội tự dùng kỹ năng, có thể bị hạ và được hỗ trợ. Chọn Tu sĩ nếu cần hồi máu."
 	elif _has(query, ["lưu", "save", "đổi máy", "dữ liệu"]):
-		answer = "Bản offline dùng hồ sơ riêng, tách khỏi game gốc. Hãy sao lưu profile_offline.json và các tệp lưu lượt trong thư mục dữ liệu ứng dụng trước khi đổi máy, gỡ app hoặc xóa dữ liệu. Save không tự đồng bộ lên mạng."
+		answer = "Để chuyển save sang máy khác, nhấn Sao lưu / Nạp save ở màn hình chính rồi chọn Tải save về máy (JSON). Trên máy mới, mở cùng mục và chọn Nạp save từ máy (JSON). Game kiểm tra file và giữ một bản dự phòng trước khi nhập. Save không tự đồng bộ lên mạng."
 	elif _has(query, ["boss", "mvp", "thủ lĩnh"]):
 		answer = "Giữ khoảng trống để né dấu cảnh báo và đòn diện rộng. Nâng sát thương chính trước khi đấu MVP; đừng lao vào nhặt đồ giữa lúc boss chuẩn bị ra đòn. Kiểm tra hệ và khả năng phòng thủ của bộ trang bị."
 	elif _has(query, ["thẻ", "hợp nhất", "card"]):
