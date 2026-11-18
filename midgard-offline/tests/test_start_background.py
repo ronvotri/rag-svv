@@ -1,4 +1,4 @@
-"""Regression tests for the optional authored Ragnarok start wallpaper."""
+"""Regression tests: font-safe class navigation and original character art."""
 from __future__ import annotations
 import hashlib
 import importlib.util
@@ -36,7 +36,6 @@ class StartBackgroundTests(unittest.TestCase):
             report = installer.install(project)
             patched = script.read_text(encoding="utf-8")
             self.assertTrue(report["installed"])
-            self.assertIn('call_deferred("_svv_replace_class_screen_backdrop")', patched)
             self.assertIn('call_deferred("_svv_fix_class_select_navigation")', patched)
             self.assertIn("func _svv_class_arrow_texture(point_left: bool)", patched)
             self.assertIn("func _svv_fix_class_select_navigation()", patched)
@@ -49,13 +48,11 @@ class StartBackgroundTests(unittest.TestCase):
             self.assertNotIn("prev_button.pressed.disconnect", patched)
             self.assertIn("var original_buttons = 3", patched)
             self.assertIn("func show_loading() -> void:", patched)
-            self.assertIn("func _svv_replace_class_screen_backdrop() -> void:", patched)
-            self.assertIn("TextureRect.STRETCH_KEEP_ASPECT_COVERED", patched)
+            self.assertNotIn("func _svv_replace_class_screen_backdrop()", patched)
             self.assertIn('if _mode != "class_select":', patched)
             source = ROOT / "original-addons/svv_home_background.jpg"
-            target = project / "assets/svv/svv_home_background.jpg"
-            self.assertEqual(hashlib.sha256(source.read_bytes()).digest(),
-                             hashlib.sha256(target.read_bytes()).digest())
+            self.assertFalse((project / "assets/svv/svv_home_background.jpg").exists())
+            self.assertEqual(source.read_bytes()[:3], b"\xff\xd8\xff")
             self.assertLess(source.stat().st_size, 3_000_000)
             with self.assertRaisesRegex(ValueError, "already installed"):
                 installer.install(project)
