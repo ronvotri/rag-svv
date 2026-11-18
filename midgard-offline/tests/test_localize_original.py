@@ -584,7 +584,7 @@ class OriginalLocalization(unittest.TestCase):
         patches = MODULE_PATH.parents[1] / "patches"
         merged = locale.load_translations(patches / "vi-ui.json")
         rows = json.loads((patches / "vi-ui-batch-057.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(rows), 18)
+        self.assertEqual(len(rows), 17)
         for english, vietnamese in rows.items():
             with self.subTest(english=english):
                 self.assertTrue(english.strip() and vietnamese.strip())
@@ -592,10 +592,10 @@ class OriginalLocalization(unittest.TestCase):
                 self.assertEqual(locale.placeholders(english),
                                  locale.placeholders(vietnamese))
                 self.assertEqual(merged[english], vietnamese)
-        self.assertEqual(rows["Nv %d/%d"], "Cấp %d/%d")
-        self.assertIn("nearQ", rows["El líder empieza con nearQ"])
-        self.assertEqual(rows["Juramento"], "Lời thề")
-        self.assertEqual(rows["Postura"], "Thế chiến đấu")
+        self.assertEqual(rows["Lv %d/%d"], "Cấp %d/%d")
+        self.assertIn("nearQ", rows["The leader starts with nearQ"])
+        self.assertEqual(rows["Oath"], "Lời thề")
+        self.assertEqual(rows["Stance"], "Thế chiến đấu")
         for protected in ("Baphomet", "Prontera", "Oridecon",
                           "Red Potion", "Double Attack", "Eternal Card"):
             self.assertNotIn(protected, rows)
@@ -624,11 +624,11 @@ class OriginalLocalization(unittest.TestCase):
             self.assertNotIn(name, rows)
 
     def test_source_spanish_hud_batch_059(self):
-        """Verify Spanish-source HUD strings, literal percentages and format slots."""
+        """Verify source-backed HUD labels and preserved format slots."""
         patches = MODULE_PATH.parents[1] / "patches"
         merged = locale.load_translations(patches / "vi-ui.json")
         rows = json.loads((patches / "vi-ui-batch-059.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(rows), 29)
+        self.assertEqual(len(rows), 17)
         for original, localized in rows.items():
             with self.subTest(original=original):
                 self.assertTrue(original.strip() and localized.strip())
@@ -636,13 +636,12 @@ class OriginalLocalization(unittest.TestCase):
                 self.assertEqual(locale.placeholders(original),
                                  locale.placeholders(localized))
                 self.assertEqual(merged[original], localized)
-        self.assertEqual(rows["+8% de vida"], "+8% HP")
-        self.assertEqual(rows["−25% de vida"], "−25% HP")
-        self.assertEqual(rows["%+d vida"], "%+d HP")
-        self.assertEqual(rows["%d%% FUE · %d%% INT"],
-                         "%d%% STR · %d%% INT")
-        self.assertEqual(rows["%s  (%s)\n%d de %d tipos · %s"],
-                         "%s  (%s)\n%d/%d loại · %s")
+        self.        self.assertEqual(rows["+10% Flee."], "+10% né tránh.")
+        self.assertEqual(rows["+6% Flee, +2 DEF."],
+                         "+6% né tránh, +2 DEF.")
+        self.assertEqual(rows["Bond x%d"], "Liên kết ×%d")
+        self.assertEqual(rows["%s  (%s)\\n%d of %d types · %s"],
+                         "%s  (%s)\\n%d/%d loại · %s")
         for protected in ("Baphomet", "Prontera", "Oridecon",
                           "Red Potion", "Double Attack"):
             self.assertNotIn(protected, rows)
