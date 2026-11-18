@@ -150,14 +150,14 @@ def write_context(project, work, translation):
     # every newly translated source must exist in this recovered en.po version.
     source_strings = {entry.get("en") or entry["id"] for entry in source_entries}
     new_sources = set()
-    for number in range(21, 60):
+    for number in range(21, 61):
         file = ROOT / "patches" / f"vi-ui-batch-{number:03d}.json"
         entries = json.loads(file.read_text(encoding="utf-8"))
         new_sources.update(entries)
     not_found = sorted(new_sources - source_strings)
     missing_translation = sorted(key for key in new_sources if key not in dictionary)
     recent_audit = {
-        "batch_range": "021-059",
+        "batch_range": "021-060",
         "new_unique_strings": len(new_sources),
         "found_in_catalog": len(new_sources) - len(not_found),
         "unmatched_source_keys": not_found,
