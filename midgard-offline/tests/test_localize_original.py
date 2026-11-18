@@ -445,6 +445,46 @@ class OriginalLocalization(unittest.TestCase):
         self.assertNotIn("Baphomet", seen)
         self.assertNotIn("Oridecon", seen)
 
+    def test_qa187_guide_cards_map_hints_and_tower_hud(self):
+        """Exact source strings selected from Web QA 187 untranslated worklist."""
+        root = MODULE_PATH.parents[1] / "patches"
+        translated = locale.load_translations(root / "vi-ui.json")
+        batches = {
+            "vi-ui-batch-045.json": 25,
+            "vi-ui-batch-046.json": 69,
+            "vi-ui-batch-047.json": 64,
+            "vi-ui-batch-048.json": 74,
+            "vi-ui-batch-049.json": 36,
+        }
+        seen = set()
+        for name, expected in batches.items():
+            records = json.loads((root / name).read_text(encoding="utf-8"))
+            self.assertEqual(len(records), expected, name)
+            for original, vietnamese in records.items():
+                with self.subTest(batch=name, source=original):
+                    self.assertNotEqual(original, vietnamese)
+                    self.assertNotIn(original, seen, "duplicate new source key")
+                    self.assertEqual(locale.placeholders(original),
+                                     locale.placeholders(vietnamese))
+                    self.assertEqual(translated[original], vietnamese)
+                    seen.add(original)
+        self.assertEqual(len(seen), 268)
+        for game_name in ("MVP", "Oridecon", "Baphomet", "Double Strafe",
+                          "Star Crumb", "Holy", "ASPD", "Kafra"):
+            self.assertNotIn(game_name, seen)
+        self.assertTrue(translated["MVP: Ifrit · Fire creatures of the volcano: use Water"].endswith("dùng Water"))
+        self.assertEqual(translated["You fill bosses' Poise %s%% faster"],
+                         "Tích Poise của boss nhanh hơn %s%%")
+
+    def test_literal_percent_is_not_printf_argument(self):
+        src = ("The orange bar under your HP is your forge: your hits heat the "
+               "weapon and when it fills it goes +1. Past the safe limit it "
+               "can break (the % is the risk).")
+        self.assertEqual(locale.placeholders(src), [])
+        self.assertEqual(locale.placeholders("30% is safe"), [])
+        self.assertEqual(locale.placeholders("Works at %d%%, and %s HP"),
+                         ["%d", "%s"])
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
