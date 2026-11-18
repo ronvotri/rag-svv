@@ -1,13 +1,13 @@
 extends Node
 ## Mobile Web-only adaptive raster quality. The original gameplay, map,
 ## collisions, AI, saves, and native builds remain untouched.
-## Larger mobile UI via a smaller virtual canvas (~18% vs. 800x450) with
+## Larger mobile UI via a smaller virtual canvas (~33% vs. 800x450) with
 ## adaptive raster detail. Strong phones can run up to 60 FPS. Never scale
 ## native builds or alter gameplay coordinates/collisions.
 
-const HIGH_LANDSCAPE := Vector2i(680, 382)
-const MEDIUM_LANDSCAPE := Vector2i(640, 360)
-const LOW_LANDSCAPE := Vector2i(600, 338)
+const HIGH_LANDSCAPE := Vector2i(600, 338)
+const MEDIUM_LANDSCAPE := Vector2i(560, 315)
+const LOW_LANDSCAPE := Vector2i(520, 293)
 const FPS_TARGET := 60
 const SAMPLE_SECONDS := 5.0
 
