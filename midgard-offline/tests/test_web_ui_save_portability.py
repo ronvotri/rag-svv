@@ -10,7 +10,8 @@ ADDONS = ROOT / "original-addons"
 class TestOfflineWebSaveAndUI(unittest.TestCase):
     def test_save_tools_visible_from_menu_and_paused_in_battle(self):
         src = (ADDONS / "web_save_manager.gd").read_text(encoding="utf-8")
-        self.assertIn('open_button.text = "Sao lưu / Nạp save"', src)
+        self.assertIn('open_button.text = "Sao lưu" if compact else "Sao lưu / Nạp save"', src)
+        self.assertIn('compact: bool = size.x < 720.0', src)
         self.assertIn("open_button.pressed.connect(open_manager)", src)
         self.assertIn("open_button.visible = not in_battle", src)
         self.assertIn('dialog.popup_centered(_popup_size(', src)
