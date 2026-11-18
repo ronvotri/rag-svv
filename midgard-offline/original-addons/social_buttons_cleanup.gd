@@ -5,7 +5,6 @@ extends Node
 const DISCORD_INVITE_URL := "" # Configure only with owner's verified invite.
 const SAVE_BUTTON_NAME := "SVVSaveBackupButton"
 var _pending: bool = false
-var _dialog: ConfirmationDialog
 
 
 func _ready() -> void:
@@ -83,10 +82,11 @@ func _cleanup() -> void:
 	if str(donate.name) != SAVE_BUTTON_NAME:
 		_disconnect_original_actions(donate)
 		donate.name = SAVE_BUTTON_NAME
-		donate.tooltip_text = "Sao lưu save về máy để phòng mất dữ liệu"
+		donate.tooltip_text = "Sao lưu: Tải xuống / Nhập / Khôi phục dữ liệu"
 		if donate is Button:
 			(donate as Button).text = "Sao lưu"
 			(donate as Button).icon = _make_save_icon()
+			_style_save_button(donate as Button)
 		if not donate.pressed.is_connected(_show_backup_dialog):
 			donate.pressed.connect(_show_backup_dialog)
 	# Discord is kept; replace its original destination only if the owner
@@ -99,63 +99,40 @@ func _cleanup() -> void:
 
 
 func _make_save_icon() -> Texture2D:
-	# Small pixel-art floppy disk so this does not depend on mobile emoji fonts.
-	var pixels: Image = Image.create(24, 24, false, Image.FORMAT_RGBA8)
-	pixels.fill(Color(0, 0, 0, 0))
-	pixels.fill_rect(Rect2i(2, 1, 20, 22), Color("#25415b"))
-	pixels.fill_rect(Rect2i(4, 3, 16, 18), Color("#75b4db"))
-	pixels.fill_rect(Rect2i(7, 3, 10, 8), Color("#f0f3f4"))
-	pixels.fill_rect(Rect2i(14, 4, 2, 5), Color("#35465c"))
-	pixels.fill_rect(Rect2i(6, 13, 12, 8), Color("#ecf0e8"))
-	pixels.fill_rect(Rect2i(8, 15, 8, 2), Color("#9cb9cb"))
-	pixels.fill_rect(Rect2i(8, 18, 8, 1), Color("#9cb9cb"))
-	return ImageTexture.create_from_image(pixels)
+	# Compact high-contrast 32px disk icon with a clear white label:
+	# unlike emoji it displays identically on Web, mobile and desktop.
+	var image: Image = Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	image.fill(Color.TRANSPARENT)
+	image.fill_rect(Rect2i(3, 2, 26, 28), Color("#1b3656"))
+	image.fill_rect(Rect2i(5, 4, 22, 24), Color("#63b9e8"))
+	image.fill_rect(Rect2i(8, 4, 16, 11), Color("#f6fcff"))
+	image.fill_rect(Rect2i(19, 5, 4, 8), Color("#275784"))
+	image.fill_rect(Rect2i(8, 18, 16, 10), Color("#f6fcff"))
+	image.fill_rect(Rect2i(10, 20, 12, 2), Color("#6d91b7"))
+	image.fill_rect(Rect2i(10, 24, 10, 2), Color("#6d91b7"))
+	return ImageTexture.create_from_image(image)
+
+
+func _style_save_button(button: Button) -> void:
+	var normal: StyleBoxFlat = StyleBoxFlat.new()
+	normal.bg_color = Color("#e8f5ff")
+	normal.border_color = Color("#5b9bd5")
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(8)
+	normal.set_content_margin_all(7)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover: StyleBoxFlat = normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("#cfebff")
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_color_override("font_color", Color("#21466e"))
+	button.add_theme_color_override("font_hover_color", Color("#173c6c"))
+	button.custom_minimum_size = Vector2(140, 40)
 
 
 func _show_backup_dialog() -> void:
-	if _dialog == null:
-		_dialog = ConfirmationDialog.new()
-		_dialog.title = "Sao lưu save"
-		_dialog.dialog_text = "Hãy thường xuyên tải bản sao save về máy, nhất là trước khi xóa dữ liệu trình duyệt hoặc đổi điện thoại.\n\nTệp sao lưu sẽ được lưu trên thiết bị của bạn, không tải lên máy chủ."
-		_dialog.ok_button_text = "Tải bản save"
-		_dialog.cancel_button_text = "Để sau"
-		_dialog.confirmed.connect(_export_save)
-		get_tree().root.add_child(_dialog)
-	_dialog.popup_centered(Vector2i(550, 280))
-
-
-func _notify_save_error(message: String) -> void:
-	var alert: AcceptDialog = AcceptDialog.new()
-	alert.title = "Sao lưu chưa thành công"
-	alert.dialog_text = message
-	get_tree().root.add_child(alert)
-	alert.confirmed.connect(alert.queue_free)
-	alert.popup_centered(Vector2i(470, 190))
-
-
-func _export_save() -> void:
-	if not OS.has_feature("web"):
-		return
-	Save.flush()
-	var save_path: String = str(Save.PATH)
-	if not FileAccess.file_exists(save_path):
-		_notify_save_error("Chưa có save để xuất. Hãy tạo nhân vật và lưu game trước.")
-		return
-	var data: PackedByteArray = FileAccess.get_file_as_bytes(save_path)
-	if data.size() < 32:
-		_notify_save_error("Tệp save trống hoặc chưa hoàn chỉnh. Chưa xuất dữ liệu.")
-		return
-	if SVVSaveGuardian != null:
-		SVVSaveGuardian.backup_now()
-	var encoded: String = Marshalls.raw_to_base64(data)
-	var date_tag: String = Time.get_date_string_from_system().replace("-", "")
-	var filename: String = "Quai-Trieu-Xam-Lang-%s.svvsave" % date_tag
-	# JSON.stringify safely escapes both JS string literals. No network calls:
-	# Blob creates a local download of the same encrypted profile bytes.
-	var js: String = "(function(){var b=atob(%s);var a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);var url=URL.createObjectURL(new Blob([a],{type:'application/octet-stream'}));var link=document.createElement('a');link.href=url;link.download=%s;document.body.appendChild(link);link.click();link.remove();setTimeout(function(){URL.revokeObjectURL(url)},30000);return true;})()" % [JSON.stringify(encoded), JSON.stringify(filename)]
-	var succeeded: Variant = JavaScriptBridge.eval(js)
-	if succeeded != true:
-		_notify_save_error("Trình duyệt chưa cho tải save. Hãy thử lại trong Chrome.")
+	# The dedicated manager supports Download, Import and Recovery.
+	# Keep this button as a simple entry point in the town menu.
+	SVVSaveManager.open_manager()
 
 
 func _open_discord() -> void:
