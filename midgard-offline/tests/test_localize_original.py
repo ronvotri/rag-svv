@@ -646,6 +646,39 @@ class OriginalLocalization(unittest.TestCase):
                           "Red Potion", "Double Attack"):
             self.assertNotIn(protected, rows)
 
+    def test_batch_060_and_offline_npc_protected_terms(self):
+        """Source-backed HUD additions preserve dynamic tokens and named content."""
+        patches = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(patches / "vi-ui.json")
+        rows = json.loads((patches / "vi-ui-batch-060.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(rows), 4)
+        for source, translated in rows.items():
+            with self.subTest(source=source):
+                self.assertTrue(translated.strip())
+                self.assertNotEqual(source, translated)
+                self.assertEqual(locale.placeholders(source),
+                                 locale.placeholders(translated))
+                self.assertEqual(merged[source], translated)
+        self.assertEqual(rows["MVP ✓  D%d"], "MVP ✓ · Danger %d")
+        self.assertIn("nearQ",
+                      rows["Pawgress Studios  ·  programmed by nearQ"])
+
+        # The Godot English msgstr, rather than its Spanish msgid, is the
+        # lookup key for this recovered catalog.
+        self.assertEqual(merged["+10% Flee."], "+10% né tránh.")
+        self.assertEqual(merged["Too many tries: wait %d min."],
+                         "Thử quá nhiều lần. Vui lòng chờ %d phút.")
+        self.assertNotIn("+10% evasión.", merged)
+        self.assertNotIn("Demasiados intentos: espera %d min.", merged)
+
+        # Original named items and places must never be paraphrased.
+        assistant = (MODULE_PATH.parents[1] / "original-addons" /
+                     "offline_assistant.gd").read_text(encoding="utf-8")
+        self.assertIn("Eternal Card dùng trong hệ khảm", assistant)
+        self.assertIn("Endless Tower và tái sinh", assistant)
+        self.assertNotIn("thẻ Vĩnh cửu dùng trong hệ khảm", assistant)
+        self.assertNotIn("Tháp Vô Tận và tái sinh", assistant)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
