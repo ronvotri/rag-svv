@@ -592,10 +592,10 @@ class OriginalLocalization(unittest.TestCase):
                 self.assertEqual(locale.placeholders(english),
                                  locale.placeholders(vietnamese))
                 self.assertEqual(merged[english], vietnamese)
-        self.assertEqual(rows["Lv %d/%d"], "Cấp %d/%d")
-        self.assertIn("nearQ", rows["The leader starts with nearQ"])
-        self.assertEqual(rows["Oath"], "Lời thề")
-        self.assertEqual(rows["Stance"], "Thế chiến đấu")
+        self.assertEqual(rows["Nv %d/%d"], "Cấp %d/%d")
+        self.assertIn("nearQ", rows["El líder empieza con nearQ"])
+        self.assertEqual(rows["Juramento"], "Lời thề")
+        self.assertEqual(rows["Postura"], "Thế chiến đấu")
         for protected in ("Baphomet", "Prontera", "Oridecon",
                           "Red Potion", "Double Attack", "Eternal Card"):
             self.assertNotIn(protected, rows)
