@@ -600,6 +600,29 @@ class OriginalLocalization(unittest.TestCase):
                           "Red Potion", "Double Attack", "Eternal Card"):
             self.assertNotIn(protected, rows)
 
+    def test_advanced_first_job_titles_match_vietnamese_baseline(self):
+        """High first-job classes use the same Vietnamese roots as base classes."""
+        patches = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(patches / "vi-ui.json")
+        rows = json.loads((patches / "vi-ui-batch-058.json").read_text(encoding="utf-8"))
+        expected = {
+            "High Swordsman": "Kiếm sĩ cao cấp",
+            "High Mage": "Pháp sư cao cấp",
+            "High Archer": "Cung thủ cao cấp",
+            "High Thief": "Đạo tặc cao cấp",
+            "High Acolyte": "Tu sĩ cao cấp",
+            "High Merchant": "Thương nhân cao cấp",
+        }
+        self.assertEqual(rows, expected)
+        for name, localized in rows.items():
+            with self.subTest(name=name):
+                self.assertEqual(merged[name], localized)
+                self.assertEqual(locale.placeholders(name),
+                                 locale.placeholders(localized))
+        for name in ("Poring", "Baphomet", "Prontera", "Red Potion",
+                     "Double Attack", "Hyper Novice", "Oridecon"):
+            self.assertNotIn(name, rows)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
