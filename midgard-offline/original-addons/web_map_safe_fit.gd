@@ -78,7 +78,22 @@ func _reset_fit() -> void:
 	_previous_viewport = Vector2.ZERO
 
 
+func _find_world_select_root(root: Node) -> Control:
+	# Prefer the actual original screen script over region names. The latter
+	# disappear when moving away from Prontera and must not disable safe fit.
+	for node in root.find_children("*", "Control", true, false):
+		var item: Control = node as Control
+		if not item.is_visible_in_tree():
+			continue
+		var script: Variant = item.get_script()
+		if script is Script and (script as Script).resource_path.ends_with("/world_select.gd"):
+			return item
+	return null
+
+
 func _is_region_menu_visible(root: Node) -> bool:
+	if _find_world_select_root(root) != null:
+		return true
 	# Require both named map entries. A minimap in gameplay alone does
 	# not qualify, so the battle camera, HUD, controls and saves stay intact.
 	var field := false
