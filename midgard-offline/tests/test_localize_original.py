@@ -273,6 +273,48 @@ class OriginalLocalization(unittest.TestCase):
             self.assertIn(source, merged)
             self.assertNotEqual(merged[source], source)
 
+    def test_five_recovered_catalog_batches_are_translated_and_safe(self):
+        """UI texts from the successful original Web QA 141 catalog.
+
+        These are exact source strings, not invented keys. Prose is translated,
+        while proper names, skill names and printf parameters stay stable.
+        """
+        root = MODULE_PATH.parents[1]
+        patches = root / "patches"
+        translations = locale.load_translations(patches / "vi-ui.json")
+        expected = {
+            "vi-ui-batch-021.json": 137,
+            "vi-ui-batch-022.json": 147,
+            "vi-ui-batch-023.json": 115,
+            "vi-ui-batch-024.json": 89,
+            "vi-ui-batch-025.json": 109,
+        }
+        touched = set()
+        for filename, count in expected.items():
+            entries = json.loads((patches / filename).read_text(encoding="utf-8"))
+            self.assertEqual(len(entries), count, filename)
+            for english, vietnamese in entries.items():
+                with self.subTest(batch=filename, english=english):
+                    self.assertNotEqual(english, vietnamese)
+                    self.assertNotIn(english, touched, "Duplicate source in current batches")
+                    self.assertEqual(locale.placeholders(english),
+                                     locale.placeholders(vietnamese))
+                    self.assertEqual(translations[english], vietnamese)
+                    touched.add(english)
+        self.assertEqual(len(touched), 597)
+        # These are named game objects, not user-interface prose.
+        for name in ("Baphomet", "Naght Sieger", "Poring", "Lucile",
+                     "Prontera", "Kafra", "Star Crumb", "Ymir"):
+            self.assertNotIn(name, touched)
+        for source in (
+            "The souls of Niflheim feed him! Stand in their way to break them!",
+            "The fallen echo rises! They had to fall together",
+            "Your gear, cards and dishes give no bonuses yet.",
+            "You have no +%d pieces in the Kafra Storage. Refine one to +%d to grade it.",
+        ):
+            self.assertIn(source, touched)
+            self.assertNotEqual(translations[source], source)
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
