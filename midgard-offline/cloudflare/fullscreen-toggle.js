@@ -50,10 +50,26 @@
     const sync = () => {
       positionButton();
       const enabled = !!document.fullscreenElement;
-      button.textContent = enabled ? '⤢' : '⛶';
-      button.title = enabled ? 'Thoát toàn màn hình' : 'Toàn màn hình và xoay ngang';
+      // The exit control belongs to Options (or browser Esc), not a
+      // floating button over the minimap while the game is fullscreen.
+      button.hidden = enabled;
+      button.style.display = enabled ? 'none' : 'block';
+      button.textContent = '⛶';
+      button.title = 'Toàn màn hình và xoay ngang';
       button.setAttribute('aria-label', button.title);
       hint.style.display = attemptedLandscape && mobile() && portrait() ? 'block' : 'none';
+    };
+
+    // Called by the native Godot Options overlay (and browser Esc remains
+    // available as a fallback). No permanent full-screen HUD button.
+    window.__svvExitFullscreen = async () => {
+      if (!document.fullscreenElement) return false;
+      if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+        try { screen.orientation.unlock(); } catch (_) { /* optional */ }
+      }
+      try { await document.exitFullscreen(); } catch (_) { return false; }
+      sync();
+      return true;
     };
 
     button.addEventListener('click', async (event) => {
