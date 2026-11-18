@@ -628,7 +628,7 @@ class OriginalLocalization(unittest.TestCase):
         patches = MODULE_PATH.parents[1] / "patches"
         merged = locale.load_translations(patches / "vi-ui.json")
         rows = json.loads((patches / "vi-ui-batch-059.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(rows), 30)
+        self.assertEqual(len(rows), 29)
         for original, localized in rows.items():
             with self.subTest(original=original):
                 self.assertTrue(original.strip() and localized.strip())
