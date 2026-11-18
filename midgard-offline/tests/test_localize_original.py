@@ -380,8 +380,10 @@ class OriginalLocalization(unittest.TestCase):
         for protected in ("Baphomet", "Eddga", "Moonlight Flower", "Prontera",
                           "Chingue", "Kafra", "Morroc", "Oridecon", "Eternal Card"):
             self.assertNotIn(protected, seen, "Proper names must stay English")
-        self.assertIn("Đã", translations["Gather 10 cards in the album."].replace("Sưu tập", "Đã"),)
-        self.assertIn("Tránh", translations["Brandish Spear: get out from in front of Baphomet!"].capitalize().replace("tránh", "Tránh"))
+        self.assertEqual(translations["Gather 10 cards in the album."],
+                         "Sưu tập 10 Card trong Bộ sưu tập.")
+        self.assertEqual(translations["Brandish Spear: get out from in front of Baphomet!"],
+                         "Brandish Spear: tránh khỏi phía trước Baphomet!")
 
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
