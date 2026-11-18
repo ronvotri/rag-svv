@@ -94,7 +94,7 @@ class CloudInputs(unittest.TestCase):
         self.assertIn('OS.has_feature("web")', addon)
         self.assertIn("JavaScriptBridge.eval(", addon)
         self.assertIn("CONTENT_SCALE_MODE_VIEWPORT", addon)
-        self.assertIn("CONTENT_SCALE_ASPECT_EXPAND", addon)
+        self.assertIn("CONTENT_SCALE_ASPECT_KEEP", addon)
         # The Web optimizer now rotates the selected viewport dynamically
         # and permits up to 60 FPS instead of hardcoding the old 450x800/30.
         # Keep test expectations in sync with the adaptive quality policy.
