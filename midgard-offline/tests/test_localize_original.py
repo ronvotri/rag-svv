@@ -559,6 +559,26 @@ class OriginalLocalization(unittest.TestCase):
         self.assertIn("Endless Tower", rows["The End of Endless"])
         self.assertIn("Naght Sieger", rows["Naght Sieger's Bane"])
 
+    def test_qa203_residual_hud_and_status_batch(self):
+        """17 genuine untranslated UI/status labels from the recovered catalog."""
+        patches = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(patches / "vi-ui.json")
+        rows = json.loads((patches / "vi-ui-batch-056.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(rows), 17)
+        for english, vietnamese in rows.items():
+            with self.subTest(english=english):
+                self.assertTrue(english.strip() and vietnamese.strip())
+                self.assertNotEqual(english, vietnamese)
+                self.assertEqual(locale.placeholders(english),
+                                 locale.placeholders(vietnamese))
+                self.assertEqual(merged[english], vietnamese)
+        self.assertEqual(rows[" and "], " và ")
+        self.assertIn("Eternal", rows["ETERNAL CARD!"].title())
+        self.assertEqual(rows["Sturdy monsters"], "Quái lì đòn")
+        for game_name in ("Baphomet", "Oridecon", "Double Attack",
+                          "Red Potion", "Prontera", "Kafra"):
+            self.assertNotIn(game_name, rows)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
