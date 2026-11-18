@@ -33,6 +33,9 @@ func _ready() -> void:
 		"(navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) <= 1024))"
 	)
 	if detected != true:
+		# Letterbox non-16:9 browser/fullscreen windows instead of cropping
+		# the two-panel region-selection UI at the left/right edges.
+		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 		return
 	_mobile_web = true
 	Engine.max_fps = FPS_TARGET
@@ -86,7 +89,8 @@ func _apply_mobile_scale() -> void:
 	var target: Vector2i = Vector2i(landscape.y, landscape.x) if window.size.y > window.size.x else landscape
 	if window.content_scale_mode == Window.CONTENT_SCALE_MODE_VIEWPORT and window.content_scale_size == target:
 		return
-	window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	# Keep all HUD and edge controls visible on wide, notched phones.
+	window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	window.content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT
 	window.content_scale_size = target
 	print("SVV mobile Web target: ", target, " at up to ", FPS_TARGET, " FPS")
