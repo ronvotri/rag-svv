@@ -11,7 +11,6 @@
   "Some fallen monsters rise again as faster specters.": "Một số quái đã gục hồi sinh thành bóng ma di chuyển nhanh hơn.",
   "Now and then a shadow of the map's MVP comes with one of its mechanics: learn it before you fight it.": "Thỉnh thoảng bóng của MVP xuất hiện và sử dụng một cơ chế chiến đấu. Hãy học cách đối phó trước khi đấu boss thật.",
   "Praying at an altar wakes its guardian, which hunts you until you beat it.": "Cầu nguyện ở đàn tế sẽ đánh thức lính canh. Nó đuổi theo bạn cho đến khi bị hạ.",
-  "Some monsters learn monster skills: Heal (they heal those around), Power Up (they hit harder), Teleport (they appear next to you), Summon": "Một số quái học kỹ năng riêng: Heal (hồi máu cho quái xung quanh), Power Up (đánh mạnh hơn), Teleport (xuất hiện cạnh bạn), Summon (triệu hồi).",
   "MVPs, the Valkyries and Satan Morroc rest less between one mechanic and the next (they still never cast two at once).": "MVP, Valkyrie và Satan Morroc dùng cơ chế liên tiếp nhanh hơn (nhưng không tung hai cơ chế đồng thời).",
   "Hellfire Rain, Wandering Meteors and Ring of Souls come more often.": "Hellfire Rain, Wandering Meteors và Ring of Souls xảy ra thường xuyên hơn.",
   "Some monster blows cast Lex Divina on you: 2 seconds without casting skills (your basic attack goes on; cooldowns wait).": "Một số đòn quái gây Lex Divina: bạn không thể dùng kỹ năng trong 2 giây (đánh thường vẫn hoạt động, đồng hồ hồi chiêu tạm dừng).",
@@ -56,5 +55,6 @@
   "War Ritual: kill the shamans before they finish!": "War Ritual: hạ các pháp sư Shaman trước khi nghi thức hoàn tất!",
   "Orc reinforcements!": "Quân tiếp viện Orc đã đến!",
   "Axe Chops: stand between the rifts!": "Axe Chops: đứng giữa các khe nứt!",
-  "Orc Barrage: stand between the arrows!": "Orc Barrage: đứng giữa các loạt tên!"
+  "Orc Barrage: stand between the arrows!": "Orc Barrage: đứng giữa các loạt tên!",
+  "Special monsters learn monster skills: Heal (they heal those around), Power Up (they hit harder), Teleport (they appear next to you), Summon Slave (they call minions) or Blood Drain (the blows they land on you heal them).": "Quái đặc biệt có thể học kỹ năng: Heal (hồi máu cho quái gần đó), Power Up (đánh mạnh hơn), Teleport (xuất hiện cạnh bạn), Summon Slave (gọi tay sai) hoặc Blood Drain (đòn đánh trúng bạn sẽ hồi máu cho chúng)."
 }
