@@ -353,6 +353,36 @@ class OriginalLocalization(unittest.TestCase):
         self.assertEqual(locale.placeholders("+30% chance, and %d more hits"), ["%d"])
         self.assertEqual(locale.placeholders("+30%% chance, and %s more hits"), ["%s"])
 
+    def test_new_upgrades_npc_achievements_cards_and_boss_warnings(self):
+        """Audit the exact new strings, formatter tokens and glossary policy."""
+        root = MODULE_PATH.parents[1] / "patches"
+        translations = locale.load_translations(root / "vi-ui.json")
+        expected = {
+            "vi-ui-batch-031.json": 33,
+            "vi-ui-batch-032.json": 51,
+            "vi-ui-batch-033.json": 79,
+            "vi-ui-batch-034.json": 41,
+            "vi-ui-batch-035.json": 58,
+        }
+        seen = set()
+        for filename, count in expected.items():
+            entries = json.loads((root / filename).read_text(encoding="utf-8"))
+            self.assertEqual(len(entries), count, filename)
+            for source, vietnamese in entries.items():
+                with self.subTest(filename=filename, source=source):
+                    self.assertNotEqual(source, vietnamese)
+                    self.assertNotIn(source, seen)
+                    self.assertEqual(locale.placeholders(source),
+                                     locale.placeholders(vietnamese))
+                    self.assertEqual(translations[source], vietnamese)
+                    seen.add(source)
+        self.assertEqual(len(seen), 262)
+        for protected in ("Baphomet", "Eddga", "Moonlight Flower", "Prontera",
+                          "Chingue", "Kafra", "Morroc", "Oridecon", "Eternal Card"):
+            self.assertNotIn(protected, seen, "Proper names must stay English")
+        self.assertIn("Đã", translations["Gather 10 cards in the album."].replace("Sưu tập", "Đã"),)
+        self.assertIn("Tránh", translations["Brandish Spear: get out from in front of Baphomet!"].capitalize().replace("tránh", "Tránh"))
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
