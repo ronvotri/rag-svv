@@ -42,6 +42,9 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
                 (public / "game.html").read_text(encoding="utf-8").index("game-entry-guard.js"),
                 (public / "game.html").read_text(encoding="utf-8").index("</head>")
             )
+            self.assertTrue((public / "ragnarok-loading.jpg").is_file())
+            self.assertIn("ragnarok-loading.jpg", (public / "game.html").read_text(encoding="utf-8"))
+            self.assertEqual((public / "ragnarok-loading.jpg").read_bytes()[:3], b"\xff\xd8\xff")
             self.assertTrue((public / "fullscreen-toggle.js").is_file())
             self.assertTrue((public / "game-entry-guard.js").is_file())
             self.assertIn("Cache-Control: no-cache", (public / "_headers").read_text(encoding="utf-8"))
@@ -66,7 +69,8 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
                 ))
             self.assertTrue(all(p.stat().st_size <= 25 for p in public.rglob("*") if p.is_file()
                                 and p.name not in ("index.html", "game.html", "godot-split-sw.js",
-                                                   "asset-map.json", "_headers", "fullscreen-toggle.js", "game-entry-guard.js")))
+                                                   "asset-map.json", "_headers", "fullscreen-toggle.js", "game-entry-guard.js",
+                                                   "ragnarok-loading.jpg")))
             asset_map = json.loads((public / "asset-map.json").read_text(encoding="utf-8"))
             self.assertEqual(asset_map["version"], "abcdef0123456")
             self.assertEqual(asset_map["large_assets"], result["large_assets"])
