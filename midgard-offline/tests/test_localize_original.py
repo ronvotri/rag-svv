@@ -347,6 +347,12 @@ class OriginalLocalization(unittest.TestCase):
             "Each STR point (physical) or INT point (magic) gives +%s chance for an attack skill to go off twice, up to %s."])
         self.assertIn("Kỹ năng", translations["Skill damage"])
 
+    def test_literal_percentage_in_attribute_placeholder_guard(self):
+        self.assertEqual(locale.placeholders("Damage (+X% damage)"), [])
+        self.assertEqual(locale.placeholders("Sát thương (+X% sát thương)"), [])
+        self.assertEqual(locale.placeholders("+30% chance, and %d more hits"), ["%d"])
+        self.assertEqual(locale.placeholders("+30%% chance, and %s more hits"), ["%s"])
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
