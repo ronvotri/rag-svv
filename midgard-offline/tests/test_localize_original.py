@@ -679,6 +679,25 @@ class OriginalLocalization(unittest.TestCase):
         self.assertNotIn("thẻ Vĩnh cửu dùng trong hệ khảm", assistant)
         self.assertNotIn("Tháp Vô Tận và tái sinh", assistant)
 
+    def test_mobile_web_readable_hud_fonts(self):
+        """1.5x text on mobile only: preserve PC controls and world sprites."""
+        script = (MODULE_PATH.parents[1] / "original-addons" /
+                  "web_mobile_performance.gd").read_text(encoding="utf-8")
+        self.assertIn('if not OS.has_feature("web"):', script)
+        self.assertIn('if detected != true:', script)
+        self.assertIn("const TEXT_SCALE := 1.5", script)
+        self.assertIn("var _ui_refresh_queued: bool", script)
+        self.assertIn('node_added.connect(_on_ui_node_added)', script)
+        self.assertIn('func _refresh_ui_text()', script)
+        self.assertIn('func _is_world_space_control(control: Control)', script)
+        self.assertIn("parent is Node2D", script)
+        self.assertIn("parent is CanvasLayer", script)
+        self.assertIn("label.label_settings.duplicate()", script)
+        self.assertIn("control.add_theme_font_size_override", script)
+        self.assertIn("control is RichTextLabel", script)
+        self.assertNotIn("control.scale =", script)
+        self.assertNotIn("get_window().size = ", script)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
