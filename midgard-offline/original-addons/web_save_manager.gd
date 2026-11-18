@@ -48,8 +48,12 @@ func _fit_button() -> void:
 	var size := get_viewport().get_visible_rect().size
 	# Companion "Tìm party" stays centered; place save beside it without
 	# covering the map, screen edges or mobile touch controls.
+	var compact: bool = size.x < 720.0
+	open_button.text = "Sao lưu" if compact else "Sao lưu / Nạp save"
+	open_button.custom_minimum_size = Vector2(116, 40) if compact else Vector2(184, 42)
+	var width: float = open_button.custom_minimum_size.x
 	open_button.position = Vector2(
-		clampf(size.x * 0.5 + 96.0, 8.0, maxf(8.0, size.x - 192.0)),
+		clampf(size.x * 0.5 + 96.0, 8.0, maxf(8.0, size.x - width - 8.0)),
 		maxf(8.0, minf(12.0, size.y * 0.02))
 	)
 
