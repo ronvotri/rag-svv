@@ -623,6 +623,30 @@ class OriginalLocalization(unittest.TestCase):
                      "Double Attack", "Hyper Novice", "Oridecon"):
             self.assertNotIn(name, rows)
 
+    def test_source_spanish_hud_batch_059(self):
+        """Verify Spanish-source HUD strings, literal percentages and format slots."""
+        patches = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(patches / "vi-ui.json")
+        rows = json.loads((patches / "vi-ui-batch-059.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(rows), 30)
+        for original, localized in rows.items():
+            with self.subTest(original=original):
+                self.assertTrue(original.strip() and localized.strip())
+                self.assertNotEqual(original, localized)
+                self.assertEqual(locale.placeholders(original),
+                                 locale.placeholders(localized))
+                self.assertEqual(merged[original], localized)
+        self.assertEqual(rows["+8% de vida"], "+8% HP")
+        self.assertEqual(rows["−25% de vida"], "−25% HP")
+        self.assertEqual(rows["%+d vida"], "%+d HP")
+        self.assertEqual(rows["%d%% FUE · %d%% INT"],
+                         "%d%% STR · %d%% INT")
+        self.assertEqual(rows["%s  (%s)\\n%d de %d tipos · %s"],
+                         "%s  (%s)\\n%d/%d loại · %s")
+        for protected in ("Baphomet", "Prontera", "Oridecon",
+                          "Red Potion", "Double Attack"):
+            self.assertNotIn(protected, rows)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
