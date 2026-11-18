@@ -70,6 +70,34 @@ func _notification(what: int) -> void:
 			Save.flush()
 			snapshot()
 
+func adopt_imported_profile(content: PackedByteArray) -> bool:
+	# An explicit user import creates a new save lineage. Preserve the prior
+	# guarded latest as previous, and reset monotonic-counter baseline so a
+	# legitimate import from another device doesn't appear to be a rollback.
+	var profile_name: String = str(Save._name)
+	if not profile_name.begins_with("profile_offline") or content.size() < MIN_BYTES:
+		return false
+	var former: PackedByteArray = _read_bytes(_path(profile_name, "latest"))
+	if former.size() >= MIN_BYTES:
+		var meta: Dictionary = _read_meta(profile_name, "latest")
+		if not _write_atomically(_path(profile_name, "previous"), former):
+			return false
+		if not _write_atomically(_path(profile_name, "previous") + ".json", JSON.stringify(meta).to_utf8_buffer()):
+			return false
+	var latest: String = _path(profile_name, "latest")
+	if not _write_atomically(latest, content):
+		return false
+	var current_meta: Dictionary = {
+		"schema": 1, "size": content.size(),
+		"sha256": FileAccess.get_sha256(latest),
+		"runs": 0, "kills": 0, "profile": profile_name,
+		"imported": true
+	}
+	if not _write_atomically(latest + ".json", JSON.stringify(current_meta).to_utf8_buffer()):
+		return false
+	return true
+
+
 func latest_path() -> String:
 	return _path(str(Save._name), "latest")
 
