@@ -23,6 +23,10 @@ def install(project):
     if not social_source.is_file():
         raise ValueError("Authored social UI cleanup missing")
     shutil.copyfile(social_source, destination.parent / social_source.name)
+    save_manager_source = source.parent / "web_save_manager.gd"
+    if not save_manager_source.is_file():
+        raise ValueError("Authored save upload/download manager missing")
+    shutil.copyfile(save_manager_source, destination.parent / save_manager_source.name)
     guardian_source = source.parent / "offline_save_guardian.gd"
     if not guardian_source.is_file():
         raise ValueError("Authored offline save guardian missing")
@@ -49,6 +53,7 @@ def install(project):
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
         'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
         'SVVSocialCleanup="*res://addons/svv_offline/social_buttons_cleanup.gd"',
+        'SVVSaveManager="*res://addons/svv_offline/web_save_manager.gd"',
     ):
         if registration not in block:
             block = block.rstrip() + "\n" + registration + "\n"
