@@ -149,6 +149,9 @@ func _process(delta: float) -> void:
 	var elapsed := support_check_seconds
 	support_check_seconds = 0.0
 	var world := _world()
+	# This is a pre-adventure party setup control, not a gameplay HUD item.
+	# Hide it as soon as a battle starts, restore it in town/lobby.
+	open_button.visible = (world == null or not world.running)
 	if world == null or not world.running:
 		support_cooldown_seconds = 0.0
 		support_world_id = 0
@@ -228,6 +231,9 @@ func _apply_party() -> void:
 	status.text = "Đã chọn %d/3 thành viên. Party mới áp dụng từ lượt tiếp theo." % ids.size()
 
 func _open() -> void:
+	var world := _world()
+	if world != null and world.running:
+		return
 	if panel.visible:
 		return
 	was_paused = get_tree().paused
