@@ -17,6 +17,10 @@ def install(project):
     if not web_perf_source.is_file():
         raise ValueError("Authored mobile web optimizer missing")
     shutil.copyfile(web_perf_source, destination.parent / web_perf_source.name)
+    map_safe_source = source.parent / "web_map_safe_fit.gd"
+    if not map_safe_source.is_file():
+        raise ValueError("Authored map safe-fit addon missing")
+    shutil.copyfile(map_safe_source, destination.parent / map_safe_source.name)
     # Remove external publisher links from the social strip without changing
     # gameplay or guessing the user's own Discord invite.
     social_source = source.parent / "social_buttons_cleanup.gd"
@@ -56,6 +60,7 @@ def install(project):
         'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
         'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
+        'SVVWebMapSafeFit="*res://addons/svv_offline/web_map_safe_fit.gd"',
         'SVVSocialCleanup="*res://addons/svv_offline/social_buttons_cleanup.gd"',
         'SVVSaveManager="*res://addons/svv_offline/web_save_manager.gd"',
         'SVVFullscreenOptions="*res://addons/svv_offline/web_fullscreen_options.gd"',
