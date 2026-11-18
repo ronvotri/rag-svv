@@ -315,6 +315,38 @@ class OriginalLocalization(unittest.TestCase):
             self.assertIn(source, touched)
             self.assertNotEqual(translations[source], source)
 
+    def test_new_skill_guide_batches_match_source_and_formatting(self):
+        """Recovered Godot catalog: guide, skill evolution and glossary."""
+        root = MODULE_PATH.parents[1] / "patches"
+        translations = locale.load_translations(root / "vi-ui.json")
+        expected_counts = {
+            "vi-ui-batch-026.json": 35,
+            "vi-ui-batch-027.json": 47,
+            "vi-ui-batch-028.json": 58,
+            "vi-ui-batch-029.json": 57,
+            "vi-ui-batch-030.json": 45,
+        }
+        seen = set()
+        for filename, expected in expected_counts.items():
+            d = json.loads((root / filename).read_text(encoding="utf-8"))
+            self.assertEqual(len(d), expected, filename)
+            for english, vietnamese in d.items():
+                with self.subTest(filename=filename, source=english):
+                    self.assertNotEqual(english, vietnamese)
+                    self.assertNotIn(english, seen, "Duplicate translation key")
+                    self.assertEqual(locale.placeholders(english),
+                                     locale.placeholders(vietnamese))
+                    self.assertEqual(translations[english], vietnamese)
+                    seen.add(english)
+        self.assertEqual(len(seen), 242)
+        for protected in ("Baphomet", "MVP", "Quiver", "Kafra", "Star Crumb",
+                          "Poring", "Gospel", "Asura Strike", "Homunculus"):
+            self.assertNotIn(protected, seen,
+                             "Do not replace the name of a game entity")
+        self.assertIn("Mỗi điểm STR", translations[
+            "Each STR point (physical) or INT point (magic) gives +%s chance for an attack skill to go off twice, up to %s."])
+        self.assertIn("Kỹ năng", translations["Skill damage"])
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
