@@ -35,9 +35,10 @@ def placeholders(text):
     prepared = text.replace("%%", "  ")
     tokens = []
     for match in re.finditer(r"%(?:\d+\$)?[-+0 #]*\d*(?:\.\d+)?[sdfioxXc]", prepared):
-        # Never parse a partial English word as a printf conversion, e.g.
-        # "the % is the risk" looks like "% i" but actually contains no token.
-        if match.end() < len(prepared) and prepared[match.end()].isalpha():
+        # This exact phrase is literal prose, not printf's rare "% i" flag.
+        # Do not discard arbitrary letter suffixes: %ds, %dth and %sM are
+        # legitimate game format arguments followed by unit letters.
+        if match.group() == "% i" and prepared[match.start():].startswith("% is"):
             continue
         # Literal percentages such as "100% damage" *and* "+X% damage"
         # are prose, not printf's rarely used space-flag "% d".
