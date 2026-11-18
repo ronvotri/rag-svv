@@ -537,6 +537,28 @@ class OriginalLocalization(unittest.TestCase):
                           "MVP", "ATK", "DEF", "EXP"):
             self.assertNotIn(protected, seen)
 
+    def test_qa203_achievement_title_translations(self):
+        """Achievement titles can be localized without renaming Ragnarok gear,
+        monster, skill or map names; formatter placeholders must be intact.
+        """
+        root = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(root / "vi-ui.json")
+        rows = json.loads((root / "vi-ui-batch-055.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(rows), 70)
+        for english, vietnamese in rows.items():
+            with self.subTest(english=english):
+                self.assertTrue(english.strip() and vietnamese.strip())
+                self.assertNotEqual(english, vietnamese)
+                self.assertEqual(locale.placeholders(english),
+                                 locale.placeholders(vietnamese))
+                self.assertEqual(merged[english], vietnamese)
+        for unmodified_name in ("Baphomet", "Oridecon", "Prontera",
+                                "Double Attack", "Kafra", "MVP", "Red Potion",
+                                "Endless Tower", "Eternal Card"):
+            self.assertNotIn(unmodified_name, rows)
+        self.assertIn("Endless Tower", rows["The End of Endless"])
+        self.assertIn("Naght Sieger", rows["Naght Sieger's Bane"])
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
