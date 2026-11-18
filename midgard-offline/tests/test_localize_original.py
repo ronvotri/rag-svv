@@ -476,6 +476,38 @@ class OriginalLocalization(unittest.TestCase):
         self.assertEqual(translated["You fill bosses' Poise %s%% faster"],
                          "Tích Poise của boss nhanh hơn %s%%")
 
+    def test_qa199_followup_combat_npc_and_card_batches(self):
+        """All new localized strings must be authored, unique and printf-safe.
+
+        The cloud build also checks every key against recovered en.po so a
+        plausible but mistyped English sentence cannot silently go unused.
+        """
+        root = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(root / "vi-ui.json")
+        counts = {
+            "vi-ui-batch-050.json": 130,
+            "vi-ui-batch-051.json": 75,
+        }
+        seen = set()
+        for filename, count in counts.items():
+            records = json.loads((root / filename).read_text(encoding="utf-8"))
+            self.assertEqual(len(records), count, filename)
+            for english, vietnamese in records.items():
+                with self.subTest(filename=filename, source=english):
+                    self.assertTrue(english.strip())
+                    self.assertTrue(vietnamese.strip())
+                    self.assertNotEqual(english, vietnamese)
+                    self.assertNotIn(english, seen, "duplicate new source key")
+                    self.assertEqual(locale.placeholders(english),
+                                     locale.placeholders(vietnamese))
+                    self.assertEqual(merged[english], vietnamese)
+                    seen.add(english)
+        self.assertEqual(len(seen), 205)
+        # Names and canonical Ragnarok mechanics stay English.
+        for term in ("Baphomet", "Prontera", "Oridecon", "Red Potion",
+                     "Double Attack", "Kafra", "MVP", "STR", "AGI"):
+            self.assertNotIn(term, seen)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
