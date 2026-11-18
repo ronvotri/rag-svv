@@ -636,12 +636,12 @@ class OriginalLocalization(unittest.TestCase):
                 self.assertEqual(locale.placeholders(original),
                                  locale.placeholders(localized))
                 self.assertEqual(merged[original], localized)
-        self.        self.assertEqual(rows["+10% Flee."], "+10% né tránh.")
+        self.assertEqual(rows["+10% Flee."], "+10% né tránh.")
         self.assertEqual(rows["+6% Flee, +2 DEF."],
                          "+6% né tránh, +2 DEF.")
         self.assertEqual(rows["Bond x%d"], "Liên kết ×%d")
-        self.assertEqual(rows["%s  (%s)\\n%d of %d types · %s"],
-                         "%s  (%s)\\n%d/%d loại · %s")
+        self.assertEqual(rows["%s  (%s)\n%d of %d types · %s"],
+                         "%s  (%s)\n%d/%d loại · %s")
         for protected in ("Baphomet", "Prontera", "Oridecon",
                           "Red Potion", "Double Attack"):
             self.assertNotIn(protected, rows)
