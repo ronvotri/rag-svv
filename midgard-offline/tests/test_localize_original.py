@@ -508,6 +508,35 @@ class OriginalLocalization(unittest.TestCase):
                      "Double Attack", "Kafra", "MVP", "STR", "AGI"):
             self.assertNotIn(term, seen)
 
+    def test_qa203_legacy_interface_and_privacy_translation_batches(self):
+        """Recovered QA 203 exact strings: 217 additional localized entries."""
+        root = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(root / "vi-ui.json")
+        expected = {
+            "vi-ui-batch-052.json": 77,
+            "vi-ui-batch-053.json": 119,
+            "vi-ui-batch-054.json": 21,
+        }
+        seen = set()
+        for filename, count in expected.items():
+            pairs = json.loads((root / filename).read_text(encoding="utf-8"))
+            self.assertEqual(len(pairs), count, filename)
+            for english, vietnamese in pairs.items():
+                with self.subTest(filename=filename, english=english):
+                    self.assertTrue(english.strip())
+                    self.assertTrue(vietnamese.strip())
+                    self.assertNotEqual(english, vietnamese)
+                    self.assertNotIn(english, seen)
+                    self.assertEqual(locale.placeholders(english),
+                                     locale.placeholders(vietnamese))
+                    self.assertEqual(merged[english], vietnamese)
+                    seen.add(english)
+        self.assertEqual(len(seen), 217)
+        for protected in ("Prontera", "Baphomet", "Red Potion",
+                          "Double Attack", "Eternal Card", "Kafra",
+                          "MVP", "ATK", "DEF", "EXP"):
+            self.assertNotIn(protected, seen)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
