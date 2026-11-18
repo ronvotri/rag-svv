@@ -385,6 +385,41 @@ class OriginalLocalization(unittest.TestCase):
         self.assertEqual(translations["Brandish Spear: get out from in front of Baphomet!"],
                          "Brandish Spear: tránh khỏi phía trước Baphomet!")
 
+    def test_remaining_abstraction_legendary_unique_and_tower_batches(self):
+        """Exact 278 source-key translations recovered from Web QA 162.
+
+        Preserve named RO equipment, skills, MVPs, printf placeholders, and
+        verify the produced dictionary contains every translated tooltip.
+        """
+        root = MODULE_PATH.parents[1] / "patches"
+        translations = locale.load_translations(root / "vi-ui.json")
+        expected = {
+            "vi-ui-batch-036.json": 60,
+            "vi-ui-batch-037.json": 42,
+            "vi-ui-batch-038.json": 40,
+            "vi-ui-batch-039.json": 27,
+            "vi-ui-batch-040.json": 39,
+            "vi-ui-batch-041.json": 70,
+        }
+        seen = set()
+        for filename, count in expected.items():
+            entries = json.loads((root / filename).read_text(encoding="utf-8"))
+            self.assertEqual(len(entries), count, filename)
+            for source, translated in entries.items():
+                with self.subTest(filename=filename, source=source):
+                    self.assertNotEqual(source, translated)
+                    self.assertNotIn(source, seen, "duplicate key across new batches")
+                    self.assertEqual(locale.placeholders(source),
+                                     locale.placeholders(translated))
+                    self.assertEqual(translations[source], translated)
+                    seen.add(source)
+        self.assertEqual(len(seen), 278)
+        for name in ("Baphomet", "Moonlight Flower", "Oridecon", "Spear Boomerang",
+                     "Eternal Card", "Thanatos", "Naght Sieger", "MVP"):
+            self.assertNotIn(name, seen)
+        self.assertTrue(translations["Baphomet's unique: your basic attack reaps in a crescent around you, and every 7 hits the Demon Lord's scythe falls on everyone around you and heals you for each one ×Lv."].startswith("Unique của Baphomet"))
+        self.assertEqual(translations["Open slot"], "Mở ô Card")
+
     def test_keep_english_list_contains_core_terminology(self):
         keep = json.loads((MODULE_PATH.parents[1] / "patches/vi-keep-english.json").read_text(encoding="utf-8"))
         for term in ("ASPD", "Flee", "ATK", "DEF", "MVP", "Zeny"):
