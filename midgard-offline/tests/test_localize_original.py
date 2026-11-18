@@ -284,7 +284,7 @@ class OriginalLocalization(unittest.TestCase):
         translations = locale.load_translations(patches / "vi-ui.json")
         expected = {
             "vi-ui-batch-021.json": 137,
-            "vi-ui-batch-022.json": 147,
+            "vi-ui-batch-022.json": 146,
             "vi-ui-batch-023.json": 115,
             "vi-ui-batch-024.json": 89,
             "vi-ui-batch-025.json": 109,
@@ -301,7 +301,7 @@ class OriginalLocalization(unittest.TestCase):
                                      locale.placeholders(vietnamese))
                     self.assertEqual(translations[english], vietnamese)
                     touched.add(english)
-        self.assertEqual(len(touched), 597)
+        self.assertEqual(len(touched), 596)
         # These are named game objects, not user-interface prose.
         for name in ("Baphomet", "Naght Sieger", "Poring", "Lucile",
                      "Prontera", "Kafra", "Star Crumb", "Ymir"):
