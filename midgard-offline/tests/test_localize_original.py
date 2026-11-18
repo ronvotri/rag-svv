@@ -345,7 +345,7 @@ class OriginalLocalization(unittest.TestCase):
                              "Do not replace the name of a game entity")
         self.assertIn("Mỗi điểm STR", translations[
             "Each STR point (physical) or INT point (magic) gives +%s chance for an attack skill to go off twice, up to %s."])
-        self.assertIn("Kỹ năng", translations["Skill damage"])
+        self.assertEqual(translations["Skill damage"], "Sát thương kỹ năng")
 
     def test_literal_percentage_in_attribute_placeholder_guard(self):
         self.assertEqual(locale.placeholders("Damage (+X% damage)"), [])
