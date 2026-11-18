@@ -180,6 +180,7 @@ def stage(source: Path, output: Path, version: str,
     shutil.copyfile(ROOT / "cloudflare/pages-bootstrap.html", public / "index.html")
     (public / "_headers").write_text(
         "/index.html\n  Cache-Control: no-cache\n"
+        "/ragnarok-loading.jpg\n  Cache-Control: no-cache\n"
         "/game.html\n  Cache-Control: no-cache\n"
         "/game-entry-guard.js\n  Cache-Control: no-cache\n"
         "/fullscreen-toggle.js\n  Cache-Control: no-cache\n"
