@@ -146,6 +146,30 @@ def write_context(project, work, translation):
     dictionary = localizer.load_translations(ROOT / "patches/vi-ui.json")
     protected = localizer.protected_names(project)
     source_entries = localizer.read_po(project / "locale/en.po")
+    # Protect the current QA 141 translation pass from typos in English keys:
+    # every newly translated source must exist in this recovered en.po version.
+    source_strings = {entry.get("en") or entry["id"] for entry in source_entries}
+    new_sources = set()
+    for number in range(21, 26):
+        file = ROOT / "patches" / f"vi-ui-batch-{number:03d}.json"
+        entries = json.loads(file.read_text(encoding="utf-8"))
+        new_sources.update(entries)
+    not_found = sorted(new_sources - source_strings)
+    missing_translation = sorted(key for key in new_sources if key not in dictionary)
+    recent_audit = {
+        "batch_range": "021-025",
+        "new_unique_strings": len(new_sources),
+        "found_in_catalog": len(new_sources) - len(not_found),
+        "unmatched_source_keys": not_found,
+        "missing_translation_keys": missing_translation,
+        "passed": not not_found and not missing_translation,
+    }
+    (context / "recent-localization-qa.json").write_text(
+        json.dumps(recent_audit, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    if not recent_audit["passed"]:
+        raise ValueError("Recent localization has mismatched source keys: "
+                         + repr(not_found[:8] + missing_translation[:8]))
     collection_audit = localizer.collection_translation_audit(source_entries, dictionary)
     (context / "collection-translation-qa.json").write_text(
         json.dumps(collection_audit, ensure_ascii=False, indent=2), encoding="utf-8"
