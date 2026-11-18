@@ -641,8 +641,8 @@ class OriginalLocalization(unittest.TestCase):
         self.assertEqual(rows["%+d vida"], "%+d HP")
         self.assertEqual(rows["%d%% FUE · %d%% INT"],
                          "%d%% STR · %d%% INT")
-        self.assertEqual(rows["%s  (%s)\\n%d de %d tipos · %s"],
-                         "%s  (%s)\\n%d/%d loại · %s")
+        self.assertEqual(rows["%s  (%s)\n%d de %d tipos · %s"],
+                         "%s  (%s)\n%d/%d loại · %s")
         for protected in ("Baphomet", "Prontera", "Oridecon",
                           "Red Potion", "Double Attack"):
             self.assertNotIn(protected, rows)
