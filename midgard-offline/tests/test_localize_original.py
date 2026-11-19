@@ -733,8 +733,9 @@ class OriginalLocalization(unittest.TestCase):
                 self.assertEqual(locale.placeholders(english),
                                  locale.placeholders(translated))
                 self.assertNotEqual(english, translated)
-        for protected in ("Sight", "Bio Lab", "Valhalla"):
-            self.assertIn(protected, " ".join(rows.values()) + " Sight")
+        self.assertIn("Bio Lab", rows["Bio Lab Lights"])
+        self.assertIn("Sight", rows["Sight Flames"])
+        self.assertIn("Valhalla", rows["Light of Valhalla"])
         for untouched_skill_or_item in (
             "Double Attack", "Red Potion", "Baphomet", "Lucile's Edge",
             "Poring Hat", "Eternal Card", "Afterimage", "Crown of Stars",
