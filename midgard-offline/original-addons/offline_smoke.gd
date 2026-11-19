@@ -189,6 +189,52 @@ func _run() -> void:
 			check(npc.sprite is Sprite3D and npc.sprite.texture != null, job + " uses genuine rendered Ragnarok sprite")
 			if kafra != null:
 				check(npc.global_position.distance_to(kafra.global_position) >= 1.0, job + " does not overlap Kafra")
+	# Exercise the real click/tap projection path, not only _show_dialog().
+	# The game is still headless here: full PC/mobile visual QA remains separate.
+	for job in ["swordsman", "mage"]:
+		var click_target: RoVisual = SVVCompanionTown.npc_visuals.get(job)
+		if click_target != null and is_instance_valid(click_target):
+			var npc_camera: Camera3D = get_viewport().get_camera_3d()
+			if npc_camera != null:
+				var hit_point: Vector2 = SVVCompanionTown._screen_point(click_target)
+				check(hit_point.is_finite(), job + " projects a valid click target")
+				if hit_point.is_finite():
+					for pointer_kind in ["mouse", "touch"]:
+						var pointer_event: InputEvent
+						if pointer_kind == "mouse":
+							var mouse_event := InputEventMouseButton.new()
+							mouse_event.button_index = MOUSE_BUTTON_LEFT
+							mouse_event.pressed = true
+							mouse_event.position = hit_point
+							pointer_event = mouse_event
+						else:
+							var touch_event := InputEventScreenTouch.new()
+							touch_event.pressed = true
+							touch_event.position = hit_point
+							pointer_event = touch_event
+						SVVCompanionTown._unhandled_input(pointer_event)
+						check(SVVCompanionTown.dialog.visible and SVVCompanionTown.selected_job == job,
+							job + " opens correct dialogue from " + pointer_kind)
+						SVVCompanionTown._close_dialog()
+	# Lost/free'd sprites should restore on a later tick, without a
+	# duplicate Alden visual and without replacing the original textures.
+	var persistent_alden: RoVisual = SVVCompanionTown.npc_visuals.get("swordsman")
+	var disposable_eira: RoVisual = SVVCompanionTown.npc_visuals.get("mage")
+	if disposable_eira != null and is_instance_valid(disposable_eira):
+		var previous_eira_id: int = disposable_eira.get_instance_id()
+		disposable_eira.queue_free()
+		await get_tree().process_frame
+		SVVCompanionTown.sprite_retry_seconds = 4.0
+		SVVCompanionTown._process(0.35)
+		var restored_eira: RoVisual = SVVCompanionTown.npc_visuals.get("mage")
+		check(restored_eira != null and is_instance_valid(restored_eira)
+			and restored_eira.get_instance_id() != previous_eira_id,
+			"Eira recreates original sprite after it is freed")
+		check(SVVCompanionTown.npc_visuals.get("swordsman") == persistent_alden,
+			"Alden remains one stable NPC during Eira's retry")
+		if restored_eira != null and is_instance_valid(restored_eira):
+			check(restored_eira.sprite is Sprite3D and restored_eira.sprite.texture != null,
+				"recreated Eira still renders genuine Ragnarok textures")
 	SVVCompanionTown._show_dialog("swordsman")
 	check(SVVCompanionTown.dialog.visible, "Alden town dialogue opens")
 	check(SVVCompanionTown.action.text == "Nhận nhiệm vụ", "Alden quest is available from town after Mira")
