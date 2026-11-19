@@ -15,10 +15,10 @@ const FRIEND_PROFILES := {
 	"acolyte": {"name": "Mira", "rarity": "Normal", "kills": 8, "runs": 1, "quest": "Tiếp tế y viện: giúp Mira chống trả 8 quái và hoàn thành 1 lượt phiêu lưu."},
 	"swordsman": {"name": "Alden", "rarity": "Normal", "kills": 20, "runs": 1, "role": "Tuyến đầu · chịu đòn và giữ quái", "location": "Prontera", "quest": "Lời thề vệ binh: chiến đấu với 20 quái và trở về an toàn sau 1 lượt."},
 	"mage": {"name": "Eira", "rarity": "Normal", "kills": 25, "runs": 1, "role": "Tấn công phép · gây sát thương diện rộng", "location": "Prontera", "quest": "Thí nghiệm phép thuật: xử lý 25 quái trong hành trình cùng Eira."},
-	"archer": {"name": "Elowen", "rarity": "Normal", "kills": 25, "runs": 1, "quest": "Tuần tra cung thủ: hạ 25 quái qua ít nhất 1 lượt phiêu lưu."},
-	"thief": {"name": "Riku", "rarity": "Normal", "kills": 30, "runs": 1, "quest": "Bài kiểm tra của Riku: vượt qua 30 quái, đừng bỏ cuộc giữa đường."},
-	"merchant": {"name": "Mino", "rarity": "Normal", "kills": 30, "runs": 2, "quest": "Bảo vệ thương đoàn: hạ 30 quái qua ít nhất 2 lượt."},
-	"novice": {"name": "Nao", "rarity": "Normal", "kills": 15, "runs": 2, "quest": "Đường của tân binh: giúp Nao vượt qua 15 quái trong 2 lượt."},
+	"archer": {"name": "Elowen", "rarity": "Normal", "kills": 25, "runs": 1, "role": "Đánh xa · giữ khoảng cách", "intro": "Elowen: Cung không tự bắn trúng đâu nhé. Muốn theo tôi đi tuần thì chứng minh tay nghề trước!", "quest": "Tuần tra cung thủ: hạ 25 quái qua ít nhất 1 lượt phiêu lưu."},
+	"thief": {"name": "Riku", "rarity": "Normal", "kills": 30, "runs": 1, "role": "Cận chiến cơ động · né tránh", "intro": "Riku: Đừng nhìn tôi kiểu đó. Ví của cậu còn nguyên mà... chắc thế.", "quest": "Bài kiểm tra của Riku: vượt qua 30 quái, đừng bỏ cuộc giữa đường."},
+	"merchant": {"name": "Mino", "rarity": "Normal", "kills": 30, "runs": 2, "role": "Đấu sĩ hỗ trợ · Merchant", "intro": "Mino: Đi săn quái thì được, nhưng phá hàng của tôi là phải đền. Có hóa đơn đầy đủ!", "quest": "Bảo vệ thương đoàn: hạ 30 quái qua ít nhất 2 lượt."},
+	"novice": {"name": "Nao", "rarity": "Normal", "kills": 15, "runs": 2, "role": "Tân binh · học hỏi và hỗ trợ", "intro": "Nao: Tôi mới vào nghề thôi. Nếu thấy tôi chạy ngược hướng, gọi với nhé!", "quest": "Đường của tân binh: giúp Nao vượt qua 15 quái trong 2 lượt."},
 	"gunslinger": {"name": "Cole", "rarity": "Rare", "kills": 90, "runs": 3, "quest": "Hợp đồng của Cole: hạ 90 quái trong ít nhất 3 lượt."},
 	"taekwon": {"name": "Haneul", "rarity": "Rare", "kills": 100, "runs": 3, "quest": "Rèn luyện của Haneul: hạ 100 quái và hoàn thành 3 lượt."},
 	"ninja": {"name": "Kira", "rarity": "Ultra Rare", "kills": 220, "runs": 5, "quest": "Thử thách bóng đêm: hạ 220 quái và hoàn thành 5 lượt."},
@@ -313,6 +313,8 @@ func _refresh_friends() -> void:
 		description += "Vai trò: " + str(profile["role"]) + "\n"
 	if profile.has("location"):
 		description += "Có thể gặp tại: " + str(profile["location"]) + "\n"
+	if profile.has("intro"):
+		description += str(profile["intro"]) + "\n"
 
 	if unlocked.has(selected_class):
 		description += "Đã kết bạn. Bạn có thể mời NPC này vào party trước khi bắt đầu phiêu lưu."
