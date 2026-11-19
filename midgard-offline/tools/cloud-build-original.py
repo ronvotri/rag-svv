@@ -166,6 +166,7 @@ def inspect_town_visual_api(project):
         "scripts/core/town_crowd.gd": {"setup", "_spawn", "_collect_looks",
                                        "_place_sign", "_at"},
         "scripts/ro/ro_sprite.gd": {"_init", "get_frame", "compose_image"},
+        "scripts/ro/ro_visual.gd": {"setup", "play", "face", "_ready"},
         "scripts/core/player.gd": {"_build_visual", "setup"},
     }
     report = {"schema": 1, "modules": {}, "acolyte_asset_paths": [],

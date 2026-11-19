@@ -21,7 +21,21 @@ func _run() -> void:
 	check(get_tree().root.get_node_or_null("SVVAssistant") != null, "authored party and NPC assistant loaded")
 	check(SVVAssistant.open_button.text == "Bạn bè", "Friends List replaces standalone party selector")
 	check(get_tree().root.get_node_or_null("SVVMiraTown") != null, "Mira town encounter addon autoloaded")
-	check(SVVMiraTown.npc_button.text == "✚ Mira · Acolyte", "Mira uses a distinct town NPC action")
+	check(SVVMiraTown.npc_button.text == "✚ Mira · Acolyte", "Mira has a town interaction fallback")
+	check(RoAssets.has_sprite("acolyte_f"), "original Acolyte female sprite is present")
+	# Exercise the same RoVisual constructor used for town Mira, with a
+	# temporary tree. No custom artwork, live network or normal save involved.
+	var preview_anchor := Node3D.new()
+	var preview_root := Node3D.new()
+	get_tree().root.add_child(preview_root)
+	preview_root.add_child(preview_anchor)
+	preview_anchor.global_position = Vector3(2.0, 0.0, 2.0)
+	var preview: RoVisual = SVVMiraTown._create_world_sprite(preview_root, preview_anchor)
+	check(preview != null and is_instance_valid(preview), "original Acolyte sprite renders as RoVisual")
+	if preview != null:
+		check(preview.name == "MiraAcolyteNPC", "Mira sprite has stable NPC scene identity")
+	preview_root.queue_free()
+
 	check(SVVAssistant._unlocked_friends().is_empty(), "fresh QA profile starts with no recruited friends")
 	check(SVVAssistant._party_members().is_empty(), "no unbefriended NPC can enter party")
 	if Save._name != "profile_offline_test":

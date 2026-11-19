@@ -70,6 +70,25 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertIn('if camera != null', script)
         self.assertNotIn('get_global_transform_with_canvas()', script)
 
+    def test_mira_native_world_sprite_uses_recovered_ro_assets(self):
+        root = module_path.parents[1]
+        script = (root / "original-addons/mira_town.gd").read_text(encoding="utf-8")
+        for phrase in (
+            'const MIRA_SPRITE := "acolyte_f"',
+            'const KAFRA_NPC := "kafra"',
+            'RoAssets.has_sprite(MIRA_SPRITE)',
+            'RoAssets.sprite([MIRA_SPRITE])',
+            'RoVisual.new()',
+            'candidate.npc_node(KAFRA_NPC)',
+            'func _unhandled_input(event: InputEvent)',
+            'camera.unproject_position(point)',
+            'var nameplate := Label3D.new()',
+            'func _clear_world_sprite()',
+        ):
+            self.assertIn(phrase, script)
+        self.assertNotIn('load("res://assets/ro/sprites/acolyte_f.png")', script)
+        self.assertNotIn('TextureRect.new()', script)
+
     def test_original_boot_skips_online_login_and_preloads_guard(self):
         source = module_path.read_text(encoding="utf-8")
         self.assertIn('"show_login": "show_class_select()"', source)

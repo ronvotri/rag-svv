@@ -11,6 +11,15 @@ var action: Button
 var heal_float: Label
 var heal_tween: Tween
 var elapsed := 0.0
+var patrol_time := 0.0
+var visual_town: Node3D
+var kafra_anchor: Node3D
+var mira_visual: RoVisual
+# Keep native sprite and its walkable position in the scene; this is not
+# a UI-only portrait, an imported replacement sprite or a remote player.
+const MIRA_SPRITE := "acolyte_f"
+const KAFRA_NPC := "kafra"
+const STAND_OFFSET := Vector3(1.5, 0.0, 0.6)
 
 
 func _ready() -> void:
@@ -119,9 +128,21 @@ func _process(delta: float) -> void:
 		return
 	elapsed = 0.0
 	var in_town := _town_active()
-	npc_button.visible = in_town and not dialog.visible
+	if in_town:
+		_sync_world_sprite()
+	else:
+		_clear_world_sprite()
+	# The overlay button is a fallback only if the original town NPC renderer
+	# is unavailable. Normal play opens the dialogue by tapping Mira in-world.
+	npc_button.visible = in_town and not dialog.visible and not is_instance_valid(mira_visual)
 	if dialog.visible and not in_town:
 		_close_dialog()
+	if is_instance_valid(mira_visual) and is_instance_valid(kafra_anchor):
+		patrol_time += 0.25
+		# Keep the walk small and anchored to the y-position of the native
+		# Kafra NPC to avoid walking through unknown collisions.
+		mira_visual.global_position = kafra_anchor.global_position + STAND_OFFSET + Vector3(
+			sinf(patrol_time * 0.52) * 0.45, 0.0, cosf(patrol_time * 0.52) * 0.2)
 
 
 func _town_active() -> bool:
@@ -133,6 +154,91 @@ func _town_active() -> bool:
 		return false
 	# Only display while a real town scene is present, not on a splash screen.
 	return world.get("town") != null or mode.contains("town")
+
+
+func _sync_world_sprite() -> void:
+	var world = SVVAssistant._world()
+	if world == null:
+		return
+	var candidate = world.get("town")
+	if not candidate is Node3D or not candidate.is_inside_tree():
+		return
+	if visual_town == candidate and is_instance_valid(mira_visual):
+		return
+	_clear_world_sprite()
+	if not candidate.has_method("npc_node"):
+		return
+	var kafra = candidate.npc_node(KAFRA_NPC)
+	if not kafra is Node3D or not is_instance_valid(kafra):
+		return
+	visual_town = candidate
+	kafra_anchor = kafra
+	mira_visual = _create_world_sprite(candidate, kafra)
+	if mira_visual == null:
+		visual_town = null
+		kafra_anchor = null
+
+
+func _create_world_sprite(parent: Node3D, anchor: Node3D) -> RoVisual:
+	if parent == null or anchor == null or not is_instance_valid(anchor):
+		return null
+	if not RoAssets.has_sprite(MIRA_SPRITE):
+		push_warning("Mira: missing original Acolyte sprite, using town interaction fallback")
+		return null
+	var original_sprite = RoAssets.sprite([MIRA_SPRITE])
+	if original_sprite == null:
+		return null
+	var character := RoVisual.new()
+	parent.add_child(character)
+	character.name = "MiraAcolyteNPC"
+	character.setup(original_sprite, Color(0.8, 0.8, 0.9), 40)
+	character.global_position = anchor.global_position + STAND_OFFSET
+	var nameplate := Label3D.new()
+	nameplate.text = "Mira · Acolyte"
+	nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	nameplate.font_size = 38
+	nameplate.pixel_size = 0.006
+	nameplate.position = Vector3(0.0, 1.3, 0.0)
+	character.add_child(nameplate)
+	return character
+
+
+func _clear_world_sprite() -> void:
+	if is_instance_valid(mira_visual):
+		mira_visual.queue_free()
+	mira_visual = null
+	visual_town = null
+	kafra_anchor = null
+	patrol_time = 0.0
+
+
+func _mira_screen_point() -> Vector2:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null or not is_instance_valid(mira_visual):
+		return Vector2.INF
+	var point: Vector3 = mira_visual.global_position + Vector3(0.0, 0.9, 0.0)
+	if camera.is_position_behind(point):
+		return Vector2.INF
+	return camera.unproject_position(point)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if dialog.visible or not _town_active() or not is_instance_valid(mira_visual):
+		return
+	var pointer := Vector2.INF
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		pointer = event.position
+	elif event is InputEventScreenTouch and event.pressed:
+		pointer = event.position
+	else:
+		return
+	var projected := _mira_screen_point()
+	if not projected.is_finite():
+		return
+	var hit_radius := 72.0 if DisplayServer.is_touchscreen_available() else 48.0
+	if pointer.distance_to(projected) <= hit_radius:
+		_show_dialog()
+		get_viewport().set_input_as_handled()
 
 
 func _show_dialog() -> void:
