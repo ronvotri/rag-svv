@@ -45,6 +45,12 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn('"mage": {"name": "Eira"', self.assistant)
         self.assertIn('world.coop_classes.assign(party)', self.assistant)
 
+    def test_companions_are_scoped_to_verified_prontera_only(self):
+        self.assertIn('get_meta("svv_offline_town_place", "")', self.npcs)
+        self.assertIn('!= "prontera":', self.npcs)
+        self.assertIn('SVVCompanionTown._town() == null', self.smoke)
+        self.assertIn('SVVCompanionTown._town() == actual_town', self.smoke)
+
     def test_missing_original_sprite_retries_without_cloning_a_live_npc(self):
         self.assertIn("sprite_retry_seconds += frame_seconds", self.npcs)
         self.assertIn("if sprite_retry_seconds >= 4.0:", self.npcs)

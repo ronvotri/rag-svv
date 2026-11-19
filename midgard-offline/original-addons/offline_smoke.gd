@@ -153,6 +153,12 @@ func _run() -> void:
 		await get_tree().process_frame
 	var actual_town = world.get("town")
 	check(actual_town is Town and is_instance_valid(actual_town), "original Prontera Town instantiated")
+	check(str(world.get_meta("svv_offline_town_place", "")) == "prontera",
+		"original town entry records the requested city")
+	world.set_meta("svv_offline_town_place", "payon")
+	check(SVVCompanionTown._town() == null, "Alden/Eira are not assigned to an unverified Payon town")
+	world.set_meta("svv_offline_town_place", "prontera")
+	check(SVVCompanionTown._town() == actual_town, "Prontera restores valid companion town context")
 	SVVMiraTown._sync_world_sprite()
 	var kafra: Node3D = actual_town.npc_node("kafra") if actual_town != null else null
 	check(kafra != null and is_instance_valid(kafra), "native Kafra NPC available as Mira anchor")

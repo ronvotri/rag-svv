@@ -136,6 +136,10 @@ func _town() -> Node3D:
 		return null
 	if str(world.menus._mode) in ["login", "server_select", "class_select", "loading"]:
 		return null
+	# The core client has a city argument; only Prontera positions are audited.
+	# An unknown/missing city tag fails closed instead of copying NPCs into Payon.
+	if str(world.get_meta("svv_offline_town_place", "")) != "prontera":
+		return null
 	var candidate = world.get("town")
 	if candidate is Node3D and is_instance_valid(candidate) and candidate.is_inside_tree():
 		return candidate
