@@ -712,6 +712,35 @@ class OriginalLocalization(unittest.TestCase):
         self.assertEqual(main_dict["Midgard Survivors"], expected)
         self.assertNotIn("Quái triều xâm lăng", web + placeholder + prepare)
 
+    def test_cosmetic_visual_effect_names_batch_061(self):
+        """Translate only visual FX titles; keep core skill/item names intact."""
+        patches = MODULE_PATH.parents[1] / "patches"
+        merged = locale.load_translations(patches / "vi-ui.json")
+        rows = json.loads((patches / "vi-ui-batch-061.json").read_text(encoding="utf-8"))
+        expected = {
+            "Starry Sparkles": "Lấp lánh sao trời",
+            "Bio Lab Lights": "Ánh sáng Bio Lab",
+            "Rays of Light": "Những tia sáng",
+            "Sight Flames": "Ngọn lửa Sight",
+            "Golden Aura": "Aura vàng",
+            "Pillar of Light": "Cột sáng",
+            "Light of Valhalla": "Ánh sáng Valhalla",
+        }
+        self.assertEqual(rows, expected)
+        for english, translated in rows.items():
+            with self.subTest(english=english):
+                self.assertEqual(merged[english], translated)
+                self.assertEqual(locale.placeholders(english),
+                                 locale.placeholders(translated))
+                self.assertNotEqual(english, translated)
+        for protected in ("Sight", "Bio Lab", "Valhalla"):
+            self.assertIn(protected, " ".join(rows.values()) + " Sight")
+        for untouched_skill_or_item in (
+            "Double Attack", "Red Potion", "Baphomet", "Lucile's Edge",
+            "Poring Hat", "Eternal Card", "Afterimage", "Crown of Stars",
+        ):
+            self.assertNotIn(untouched_skill_or_item, rows)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
