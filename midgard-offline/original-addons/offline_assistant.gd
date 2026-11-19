@@ -308,7 +308,8 @@ func _refresh_friends() -> void:
 		return
 	var profile: Dictionary = _friend_profile(selected_class)
 	var progress: Dictionary = _quest_progress(selected_class)
-	var description: String = str(profile["name"]) + " · " + _job_name(selected_class) + " · " + str(profile["rarity"]) + "\n"	if profile.has("role"):
+	var description: String = str(profile["name"]) + " · " + _job_name(selected_class) + " · " + str(profile["rarity"]) + "\n"
+	if profile.has("role"):
 		description += "Vai trò: " + str(profile["role"]) + "\n"
 	if profile.has("location"):
 		description += "Có thể gặp tại: " + str(profile["location"]) + "\n"
