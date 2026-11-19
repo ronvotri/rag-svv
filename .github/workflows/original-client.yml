@@ -1,0 +1,70 @@
+name: Original client - cloud build
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Client to build from the official base game
+        type: choice
+        default: windows
+        options: [windows, web, android]
+  push:
+    paths:
+      - 'midgard-offline/original-addons/**'
+      - 'midgard-offline/patches/**'
+      - 'midgard-offline/config/**'
+      - 'midgard-offline/tools/*original*'
+      - 'midgard-offline/tests/test_*original*.py'
+      - '.github/workflows/original-client.yml'
+permissions:
+  contents: read
+concurrency:
+  group: original-client-${{ github.ref }}-${{ inputs.target || 'windows' }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TARGET: ${{ inputs.target || 'windows' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate authored code and translations
+        run: |
+          node --test midgard-offline/tests/*.test.cjs
+          python -m unittest discover -s midgard-offline/tests -p 'test_*.py'
+          python -m py_compile midgard-offline/tools/*.py
+      - uses: actions/setup-java@v4
+        if: env.TARGET == 'android'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Prepare Android SDK
+        if: env.TARGET == 'android'
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Download, recover, patch, test and build original client
+        run: python midgard-offline/tools/cloud-build-original.py --target "$TARGET"
+      - name: Upload original client and verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-offline-${{ env.TARGET }}-TEST
+          path: |
+            midgard-offline/work/cloud/artifacts/*.zip
+            midgard-offline/work/cloud/artifacts/*.apk
+            midgard-offline/work/cloud/artifacts/*.json
+            midgard-offline/work/cloud/artifacts/*.txt
+          if-no-files-found: error
+          retention-days: 1
+      - name: Upload small continuation context for web chats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-client-context
+          path: midgard-offline/work/cloud/context/*.json
+          if-no-files-found: ignore
+          retention-days: 7

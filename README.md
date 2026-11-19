@@ -1,13 +1,27 @@
-# RAG-SVV — hai dự án Ragnarok Survivors Việt hóa
+# RAG-SVV — các dự án Ragnarok và game sinh tồn tiếng Việt
 
-Repo này theo đuổi **hai dự án độc lập**. Chúng chỉ chung nơi quản lý và không sử dụng lẫn game, tài sản hay mã nguồn.
+Hướng hiện tại là **chuyển client Midgard Survivors gốc sang offline, giữ sprite Ragnarok, bản đồ và gameplay gốc**, thêm tiếng Việt và đồng đội AI. Project khôi phục và các bản game chỉ nằm cục bộ trong `midgard-offline/work/`; repo công khai chứa công cụ và phần bổ sung tự viết. Xem [client gốc offline](midgard-offline/docs/ORIGINAL_CLIENT.md).
+
+**Phát triển từ web, không cần Codex desktop:** [ChatGPT web + GitHub Actions](midgard-offline/docs/WEB_GITHUB_DEVELOPMENT.md). Workflow tự lấy bản nền từ nguồn chính thức và tái dựng project trên runner; không phụ thuộc ổ E: hay máy ban đầu.
+
+**Đã build Windows thành công trên GitHub:** [lượt chạy và bản tải](https://github.com/ronvotri/rag-svv/actions/runs/43785523181). Tiếp tục trên nhánh `feature/original-offline`; xem [trạng thái nghiệm thu](midgard-offline/docs/CLOUD_BUILD_VERIFIED.md).
 
 | Hướng | Mục tiêu | Tài liệu | Trạng thái |
 | --- | --- | --- | --- |
+| Client Midgard gốc offline | Giữ sprite Ragnarok, 11 nghề, bản đồ và các hệ thống từ client gốc; thêm AI và Việt hóa | [Client gốc](midgard-offline/docs/ORIGINAL_CLIENT.md) | Đã khôi phục và chạy thử cảnh thị trấn/chiến đấu; đang nghiệm thu và xuất các nền tảng |
+| Prototype tự xây trước đây | Mẫu HTML/JS thử nghiệm các luật sinh tồn | [midgard-offline/](midgard-offline/) | Hướng phụ; hình tự vẽ không phải sprite Ragnarok, không phải bản bàn giao client gốc |
 | Nintendo Switch | Việt hóa bản mod Vampire Survivors mang phong cách Ragnarok Online | [switch/](switch/) | Đã có công cụ và bản dịch thử nghiệm; chưa test Switch |
 | Web / Server Việt Nam | Nghiên cứu Việt hóa [ro-survivors.com](https://ro-survivors.com/) và khả năng xây server được cấp phép | [web/](web/) | Chưa có mã nguồn/quyền chạy server |
 
 **Lưu ý pháp lý và kỹ thuật:** `type0labs-dev/ragnarok-survivors` **không phải** mã nguồn của `ro-survivors.com`. Không được xem việc có repo Switch là quyền sao chép hoặc mở server trò chơi web. Việc đưa mã nguồn upstream vào dự án công khai cần có giấy phép phù hợp; tài nguyên game và khóa cá nhân không được đẩy lên GitHub.
+
+## Prototype trước đây — không phải client Ragnarok gốc
+
+Mở [midgard-offline/index.html](midgard-offline/index.html) bằng trình duyệt để chơi bản **Biên niên Midgard**. Game dùng HTML, CSS và JavaScript thuần; không cần tài khoản, máy chủ game, thư mục `E:\Game\RagnarokSVV` hay kết nối Internet khi chơi. Mã, hình vẽ và luật chơi của bản thử nghiệm được xây riêng trong repo.
+
+Prototype này độc lập với project Godot khôi phục. Không dùng việc build được prototype để kết luận client gốc đã hoàn thiện. Đọc [hướng dẫn prototype](midgard-offline/README.md), [kiểm kê](midgard-offline/docs/client-analysis.md) và [bảng đối chiếu tính năng](midgard-offline/docs/FEATURE_PARITY.md).
+
+Có thể tiếp tục phát triển repo trên máy khác hoặc môi trường cloud với Node.js 20 trở lên. Bản build ZIP tự chứa mọi tệp chơi offline; dữ liệu lưu giữa các thiết bị được chuyển bằng **Xuất lưu / Nhập lưu**.
 
 ## Hướng Nintendo Switch — tài liệu triển khai
 

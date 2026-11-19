@@ -1,0 +1,21 @@
+{
+  "Passive: more sword damage on basic attacks.": "Nội tại: tăng sát thương kiếm cho các đòn đánh thường.",
+  "Lets you evolve: Bash (Lv 5)": "Giúp tiến hóa kỹ năng Bash (cấp 5).",
+  "First aid: you heal every few seconds and bandage yourself: a barrier that holds a share of your max HP.": "Sơ cứu: cứ vài giây bạn được hồi máu và tự băng bó, tạo lá chắn dựa trên một phần HP tối đa.",
+  "+5D and +3% max HP, more regeneration, -0.5% damage taken, +3% healing received and +0.5% to the barriers you get. Your autocasts when hit grow with the higher of STR and VIT.": "Tăng 5D và 3% HP tối đa, tăng hồi phục, giảm 0,5% sát thương nhận vào, tăng 3% hiệu quả hồi máu và 0,5% sức mạnh lá chắn. Phép tự kích hoạt khi trúng đòn mạnh hơn theo chỉ số cao hơn giữa STR và VIT.",
+  "Passive: more sword damage on basic attacks": "Nội tại: tăng sát thương kiếm khi đánh thường",
+  "Lets you evolve: Bash (Lv %d)": "Giúp tiến hóa kỹ năng Bash (cấp %d)",
+  "First aid: you heal every few seconds and bandage yourself: a barrier that holds a share of your max HP": "Sơ cứu: cứ vài giây bạn được hồi máu và tự băng bó, tạo lá chắn dựa trên một phần HP tối đa",
+  "more regeneration": "tăng hồi phục",
+  "healing received": "lượng hồi máu nhận được",
+  "damage taken": "sát thương nhận vào",
+  "your autocasts when hit": "phép tự kích hoạt khi trúng đòn",
+  "the higher of STR and VIT": "chỉ số cao hơn giữa STR và VIT",
+  "barriers you get": "lá chắn bạn nhận được",
+  "Basic attacks": "Đòn đánh thường",
+  "Your basic attacks": "Đòn đánh thường của bạn",
+  "more sword damage on basic attacks": "tăng sát thương kiếm cho các đòn đánh thường",
+  "You heal every few seconds": "Bạn được hồi máu sau mỗi vài giây",
+  "your max HP": "HP tối đa của bạn",
+  "Chance to evolve again": "Cơ hội tiếp tục tiến hóa"
+}

@@ -1,0 +1,118 @@
+name: Original client - Web package QA
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/original-offline]
+    paths:
+      - '.github/workflows/original-web-qa.yml'
+      - 'midgard-offline/tools/cloud-build-original.py'
+      - 'midgard-offline/tools/fetch-original-client.py'
+      - 'midgard-offline/tests/test_fetch_original_client.py'
+      - 'midgard-offline/config/official-client.json'
+      - 'midgard-offline/tools/prepare-original-offline.py'
+      - 'midgard-offline/tools/diagnose-original-flow.py'
+      - 'midgard-offline/tools/localize_original.py'
+      - 'midgard-offline/tests/test_localize_original.py'
+      - 'midgard-offline/tools/install-original-assistant.py'
+      - 'midgard-offline/tools/install-start-background.py'
+      - 'midgard-offline/tests/test_start_background.py'
+      - 'midgard-offline/tests/test_prepare_original_offline.py'
+      - 'midgard-offline/tools/prepare-original-web-deploy.py'
+      - 'midgard-offline/cloudflare/**'
+      - 'midgard-offline/tests/test_original_web_deploy.py'
+      - 'midgard-offline/tests/original-web-loader.test.cjs'
+      - '.github/workflows/original-web-publish.yml'
+      - 'midgard-offline/patches/**'
+      - 'midgard-offline/original-addons/**'
+      - 'midgard-offline/tools/create-original-presets.py'
+      - 'midgard-offline/tests/test_cloud_build_original.py'
+      - 'midgard-offline/config/cloud-tools.json'
+permissions:
+  contents: read
+concurrency:
+  group: original-web-qa
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate authored code and translations
+        run: |
+          node --test midgard-offline/tests/*.test.cjs
+          python -m unittest discover -s midgard-offline/tests -p 'test_*.py'
+          python -m py_compile midgard-offline/tools/*.py
+      - name: Reconstruct and export the ORIGINAL Godot Web client
+        run: python midgard-offline/tools/cloud-build-original.py --target web
+      - name: Verify exported Web package structure
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import json
+
+          base = Path("midgard-offline/work/cloud/artifacts")
+          name = "MidgardSVV-Original-Offline-Web-TEST"
+          archive = base / f"{name}.zip"
+          report = json.loads((base / "BUILD_STATUS.json").read_text(encoding="utf-8"))
+          assert report["target"] == "web" and report["source_runtime_qa"] == "passed"
+          assert report["full_feature_acceptance"] is False
+          assert archive.is_file() and archive.stat().st_size > 1024
+
+          with ZipFile(archive) as packed:
+              files = {info.filename: info.file_size for info in packed.infolist() if not info.is_dir()}
+          prefix = name + "/"
+          assert files.get(prefix + "index.html", 0) > 100, "Missing Godot HTML entry point"
+          for suffix in (".wasm", ".pck", ".js"):
+              assert any(path.startswith(prefix) and path.endswith(suffix) and size > 0 for path, size in files.items()), "Missing Godot asset: " + suffix
+          assert not any("credentials.cfg" in path or ".private.json" in path for path in files), "Sensitive private file in web package"
+          print(f"Web export package OK: {len(files)} files, {archive.stat().st_size} bytes.")
+          print("NOTE: Package QA is not browser/PWA, cache, save, or device acceptance.")
+          PY
+      - name: Stage original Web as Pages Free static assets (no R2)
+        run: |
+          python midgard-offline/tools/prepare-original-web-deploy.py --version "$GITHUB_SHA"
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          base = Path("midgard-offline/work/cloud/cloudflare-deploy")
+          manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+          public = base / "public"
+          assets = [p for p in public.rglob("*") if p.is_file()]
+          assert assets and len(assets) <= 20000, "Cloudflare Pages Free file cap exceeded"
+          assert all(p.stat().st_size <= 25 * 1024 * 1024 for p in assets), "Pages 25 MiB limit exceeded"
+          assert {"index.pck", "index.wasm"}.intersection(manifest["large_assets"])
+          assert (public / "index.html").is_file()
+          assert (public / "game.html").is_file()
+          assert (public / "godot-split-sw.js").is_file()
+          assert not (base / "r2").exists()
+          assert not (base / "functions").exists()
+          print("PAGES FREE QA PASS:", len(assets), "files,", len(manifest["large_assets"]), "split assets")
+          print("Note: no public upload; browser-level QA remains.")
+          PY
+      - name: Upload original Godot Web client TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-offline-web-TEST
+          path: |
+            midgard-offline/work/cloud/artifacts/MidgardSVV-Original-Offline-Web-TEST.zip
+            midgard-offline/work/cloud/artifacts/BUILD_STATUS.json
+            midgard-offline/work/cloud/artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 1
+      - name: Upload small localization and source context
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-client-context-web
+          path: midgard-offline/work/cloud/context/*.json
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,19 @@
+{
+  "+10% Flee.": "+10% né tránh.",
+  "+6% Flee, +15% zeny.": "+6% né tránh, +15% zeny.",
+  "+6% Flee, +2 DEF.": "+6% né tránh, +2 DEF.",
+  "×Lv": "×Cấp",
+  "FIRE": "LỬA",
+  "ICE": "BĂNG",
+  "Card: %s": "Thẻ: %s",
+  "Warchief": "Thủ lĩnh",
+  "Glutton": "Phàm ăn",
+  "Ethereal": "Phi vật thể",
+  "Warband": "Đội quân hiếu chiến",
+  "Brazier": "Lò than",
+  "Seal": "Phong ấn",
+  "Bond x%d": "Liên kết ×%d",
+  "%s  (%s)\n%d of %d types · %s": "%s  (%s)\n%d/%d loại · %s",
+  "Eternal x%d": "Eternal ×%d",
+  "Hell %d": "Địa ngục %d"
+}

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ragnarok: Quái Vật Trỗi Dậy – Chơi offline</title>
+  <style>
+    * { box-sizing: border-box }
+    body { margin: 0; min-height: 100vh; background: #14251f; color: #f6f2e9;
+           font-family: system-ui, sans-serif; display: grid; place-items: center }
+    main { padding: 26px; width: min(520px, 95vw); text-align: center }
+    h1 { font-size: clamp(24px, 6vw, 38px); margin: 0 0 12px }
+    p { font-size: 16px; line-height: 1.6; color: #cbd7cf }
+    button { background: #e3bd76; color: #14251f; border: 0; border-radius: 8px;
+             font-weight: 700; padding: 12px 18px; cursor: pointer }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Ragnarok: Quái Vật Trỗi Dậy</h1>
+  <p id="status" role="status">Đang chuẩn bị client Ragnarok offline trên trình duyệt…</p>
+  <button id="retry" hidden type="button">Thử lại</button>
+</main>
+<script>
+(async () => {
+  const status = document.getElementById('status');
+  const retry = document.getElementById('retry');
+  const timeout = async (promise, milliseconds, message) => {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(message)), milliseconds);
+        })
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  retry.addEventListener('click', () => location.reload());
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.textContent = 'Làm mới trình tải';
+  reset.hidden = true;
+  reset.style.marginLeft = '8px';
+  reset.addEventListener('click', async () => {
+    reset.disabled = true;
+    status.textContent = 'Đang đặt lại bộ tải (không xóa save)…';
+    try {
+      const registration = await navigator.serviceWorker.getRegistration('./');
+      if (registration) await registration.unregister();
+    } catch (error) {
+      console.warn('Ragnarok: unable to unregister Service Worker', error);
+    }
+    location.replace(new URL('./?reload=' + Date.now(), location.href));
+  });
+  retry.after(reset);
+  try {
+    if (!window.isSecureContext || !('serviceWorker' in navigator)) {
+      throw new Error('Trình duyệt này không hỗ trợ bộ tải Web offline qua HTTPS. Hãy mở bằng Chrome.');
+    }
+
+    status.textContent = 'Đang kiểm tra phiên bản game…';
+    const manifestResponse = await timeout(
+      fetch('./asset-map.json', { cache: 'no-store' }),
+      15000, 'Không lấy được danh sách dữ liệu game.'
+    );
+    if (!manifestResponse.ok) throw new Error('Danh sách dữ liệu game báo lỗi ' + manifestResponse.status);
+    const manifest = await manifestResponse.json();
+    if (manifest.schema !== 1 || !manifest.version || !manifest.large_assets ||
+        !Object.keys(manifest.large_assets).length) {
+      throw new Error('Gói dữ liệu game chưa đúng hoặc chưa phát hành xong.');
+    }
+
+    status.textContent = 'Đang khởi động bộ tải phiên bản ' +
+      manifest.version.slice(0, 7) + '…';
+    const registration = await timeout(
+      navigator.serviceWorker.register('./godot-split-sw.js', {
+        scope: './', updateViaCache: 'none'
+      }), 15000, 'Không đăng ký được trình tải game.'
+    );
+    // A fresh visit may have an old controller. A hung update must not leave
+    // the page on a permanent blank screen or silently start an unguarded game.
+    try {
+      await timeout(registration.update(), 12000, 'Cập nhật trình tải quá lâu.');
+    } catch (updateError) {
+      console.warn('Ragnarok: Service Worker update deferred', updateError);
+    }
+    const pending = registration.installing || registration.waiting;
+    if (pending && pending.state !== 'activated') {
+      await timeout(new Promise((resolve, reject) => {
+        const check = () => {
+          if (pending.state === 'activated') resolve();
+          if (pending.state === 'redundant') reject(new Error('Trình tải mới không kích hoạt được.'));
+        };
+        pending.addEventListener('statechange', check);
+        check(); // Catch activation between the state check and listener.
+      }), 15000, 'Trình tải chưa kích hoạt. Chọn Làm mới trình tải.');
+    }
+    await timeout(navigator.serviceWorker.ready, 12000, 'Trình tải chưa sẵn sàng.');
+    if (!navigator.serviceWorker.controller ||
+        navigator.serviceWorker.controller !== registration.active) {
+      await timeout(new Promise(resolve => {
+        const check = () => {
+          if (navigator.serviceWorker.controller === registration.active) resolve();
+        };
+        navigator.serviceWorker.addEventListener('controllerchange', check);
+        check();
+      }), 12000, 'Trình duyệt chưa kết nối với trình tải. Chọn Làm mới trình tải.');
+    }
+    if (navigator.serviceWorker.controller !== registration.active) {
+      throw new Error('Trình tải game chưa kiểm soát trang này.');
+    }
+
+    // Single-use handoff prevents shared /game.html links and page reloads
+    // from bypassing the bootstrap and hanging on split WASM/PCK resources.
+    try { sessionStorage.setItem('svv-web-handoff', manifest.version); }
+    catch (error) { console.info('Ragnarok: private session storage unavailable', error); }
+    status.textContent = 'Đang mở Ragnarok: Quái Vật Trỗi Dậy (' +
+      manifest.version.slice(0, 7) + ')…';
+    location.replace(new URL('./game.html', location.href));
+  } catch (error) {
+    status.textContent = 'Không thể tải game: ' + error.message;
+    retry.hidden = false;
+    reset.hidden = !('serviceWorker' in navigator);
+    console.error('Ragnarok Pages startup failed', error);
+  }
+})();
+</script>
+</body>
+</html>

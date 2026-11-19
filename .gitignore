@@ -22,3 +22,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Reproducible offline web build artifacts
+midgard-offline/dist/
+midgard-offline/local-ai/

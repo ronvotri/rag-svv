@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+"""Reconstruct and build the original-based client on an ephemeral Linux runner.
+
+Only authored patches/configuration live in Git. Original assets are fetched
+from the publisher's free download and hash-checked before recovery.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+import re
+from pathlib import Path, PurePosixPath
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+from zipfile import ZipFile, ZIP_DEFLATED
+
+ROOT = Path(__file__).resolve().parents[1]
+TOOLS = ROOT / "tools"
+
+def digest(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+def download(spec, destination):
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.is_file() and digest(destination) == spec["sha256"]:
+        return destination
+    partial = destination.with_suffix(destination.suffix + ".part")
+    for attempt in range(3):
+        try:
+            request = urllib.request.Request(spec["url"], headers={"User-Agent": "MidgardSVV-offline-build"})
+            with urllib.request.urlopen(request, timeout=120) as response, partial.open("wb") as output:
+                shutil.copyfileobj(response, output, length=1024*1024)
+            if digest(partial) != spec["sha256"]:
+                raise ValueError("Checksum mismatch for " + destination.name)
+            partial.replace(destination)
+            return destination
+        except Exception:
+            if attempt == 2:
+                raise
+            time.sleep(2)
+
+def extract_safe(archive, destination, selected=None):
+    destination.mkdir(parents=True, exist_ok=True)
+    with ZipFile(archive) as source:
+        for member in source.infolist():
+            relative = PurePosixPath(member.filename)
+            if relative.is_absolute() or ".." in relative.parts or "\\" in member.filename:
+                raise ValueError("Unsafe archive path")
+            if (member.external_attr >> 16) & 0o170000 == 0o120000:
+                raise ValueError("Archive symlinks are not allowed")
+            if member.is_dir():
+                continue
+            if selected is not None:
+                if relative.name not in selected:
+                    continue
+                target = destination / relative.name
+            else:
+                target = destination.joinpath(*relative.parts)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with source.open(member) as data, target.open("wb") as output:
+                shutil.copyfileobj(data, output, length=1024*1024)
+
+def executable(directory, marker):
+    candidates = []
+    for path in directory.rglob("*"):
+        if not path.is_file() or marker.lower() not in path.name.lower():
+            continue
+        with path.open("rb") as stream:
+            if stream.read(4) == b"\x7fELF":
+                candidates.append(path)
+    if len(candidates) != 1:
+        raise ValueError("Expected one Linux executable for " + marker)
+    candidates[0].chmod(0o755)
+    return candidates[0]
+
+def run(arguments, **options):
+    subprocess.run([str(x) for x in arguments], check=True, **options)
+
+def own_tool(name):
+    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), TOOLS / (name + ".py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+def seed_cache(source, destination):
+    """Reuse recovered binary textures/geometry; do not re-enable extensions."""
+    cache = source / ".godot/imported"
+    target = destination / ".godot/imported"
+    target.mkdir(parents=True, exist_ok=True)
+    if cache.is_dir():
+        for path in cache.iterdir():
+            if path.is_file() and path.suffix in {".scn", ".ctex", ".sample", ".mp3str", ".md5"}:
+                shutil.copyfile(path, target / path.name)
+
+def install_web_templates(godot, templates, version):
+    """Install the official debug AND release Web templates for portable Godot.
+
+    Godot validates the conventional editor_data location even with a custom
+    debug template in export_presets.cfg. _sc_ is placed next to the editor.
+    """
+    destination = godot.parent / "editor_data" / "export_templates" / (version + ".stable")
+    required = ("web_nothreads_debug.zip", "web_nothreads_release.zip")
+    for filename in required:
+        source = templates / filename
+        if not source.is_file():
+            raise FileNotFoundError("Official Web export template missing: " + str(source))
+    destination.mkdir(parents=True, exist_ok=True)
+    for filename in required:
+        shutil.copyfile(templates / filename, destination / filename)
+    return destination
+
+
+def configure_android_texture_import(project):
+    """Ensure ETC2/ASTC textures are imported before Godot's Android export.
+
+    Windows desktop default settings often leave this option disabled. Modifying
+    only the private prepared project keeps the public original-client patch
+    cross-platform while satisfying Android export validation.
+    """
+    preparer = own_tool("prepare-original-offline")
+    config = project / "project.godot"
+    original = config.read_text(encoding="utf-8")
+    changed = preparer.set_setting(original, "rendering", "textures/vram_compression/import_etc2_astc", "true")
+    if changed != original:
+        config.write_text(changed, encoding="utf-8", newline="\n")
+    return changed
+
+
+def archive_folder(folder, output):
+    with ZipFile(output, "w", ZIP_DEFLATED, compresslevel=1) as archive:
+        for path in sorted(folder.rglob("*")):
+            if path.is_file():
+                archive.write(path, Path(folder.name) / path.relative_to(folder))
+
+def find_untranslated_prose_candidates(pending):
+    """Surface possible missed dialogue/help text, not short proper names.
+
+    This is an advisory filter, not a claim that every short fallback is
+    translated or that long named skills should be converted. A manual QA
+    review decides whether a candidate is actual prose.
+    """
+    candidates = []
+    for entry in pending:
+        english = str(entry.get("english", ""))
+        words = re.findall(r"[A-Za-zÀ-ỹ]+", english)
+        if len(english) >= 45 and len(words) >= 8:
+            candidates.append(entry)
+    return candidates
+
+
+def inspect_town_visual_api(project):
+    """Report the recovered town renderer's API without shipping game assets.
+
+    Metadata and tiny filtered construction hints are enough to choose the
+    original Acolyte sprite factory; do not publish recovered full sources.
+    """
+    modules = {
+        "scripts/core/town.gd": {"setup", "_town_npcs", "npc_node",
+                                 "_at", "_draw_member", "_sprite_args", "_party_hero"},
+        "scripts/core/town_crowd.gd": {"setup", "_spawn", "_collect_looks",
+                                       "_place_sign", "_at"},
+        "scripts/ro/ro_sprite.gd": {"_init", "get_frame", "compose_image"},
+        "scripts/ro/ro_visual.gd": {"setup", "play", "face", "_ready"},
+        "scripts/core/player.gd": {"_build_visual", "setup"},
+    }
+    report = {"schema": 1, "modules": {}, "acolyte_asset_paths": [],
+              "metadata_only": True}
+    visible = re.compile(r"(?i)\b(?:Sprite3D|AnimatedSprite3D|ROSprite|RoSprite|"
+                         r"SpriteFrames|ImageTexture|AtlasTexture|Texture2D|"
+                         r"sprite|draw_member|draw_npc|set_texture|\.texture|"
+                         r"instantiate|\.load\(|\.new\(|npc_node)\b")
+    for filename, methods in modules.items():
+        path = project / filename
+        if not path.is_file():
+            report["modules"][filename] = {"missing": True}
+            continue
+        body = path.read_text(encoding="utf-8")
+        headers = list(re.finditer(
+            r"(?m)^(?:static )?func\s+([A-Za-z_][\w]*)\s*\([^\n]*\)[^\n]*:", body))
+        matches = {}
+        for index, entry in enumerate(headers):
+            method = entry.group(1)
+            if method not in methods:
+                continue
+            end = headers[index + 1].start() if index + 1 < len(headers) else len(body)
+            fragment = body[entry.end():end]
+            hints = [line.strip()[:220] for line in fragment.splitlines()
+                     if visible.search(line) and "http" not in line.lower()]
+            matches[method] = {
+                "signature": entry.group(0).strip()[:300],
+                "visual_hints": hints[:18],
+                "node_types": sorted(set(re.findall(
+                    r"\b(?:Sprite3D|AnimatedSprite3D|Node3D|MeshInstance3D|"
+                    r"ROSprite|RoSprite|SpriteFrames|ImageTexture)\b", fragment))),
+            }
+        report["modules"][filename] = {"methods": matches}
+    assets = []
+    for root in (project / "assets", project / "scenes"):
+        if root.is_dir():
+            for path in root.rglob("*"):
+                if path.is_file() and re.search(r"(?i)(acolyte|sprite.*job|job.*sprite)", path.name):
+                    assets.append(path.relative_to(project).as_posix())
+    report["acolyte_asset_paths"] = sorted(assets)[:80]
+    report["acolyte_asset_path_count"] = len(assets)
+    return report
+
+
+def write_context(project, work, translation):
+    """Small text artifacts help a web chat continue without downloading a game."""
+    context = work / "context"
+    context.mkdir(exist_ok=True)
+    localizer = own_tool("localize_original")
+    dictionary = localizer.load_translations(ROOT / "patches/vi-ui.json")
+    protected = localizer.protected_names(project)
+    source_entries = localizer.read_po(project / "locale/en.po")
+    # Protect the current QA 141 translation pass from typos in English keys:
+    # every newly translated source must exist in this recovered en.po version.
+    source_strings = {entry.get("en") or entry["id"] for entry in source_entries}
+    new_sources = set()
+    for number in range(21, 62):
+        file = ROOT / "patches" / f"vi-ui-batch-{number:03d}.json"
+        entries = json.loads(file.read_text(encoding="utf-8"))
+        new_sources.update(entries)
+    not_found = sorted(new_sources - source_strings)
+    missing_translation = sorted(key for key in new_sources if key not in dictionary)
+    recent_audit = {
+        "batch_range": "021-061",
+        "new_unique_strings": len(new_sources),
+        "found_in_catalog": len(new_sources) - len(not_found),
+        "unmatched_source_keys": not_found,
+        "missing_translation_keys": missing_translation,
+        "passed": not not_found and not missing_translation,
+    }
+    (context / "recent-localization-qa.json").write_text(
+        json.dumps(recent_audit, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    if not recent_audit["passed"]:
+        raise ValueError("Recent localization has mismatched source keys: "
+                         + repr(not_found[:8] + missing_translation[:8]))
+    collection_audit = localizer.collection_translation_audit(source_entries, dictionary)
+    (context / "collection-translation-qa.json").write_text(
+        json.dumps(collection_audit, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    if not collection_audit["passed"]:
+        raise ValueError("Collections screen still has untranslated descriptions: "
+                         + repr(collection_audit["untranslated"][:6]))
+    pending = []
+    for entry in source_entries:
+        english = entry.get("en") or entry["id"]
+        if english not in dictionary and english not in protected:
+            pending.append({"msgid": entry["id"], "english": english})
+    for start in range(0, len(pending), 200):
+        (context / f"translation-worklist-{start//200+1:03d}.json").write_text(json.dumps(pending[start:start+200], ensure_ascii=False, indent=2), encoding="utf-8")
+    # Track long, potentially player-facing prose separately from names and
+    # short stat labels. This must remain advisory: a boss skill can be long.
+    review = {
+        "catalog_entries": len(source_entries),
+        "unprotected_fallback_entries": len(pending),
+        "likely_untranslated_prose": find_untranslated_prose_candidates(pending),
+        "largest_fallback_chars": max((len(item["english"]) for item in pending), default=0),
+        "policy": "Candidate prose requires manual review; names, skills, items and music stay English.",
+    }
+    (context / "untranslated-prose-review.json").write_text(
+        json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (context / "town-rendering-api.json").write_text(
+        json.dumps(inspect_town_visual_api(project), ensure_ascii=False, indent=2),
+        encoding="utf-8")
+    # Inspector for the exact recovered character-selection background.
+    # Only sampled UI-construction lines, not the publisher's full source.
+    # Avoid replacing the wrong scene or adding a front-layer image over buttons.
+    menus_source = (project / "scripts/ui/menus.gd").read_text(encoding="utf-8")
+    match = re.search(r"(?m)^func show_class_select\\([^\\n]*\\)[^\\n]*:", menus_source)
+    if match:
+        end = re.search(r"(?m)^func [A-Za-z_]", menus_source[match.end():])
+        block = menus_source[match.start():match.end() + end.start() if end else len(menus_source)]
+        hints = []
+        for index, line in enumerate(block.splitlines(), 1):
+            if re.search(r"bg|back|texture|TextureRect|ColorRect|screen|layer|image|\.png|\.webp|\.jpg|add_child|Panel", line, re.I):
+                hints.append({"relative_line": index, "code": line[:260]})
+        (context / "character-select-background-hints.json").write_text(
+            json.dumps({"method": "show_class_select", "ui_hints": hints[:130]},
+                       ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    interfaces = {}
+    for source in (project / "scripts").rglob("*.gd"):
+        # Names only: no function bodies, credentials or private endpoint values.
+        names = re.findall(r"^(?:static )?func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", source.read_text(encoding="utf-8"), re.MULTILINE)
+        interfaces[source.relative_to(project).as_posix()] = names
+    (context / "runtime-functions.json").write_text(json.dumps(interfaces, indent=2), encoding="utf-8")
+    (context / "localization-status.json").write_text(json.dumps(translation, indent=2), encoding="utf-8")
+
+def build(target):
+    if not sys.platform.startswith("linux"):
+        raise SystemExit("This entry point targets Linux GitHub runners. Local Windows helpers remain available.")
+    config = json.loads((ROOT / "config/cloud-tools.json").read_text(encoding="utf-8"))
+    work = ROOT / "work/cloud"
+    work.mkdir(parents=True, exist_ok=True)
+    archives = work / "archives"
+    tool_dir = work / "tools"
+    for name in ("godot_linux", "gdre_linux"):
+        path = download(config[name], archives / (name + ".zip"))
+        extract_safe(path, tool_dir / name)
+    godot = executable(tool_dir / "godot_linux", "godot")
+    gdre = executable(tool_dir / "gdre_linux", "gdre")
+    # Portable editor settings stay inside this workspace.
+    (godot.parent / "_sc_").touch()
+    templates_archive = download(config["templates"], archives / "templates.tpz")
+    templates = work / "templates"
+    selected = {"web_nothreads_debug.zip", "web_nothreads_release.zip", "windows_debug_x86_64.exe", "android_debug.apk"}
+    extract_safe(templates_archive, templates, selected)
+    if any(not (templates / name).is_file() for name in selected):
+        raise ValueError("Official export template entries missing")
+    if target == "web":
+        install_web_templates(godot, templates, config["godot_version"])
+    fonts = work / "fonts"
+    for name, spec in config["fonts"].items():
+        download(spec, fonts / name)
+    client = work / "client/MidgardSurvivors.pck"
+    run([sys.executable, TOOLS / "fetch-original-client.py", "--output", client])
+    recovered = work / "recovered"
+    project = work / "prepared"
+    if recovered.exists() or project.exists():
+        raise ValueError("Use a fresh runner/work directory; refusing to overwrite a recovered project")
+    run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
+    own_tool("prepare-original-offline").prepare(recovered, project)
+    # User-authored title art replaces the old character-selection wallpaper
+    # after the original menu builds. It does not change the game scene or save.
+    own_tool("install-start-background").install(project)
+    run([sys.executable, TOOLS / "diagnose-original-flow.py", project])
+    # Web and Android exports both require ETC2/ASTC import to be enabled.
+    # Godot 4 can fail Web preset validation with an empty error message
+    # when the restored desktop project does not enable these textures.
+    if target in ("web", "android"):
+        configure_android_texture_import(project)
+    seed_cache(recovered, project)
+    translation = own_tool("localize_original").localize(project, ROOT / "patches/vi-ui.json", fonts / "NotoSans-Regular.ttf", fonts / "NotoSans-Bold.ttf")
+    shutil.copyfile(fonts / "OFL.txt", project / "assets/ro/fonts/NotoSans-OFL.txt")
+    own_tool("install-original-assistant").install(project)
+    write_context(project, work, translation)
+    run([sys.executable, TOOLS / "create-original-presets.py", project, templates])
+    run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
+    run([godot, "--headless", "--path", project, "--", "--offline-test", "--offline-qa"])
+    output = work / "artifacts"
+    output.mkdir(exist_ok=True)
+    notice = "Original-based offline test client. Original game art and code retain their respective owners.\nVietnamese translation and feature parity are not complete; NPC guide is rule-based, not a native LLM.\nKeep save backups. Android output is DEBUG-TEST, not a stable signed update.\n"
+    if target == "windows":
+        folder = output / "MidgardSVV-Original-Offline-Windows-TEST"
+        folder.mkdir(exist_ok=True)
+        run([godot, "--headless", "--path", project, "--export-debug", "Windows Offline", folder / "MidgardSVVOffline.exe"])
+        (folder / "READ-ME.txt").write_text(notice, encoding="utf-8")
+        archive_folder(folder, output / (folder.name + ".zip"))
+    elif target == "web":
+        folder = output / "MidgardSVV-Original-Offline-Web-TEST"
+        folder.mkdir(exist_ok=True)
+        # The Godot debug Web runtime adds overhead on mobile browsers; keep
+        # headless gameplay QA separate and ship the optimized release template.
+        run([godot, "--headless", "--path", project, "--export-release", "Web Offline", folder / "index.html"])
+        (folder / "READ-ME.txt").write_text(notice + "Serve through localhost or install the PWA; file:// is unsupported.\n", encoding="utf-8")
+        archive_folder(folder, output / (folder.name + ".zip"))
+    else:
+        java = Path(os.environ["JAVA_HOME"])
+        sdk = Path(os.environ.get("ANDROID_SDK_ROOT") or os.environ["ANDROID_HOME"])
+        keystore = work / "android-debug.keystore"
+        run([java / "bin/keytool", "-genkeypair", "-keystore", keystore, "-storepass", "android", "-alias", "androiddebugkey", "-keypass", "android", "-dname", "CN=Android Debug,O=Android,C=US", "-keyalg", "RSA", "-keysize", "2048", "-validity", "3650"])
+        run([sys.executable, TOOLS / "create-original-android-preset.py", project, "--templates", templates, "--debug-keystore", keystore])
+        run([sys.executable, TOOLS / "export-original-android.py", "--godot", godot, "--project", project, "--java-home", java, "--android-sdk", sdk, "--debug-keystore", keystore, "--output", output / "MidgardSVV-Original-Offline-Android-DEBUG-TEST.apk"])
+    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False}
+    (output / "BUILD_STATUS.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    sums = [digest(path) + "  " + path.name for path in output.iterdir() if path.is_file()]
+    (output / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
+    print("Original-based cloud build completed:", target)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", choices=["windows", "web", "android"], required=True)
+    build(parser.parse_args().target)

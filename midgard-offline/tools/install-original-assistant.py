@@ -1,0 +1,86 @@
+"""Install only the authored overlay into an already prepared private project."""
+import argparse
+from pathlib import Path
+import shutil
+import sys
+
+def install(project):
+    project = project.resolve(strict=True)
+    if "work" not in project.parts or not (project / "project.godot").is_file():
+        raise ValueError("Expected a private Godot project under work/.")
+    source = Path(__file__).resolve().parents[1] / "original-addons/offline_assistant.gd"
+    destination = project / "addons/svv_offline/offline_assistant.gd"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+    # Web optimization is a no-op on native platforms; ship one reproducible addon.
+    web_perf_source = source.parent / "web_mobile_performance.gd"
+    if not web_perf_source.is_file():
+        raise ValueError("Authored mobile web optimizer missing")
+    shutil.copyfile(web_perf_source, destination.parent / web_perf_source.name)
+    map_safe_source = source.parent / "web_map_safe_fit.gd"
+    if not map_safe_source.is_file():
+        raise ValueError("Authored map safe-fit addon missing")
+    shutil.copyfile(map_safe_source, destination.parent / map_safe_source.name)
+    # Remove external publisher links from the social strip without changing
+    # gameplay or guessing the user's own Discord invite.
+    social_source = source.parent / "social_buttons_cleanup.gd"
+    if not social_source.is_file():
+        raise ValueError("Authored social UI cleanup missing")
+    shutil.copyfile(social_source, destination.parent / social_source.name)
+    save_manager_source = source.parent / "web_save_manager.gd"
+    if not save_manager_source.is_file():
+        raise ValueError("Authored save upload/download manager missing")
+    shutil.copyfile(save_manager_source, destination.parent / save_manager_source.name)
+    fullscreen_option_source = source.parent / "web_fullscreen_options.gd"
+    if not fullscreen_option_source.is_file():
+        raise ValueError("Web fullscreen Options addon missing")
+    shutil.copyfile(fullscreen_option_source, destination.parent / fullscreen_option_source.name)
+    mira_source = source.parent / "mira_town.gd"
+    if not mira_source.is_file():
+        raise ValueError("Authored Mira town NPC addon missing")
+    shutil.copyfile(mira_source, destination.parent / mira_source.name)
+    guardian_source = source.parent / "offline_save_guardian.gd"
+    if not guardian_source.is_file():
+        raise ValueError("Authored offline save guardian missing")
+    shutil.copyfile(guardian_source, destination.parent / guardian_source.name)
+    qa = destination.parent / "qa"
+    qa.mkdir(exist_ok=True)
+    for name in ("offline_smoke", "offline_visual"):
+        own_script = source.parent / (name + ".gd")
+        if not own_script.is_file():
+            raise ValueError("Authored QA script missing: " + name)
+        shutil.copyfile(own_script, qa / own_script.name)
+        scene = '[gd_scene load_steps=2 format=3]\n\n[ext_resource type="Script" path="res://addons/svv_offline/qa/' + name + '.gd" id="1"]\n\n[node name="OfflineQA" type="Node"]\nscript = ExtResource("1")\n'
+        (qa / (name + ".tscn")).write_text(scene, encoding="utf-8")
+    config = project / "project.godot"
+    text = config.read_text(encoding="utf-8")
+    if "[autoload]" not in text:
+        raise ValueError("Autoload section missing")
+    start = text.index("[autoload]") + len("[autoload]")
+    next_section = text.find("\n[", start)
+    end = next_section if next_section >= 0 else len(text)
+    block = text[start:end]
+    for registration in (
+        'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
+        'SVVMiraTown="*res://addons/svv_offline/mira_town.gd"',
+        'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
+        'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
+        'SVVWebMapSafeFit="*res://addons/svv_offline/web_map_safe_fit.gd"',
+        'SVVSocialCleanup="*res://addons/svv_offline/social_buttons_cleanup.gd"',
+        'SVVSaveManager="*res://addons/svv_offline/web_save_manager.gd"',
+        'SVVFullscreenOptions="*res://addons/svv_offline/web_fullscreen_options.gd"',
+    ):
+        if registration not in block:
+            block = block.rstrip() + "\n" + registration + "\n"
+    new_text = text[:start] + block + text[end:]
+    if new_text != text:
+        config.write_text(new_text, encoding="utf-8")
+    return destination
+
+if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("project", type=Path)
+    args = parser.parse_args()
+    print(install(args.project))
