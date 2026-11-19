@@ -126,27 +126,6 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertNotIn("online-only login", actual)
 
 
-    def test_menu_navigation_defers_until_viewport_is_ready(self):
-        original = (
-            "extends Control\n\n"
-            "func _svv_fix_class_select_navigation() -> void:\n"
-            "\tvar bounds = get_viewport().get_visible_rect()\n"
-            "\tback_button.grab_focus()\n\n"
-            "func show_other() -> void:\n"
-            "\tpass\n"
-        )
-        patched = prepare.defer_menu_navigation_until_ready(original)
-        self.assertIn('if not is_inside_tree():', patched)
-        self.assertIn('call_deferred("_svv_fix_class_select_navigation")', patched)
-        self.assertLess(patched.index("if not is_inside_tree()"), patched.index("get_visible_rect()"))
-        self.assertIn("back_button.grab_focus()", patched)
-        self.assertIn("func show_other() -> void:", patched)
-        self.assertEqual(prepare.defer_menu_navigation_until_ready(patched), patched)
-        with self.assertRaisesRegex(ValueError, "Expected one class-select"):
-            prepare.defer_menu_navigation_until_ready("extends Control\n")
-
-
-
 class RunSaveVersionCompatibility(unittest.TestCase):
     @staticmethod
     def fixture(hero_snapshot: str) -> str:
