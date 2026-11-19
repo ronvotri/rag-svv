@@ -117,7 +117,7 @@
     // from bypassing the bootstrap and hanging on split WASM/PCK resources.
     try { sessionStorage.setItem('svv-web-handoff', manifest.version); }
     catch (error) { console.info('Ragnarok: private session storage unavailable', error); }
-    status.textContent = 'Đang mở Quái triều xâm lăng (' +
+    status.textContent = 'Đang mở Ragnarok: Quái Vật Trỗi Dậy (' +
       manifest.version.slice(0, 7) + ')…';
     location.replace(new URL('./game.html', location.href));
   } catch (error) {
