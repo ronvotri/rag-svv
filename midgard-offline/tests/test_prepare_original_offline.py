@@ -46,6 +46,21 @@ class OriginalPartyBootstrap(unittest.TestCase):
             self.assertIn('"rarity": "' + rarity + '"', assistant)
         self.assertIn('const FRIEND_PROFILES := {', assistant)
 
+    def test_mira_town_dialog_and_heal_are_installed(self):
+        root = module_path.parents[1]
+        installer = (root / "tools/install-original-assistant.py").read_text(encoding="utf-8")
+        script = (root / "original-addons/mira_town.gd").read_text(encoding="utf-8")
+        assistant = (root / "original-addons/offline_assistant.gd").read_text(encoding="utf-8")
+        self.assertIn('SVVMiraTown="*res://addons/svv_offline/mira_town.gd"', installer)
+        self.assertIn('func _town_active() -> bool:', script)
+        self.assertIn('func _show_dialog() -> void:', script)
+        self.assertIn('func play_heal_fx(target: Player, recovered: float)', script)
+        self.assertIn('SVVAssistant._friend_action_pressed()', script)
+        self.assertIn('SVVAssistant._quest_progress("acolyte")', script)
+        self.assertIn('mira_npc.play_heal_fx(recipient, recovered)', assistant)
+        self.assertIn('if not _unlocked_friends().has("acolyte"):', assistant)
+        self.assertNotIn('http', script.lower())
+
     def test_original_boot_skips_online_login_and_preloads_guard(self):
         source = module_path.read_text(encoding="utf-8")
         self.assertIn('"show_login": "show_class_select()"', source)

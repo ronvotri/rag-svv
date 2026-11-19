@@ -35,6 +35,10 @@ def install(project):
     if not fullscreen_option_source.is_file():
         raise ValueError("Web fullscreen Options addon missing")
     shutil.copyfile(fullscreen_option_source, destination.parent / fullscreen_option_source.name)
+    mira_source = source.parent / "mira_town.gd"
+    if not mira_source.is_file():
+        raise ValueError("Authored Mira town NPC addon missing")
+    shutil.copyfile(mira_source, destination.parent / mira_source.name)
     guardian_source = source.parent / "offline_save_guardian.gd"
     if not guardian_source.is_file():
         raise ValueError("Authored offline save guardian missing")
@@ -58,6 +62,7 @@ def install(project):
     block = text[start:end]
     for registration in (
         'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
+        'SVVMiraTown="*res://addons/svv_offline/mira_town.gd"',
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
         'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
         'SVVWebMapSafeFit="*res://addons/svv_offline/web_map_safe_fit.gd"',

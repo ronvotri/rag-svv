@@ -20,6 +20,8 @@ func _run() -> void:
 	check(RunSave.path().contains("profile_offline_test"), "QA run snapshot isolated from player")
 	check(get_tree().root.get_node_or_null("SVVAssistant") != null, "authored party and NPC assistant loaded")
 	check(SVVAssistant.open_button.text == "Bạn bè", "Friends List replaces standalone party selector")
+	check(get_tree().root.get_node_or_null("SVVMiraTown") != null, "Mira town encounter addon autoloaded")
+	check(SVVMiraTown.npc_button.text == "✚ Mira · Acolyte", "Mira uses a distinct town NPC action")
 	check(SVVAssistant._unlocked_friends().is_empty(), "fresh QA profile starts with no recruited friends")
 	check(SVVAssistant._party_members().is_empty(), "no unbefriended NPC can enter party")
 	if Save._name != "profile_offline_test":
@@ -70,6 +72,11 @@ func _run() -> void:
 	SVVAssistant._select_friend("acolyte")
 	SVVAssistant._friend_action_pressed()
 	check(SVVAssistant._unlocked_friends().has("acolyte"), "Acolyte Mira is recruited after her quest")
+	SVVMiraTown._show_dialog()
+	check(SVVMiraTown.dialog.visible, "Mira dialogue opens")
+	check(SVVMiraTown.action.text == "Mời Mira vào party", "recruited Mira can be invited from town")
+	SVVMiraTown._close_dialog()
+	check(not SVVMiraTown.dialog.visible, "Mira dialogue closes cleanly")
 	# Remaining companions are fixture recruits for legacy 3-ally run-save QA.
 	Save.set_setting("svv_offline_friends", ["acolyte", "mage", "archer"])
 	Save.set_setting("svv_offline_party", expected_party)
@@ -145,6 +152,7 @@ func _run() -> void:
 		var before_heal: float = world.player.hp
 		check(SVVAssistant._try_support_heal(world), "Acolyte emergency support activates below HP threshold")
 		check(world.player.hp > before_heal and world.player.hp <= world.player.max_hp, "support restores real player HP without overhealing")
+		check(SVVMiraTown.heal_float.visible, "Mira support displays floating Heal effect")
 		world.player.hp = maxf(1.0, world.player.max_hp * 0.35)
 		test_healer.downed = true
 		test_healer.hp = 0.0

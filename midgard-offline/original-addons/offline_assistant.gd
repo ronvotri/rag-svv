@@ -207,6 +207,9 @@ func _try_support_heal(world: World) -> bool:
 		return false
 	# The upstream 0.2.0 BotHero's runtime class_id does not reliably
 	# identify its original chosen class. The offline roster remains authoritative.
+	# An old run snapshot must not bypass the new recruitment gate.
+	if not _unlocked_friends().has("acolyte"):
+		return false
 	var support_slot: int = world.coop_classes.find("acolyte")
 	if support_slot < 0 or support_slot + 1 >= world.heroes.size():
 		return false
@@ -229,6 +232,9 @@ func _try_support_heal(world: World) -> bool:
 	support_hint.text = "✚ Tu Sĩ tiếp sức: +%d HP" % int(recovered)
 	support_hint.show()
 	support_flash_seconds = 1.5
+	var mira_npc := get_tree().root.get_node_or_null("SVVMiraTown")
+	if mira_npc != null and mira_npc.has_method("play_heal_fx"):
+		mira_npc.play_heal_fx(recipient, recovered)
 	return true
 
 func _unlocked_friends() -> Array:
