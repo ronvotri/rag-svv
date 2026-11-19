@@ -177,9 +177,20 @@ func _run() -> void:
 	SVVCompanionTown._do_action()
 	check(bool(SVVAssistant._quest_progress("swordsman")["started"]), "Alden town NPC and Friends List share quest state")
 	SVVCompanionTown._close_dialog()
+	# Eira already belongs to the saved party: her town action must REMOVE,
+	# not recruit her again. Test party-limit separately with Alden temporarily
+	# flagged recruited; restore the fixture before starting the battle.
 	SVVCompanionTown._show_dialog("mage")
-	check(SVVCompanionTown.action.disabled, "Eira cannot exceed full three-companion party")
+	check(SVVCompanionTown.action.text == "Để Eira nghỉ" and not SVVCompanionTown.action.disabled,
+		"Eira already in party has a working leave action")
 	SVVCompanionTown._close_dialog()
+	Save.set_setting("svv_offline_friends", ["acolyte", "mage", "archer", "swordsman"])
+	SVVCompanionTown._show_dialog("swordsman")
+	check(SVVCompanionTown.action.text == "Mời Alden vào party" and SVVCompanionTown.action.disabled,
+		"new Alden cannot enter a full three-companion party")
+	SVVCompanionTown._close_dialog()
+	Save.set_setting("svv_offline_friends", ["acolyte", "mage", "archer"])
+	Save.flush()
 	world.leave_town()
 	SVVMiraTown._clear_world_sprite()
 	SVVCompanionTown._clear_world()
