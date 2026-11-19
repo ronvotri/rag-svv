@@ -62,6 +62,13 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn("SVVCompanionTown._unhandled_input(pointer_event)", self.smoke)
         self.assertIn('for pointer_kind in ["mouse", "touch"]:', self.smoke)
 
+    def test_cross_city_transition_cleans_live_npcs_and_dialogue(self):
+        self.assertIn('world.set_meta("svv_offline_town_place", "payon")', self.smoke)
+        self.assertIn("cross-city transition removes old companion visuals", self.smoke)
+        self.assertIn("cross-city transition closes old companion dialogue", self.smoke)
+        self.assertIn("cross-city transition hides fallback buttons", self.smoke)
+        self.assertIn("returning to Prontera restores exactly two companion NPCs", self.smoke)
+
     def test_installed_for_each_original_client_build_and_runtime_qa(self):
         self.assertIn('companions_source = source.parent / "companions_town.gd"', self.installer)
         self.assertIn('SVVCompanionTown="*res://addons/svv_offline/companions_town.gd"', self.installer)
