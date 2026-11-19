@@ -65,7 +65,7 @@ func _build_ui() -> void:
 	portrait.add_theme_color_override("font_color", Color("a9f1bf"))
 	header.add_child(portrait)
 	var identity := Label.new()
-	identity.text = "Mira · Acolyte\\nY viện Prontera · Normal"
+	identity.text = "Mira · Acolyte\nY viện Prontera · Normal"
 	identity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	identity.add_theme_font_size_override("font_size", 20)
@@ -167,7 +167,7 @@ func _update_dialog() -> void:
 		action.disabled = not bool(progress["ready"])
 	else:
 		story.text = "Mira: Này nhà thám hiểm! Y viện đang thiếu băng gạc, ngoài kia quái lại kéo đến. Giúp tôi một chuyến, rồi mình cùng phiêu lưu nhé?"
-		description.text = "Nhiệm vụ mở đầu · Normal\\nHạ 8 quái và hoàn thành 1 lượt phiêu lưu để nhận Mira làm bạn."
+		description.text = "Nhiệm vụ mở đầu · Normal\nHạ 8 quái và hoàn thành 1 lượt phiêu lưu để nhận Mira làm bạn."
 		action.text = "Nhận nhiệm vụ của Mira"
 		action.disabled = false
 
