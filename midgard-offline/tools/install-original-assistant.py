@@ -39,6 +39,10 @@ def install(project):
     if not mira_source.is_file():
         raise ValueError("Authored Mira town NPC addon missing")
     shutil.copyfile(mira_source, destination.parent / mira_source.name)
+    companions_source = source.parent / "companions_town.gd"
+    if not companions_source.is_file():
+        raise ValueError("Authored companion town NPC addon missing")
+    shutil.copyfile(companions_source, destination.parent / companions_source.name)
     guardian_source = source.parent / "offline_save_guardian.gd"
     if not guardian_source.is_file():
         raise ValueError("Authored offline save guardian missing")
@@ -63,6 +67,7 @@ def install(project):
     for registration in (
         'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
         'SVVMiraTown="*res://addons/svv_offline/mira_town.gd"',
+        'SVVCompanionTown="*res://addons/svv_offline/companions_town.gd"',
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
         'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
         'SVVWebMapSafeFit="*res://addons/svv_offline/web_map_safe_fit.gd"',
