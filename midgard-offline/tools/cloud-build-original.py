@@ -138,6 +138,22 @@ def archive_folder(folder, output):
             if path.is_file():
                 archive.write(path, Path(folder.name) / path.relative_to(folder))
 
+def find_untranslated_prose_candidates(pending):
+    """Surface possible missed dialogue/help text, not short proper names.
+
+    This is an advisory filter, not a claim that every short fallback is
+    translated or that long named skills should be converted. A manual QA
+    review decides whether a candidate is actual prose.
+    """
+    candidates = []
+    for entry in pending:
+        english = str(entry.get("english", ""))
+        words = re.findall(r"[A-Za-zÀ-ỹ]+", english)
+        if len(english) >= 45 and len(words) >= 8:
+            candidates.append(entry)
+    return candidates
+
+
 def write_context(project, work, translation):
     """Small text artifacts help a web chat continue without downloading a game."""
     context = work / "context"
@@ -184,6 +200,18 @@ def write_context(project, work, translation):
             pending.append({"msgid": entry["id"], "english": english})
     for start in range(0, len(pending), 200):
         (context / f"translation-worklist-{start//200+1:03d}.json").write_text(json.dumps(pending[start:start+200], ensure_ascii=False, indent=2), encoding="utf-8")
+    # Track long, potentially player-facing prose separately from names and
+    # short stat labels. This must remain advisory: a boss skill can be long.
+    review = {
+        "catalog_entries": len(source_entries),
+        "unprotected_fallback_entries": len(pending),
+        "likely_untranslated_prose": find_untranslated_prose_candidates(pending),
+        "largest_fallback_chars": max((len(item["english"]) for item in pending), default=0),
+        "policy": "Candidate prose requires manual review; names, skills, items and music stay English.",
+    }
+    (context / "untranslated-prose-review.json").write_text(
+        json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     # Inspector for the exact recovered character-selection background.
     # Only sampled UI-construction lines, not the publisher's full source.
     # Avoid replacing the wrong scene or adding a front-layer image over buttons.
