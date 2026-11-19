@@ -23,6 +23,11 @@ func _run() -> void:
 	check(get_tree().root.get_node_or_null("SVVMiraTown") != null, "Mira town encounter addon autoloaded")
 	check(SVVMiraTown.npc_button.text == "✚ Mira · Acolyte", "Mira has a town interaction fallback")
 	check(RoAssets.has_sprite("acolyte_f"), "original Acolyte female sprite is present")
+	check(get_tree().root.get_node_or_null("SVVCompanionTown") != null, "Alden/Eira town encounters autoloaded")
+	for job in ["swordsman", "mage"]:
+		check(not SVVCompanionTown._first_original_sprite(job).is_empty(),
+			"original " + job + " job sprite available for companion NPC")
+
 	# Exercise the same RoVisual constructor used for town Mira, with a
 	# temporary tree. No custom artwork, live network or normal save involved.
 	var preview_anchor := Node3D.new()
@@ -91,7 +96,23 @@ func _run() -> void:
 	check(SVVMiraTown.action.text == "Mời Mira vào party", "recruited Mira can be invited from town")
 	SVVMiraTown._close_dialog()
 	check(not SVVMiraTown.dialog.visible, "Mira dialogue closes cleanly")
+
+	# Both new quests must unlock through the same Friends List state machine.
+	for job in ["swordsman", "mage"]:
+		SVVAssistant._select_friend(job)
+		SVVAssistant._friend_action_pressed()
+		check(bool(SVVAssistant._quest_progress(job)["started"]), job + " quest starts after Mira")
+		var companion_profile: Dictionary = SVVAssistant._friend_profile(job)
+		var scripted_progress: Dictionary = SVVAssistant._friend_quests()
+		scripted_progress[job] = {
+			"kills_at_start": int(Save.stat("kills")) - int(companion_profile["kills"]),
+			"runs_at_start": int(Save.stat("runs")) - int(companion_profile["runs"]),
+		}
+		Save.set_setting("svv_friend_quests", scripted_progress)
+		SVVAssistant._friend_action_pressed()
+		check(SVVAssistant._unlocked_friends().has(job), job + " is recruitable after quest")
 	# Remaining companions are fixture recruits for legacy 3-ally run-save QA.
+
 	Save.set_setting("svv_offline_friends", ["acolyte", "mage", "archer"])
 	Save.set_setting("svv_offline_party", expected_party)
 	Save.flush()
@@ -138,8 +159,41 @@ func _run() -> void:
 				SVVMiraTown._unhandled_input(tap)
 				check(SVVMiraTown.dialog.visible, "click on Mira world sprite opens NPC dialogue")
 				SVVMiraTown._close_dialog()
+
+	# In-world encounters must use genuine rendered Ragnarok job sprites.
+	SVVCompanionTown._clear_world()
+	SVVCompanionTown._spawn_in_town(actual_town)
+	for job in ["swordsman", "mage"]:
+		var npc: RoVisual = SVVCompanionTown.npc_visuals.get(job)
+		check(npc != null and is_instance_valid(npc), job + " physically appears in Prontera")
+		if npc != null and is_instance_valid(npc):
+			check(npc.get_parent() == actual_town, job + " belongs to the original Town scene")
+			check(npc.sprite is Sprite3D and npc.sprite.texture != null, job + " uses genuine rendered Ragnarok sprite")
+			if kafra != null:
+				check(npc.global_position.distance_to(kafra.global_position) >= 1.0, job + " does not overlap Kafra")
+	SVVCompanionTown._show_dialog("swordsman")
+	check(SVVCompanionTown.dialog.visible, "Alden town dialogue opens")
+	check(SVVCompanionTown.action.text == "Nhận nhiệm vụ", "Alden quest is available from town after Mira")
+	SVVCompanionTown._do_action()
+	check(bool(SVVAssistant._quest_progress("swordsman")["started"]), "Alden town NPC and Friends List share quest state")
+	SVVCompanionTown._close_dialog()
+	# Eira already belongs to the saved party: her town action must REMOVE,
+	# not recruit her again. Test party-limit separately with Alden temporarily
+	# flagged recruited; restore the fixture before starting the battle.
+	SVVCompanionTown._show_dialog("mage")
+	check(SVVCompanionTown.action.text == "Để Eira nghỉ" and not SVVCompanionTown.action.disabled,
+		"Eira already in party has a working leave action")
+	SVVCompanionTown._close_dialog()
+	Save.set_setting("svv_offline_friends", ["acolyte", "mage", "archer", "swordsman"])
+	SVVCompanionTown._show_dialog("swordsman")
+	check(SVVCompanionTown.action.text == "Mời Alden vào party" and SVVCompanionTown.action.disabled,
+		"new Alden cannot enter a full three-companion party")
+	SVVCompanionTown._close_dialog()
+	Save.set_setting("svv_offline_friends", ["acolyte", "mage", "archer"])
+	Save.flush()
 	world.leave_town()
 	SVVMiraTown._clear_world_sprite()
+	SVVCompanionTown._clear_world()
 	await get_tree().process_frame
 	world.menus.show_login()
 	await get_tree().process_frame

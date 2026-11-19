@@ -13,8 +13,8 @@ var selected_class := "acolyte"
 # These are story characters, not simulated online player accounts.
 const FRIEND_PROFILES := {
 	"acolyte": {"name": "Mira", "rarity": "Normal", "kills": 8, "runs": 1, "quest": "Tiếp tế y viện: giúp Mira chống trả 8 quái và hoàn thành 1 lượt phiêu lưu."},
-	"swordsman": {"name": "Alden", "rarity": "Normal", "kills": 20, "runs": 1, "quest": "Lời thề vệ binh: chiến đấu với 20 quái và trở về an toàn sau 1 lượt."},
-	"mage": {"name": "Eira", "rarity": "Normal", "kills": 25, "runs": 1, "quest": "Thí nghiệm phép thuật: xử lý 25 quái trong hành trình cùng Eira."},
+	"swordsman": {"name": "Alden", "rarity": "Normal", "kills": 20, "runs": 1, "role": "Tuyến đầu · chịu đòn và giữ quái", "location": "Prontera", "quest": "Lời thề vệ binh: chiến đấu với 20 quái và trở về an toàn sau 1 lượt."},
+	"mage": {"name": "Eira", "rarity": "Normal", "kills": 25, "runs": 1, "role": "Tấn công phép · gây sát thương diện rộng", "location": "Prontera", "quest": "Thí nghiệm phép thuật: xử lý 25 quái trong hành trình cùng Eira."},
 	"archer": {"name": "Elowen", "rarity": "Normal", "kills": 25, "runs": 1, "quest": "Tuần tra cung thủ: hạ 25 quái qua ít nhất 1 lượt phiêu lưu."},
 	"thief": {"name": "Riku", "rarity": "Normal", "kills": 30, "runs": 1, "quest": "Bài kiểm tra của Riku: vượt qua 30 quái, đừng bỏ cuộc giữa đường."},
 	"merchant": {"name": "Mino", "rarity": "Normal", "kills": 30, "runs": 2, "quest": "Bảo vệ thương đoàn: hạ 30 quái qua ít nhất 2 lượt."},
@@ -100,7 +100,7 @@ func _ready() -> void:
 		selected_class = available_ids[0]
 	friend_details = Label.new()
 	friend_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	friend_details.custom_minimum_size.y = 115
+	friend_details.custom_minimum_size.y = 136
 	column.add_child(friend_details)
 	friend_action = Button.new()
 	friend_action.text = "Nhận nhiệm vụ"
@@ -309,6 +309,11 @@ func _refresh_friends() -> void:
 	var profile: Dictionary = _friend_profile(selected_class)
 	var progress: Dictionary = _quest_progress(selected_class)
 	var description: String = str(profile["name"]) + " · " + _job_name(selected_class) + " · " + str(profile["rarity"]) + "\n"
+	if profile.has("role"):
+		description += "Vai trò: " + str(profile["role"]) + "\n"
+	if profile.has("location"):
+		description += "Có thể gặp tại: " + str(profile["location"]) + "\n"
+
 	if unlocked.has(selected_class):
 		description += "Đã kết bạn. Bạn có thể mời NPC này vào party trước khi bắt đầu phiêu lưu."
 		friend_action.text = "Rời party" if party.has(selected_class) else "Mời vào party"
