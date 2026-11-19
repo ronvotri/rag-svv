@@ -126,8 +126,6 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertNotIn("online-only login", actual)
 
 
-
-
 class RunSaveVersionCompatibility(unittest.TestCase):
     @staticmethod
     def fixture(hero_snapshot: str) -> str:

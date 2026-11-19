@@ -24,9 +24,13 @@ func _run() -> void:
 	check(SVVMiraTown.npc_button.text == "✚ Mira · Acolyte", "Mira has a town interaction fallback")
 	check(RoAssets.has_sprite("acolyte_f"), "original Acolyte female sprite is present")
 	check(get_tree().root.get_node_or_null("SVVCompanionTown") != null, "Alden/Eira town encounters autoloaded")
-	for job in ["swordsman", "mage"]:
-		check(not SVVCompanionTown._first_original_sprite(job).is_empty(),
-			"original " + job + " job sprite available for companion NPC")
+	for job in ["swordsman", "mage", "archer", "thief", "merchant", "novice"]:
+		var original_id: String = SVVCompanionTown._first_original_sprite(job)
+		var visual_label: String = ("original Novice-family sprite available (Super Novice fallback is provisional)"
+			if job == "novice" else "original " + job + " job sprite available for companion NPC")
+		check(not original_id.is_empty(), visual_label)
+		if job == "novice":
+			print("OFFLINE_QA NAO_VISUAL basic Novice is unverified; selected=", original_id)
 
 	# Exercise the same RoVisual constructor used for town Mira, with a
 	# temporary tree. No custom artwork, live network or normal save involved.
@@ -39,6 +43,20 @@ func _run() -> void:
 	check(preview != null and is_instance_valid(preview), "original Acolyte sprite renders as RoVisual")
 	if preview != null:
 		check(preview.name == "MiraAcolyteNPC", "Mira sprite has stable NPC scene identity")
+	# Audit wave-two originals off-map; no extra NPCs in Prontera yet.
+	for job in ["archer", "thief", "merchant", "novice"]:
+		var candidate_id: String = SVVCompanionTown._first_original_sprite(job)
+		print("OFFLINE_QA WAVE2_SPRITE ", job, "=", candidate_id)
+		if candidate_id.is_empty():
+			continue
+		var source_sprite = RoAssets.sprite([candidate_id])
+		check(source_sprite != null, job + " recovered sprite data loads")
+		if source_sprite != null:
+			var preview_job := RoVisual.new()
+			preview_root.add_child(preview_job)
+			preview_job.setup(source_sprite, Color(0.8, 0.8, 0.9), 40)
+			check(preview_job.sprite is Sprite3D and preview_job.sprite.texture != null,
+				job + " original Ragnarok sprite renders for later town placement")
 	preview_root.queue_free()
 
 	check(SVVAssistant._unlocked_friends().is_empty(), "fresh QA profile starts with no recruited friends")

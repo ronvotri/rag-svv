@@ -8,6 +8,14 @@ const JOBS := ["swordsman", "mage"]
 const SPRITE_CANDIDATES := {
 	"swordsman": ["swordsman_m", "swordsman_f"],
 	"mage": ["mage_f", "mage_m"],
+	# Wave two: audit original sprites BEFORE any city placement.
+	"archer": ["archer_f", "archer_m"],
+	"thief": ["thief_m", "thief_f"],
+	"merchant": ["merchant_m", "merchant_f"],
+	# The pinned client has no basic Novice body. Super Novice below is an
+	# ORIGINAL Ragnarok asset, but only a provisional visual for Nao (not a
+	# verified visual match for the basic Novice job).
+	"novice": ["novice_f", "novice_m", "super_novice_f", "super_novice"],
 }
 const NPC_NAMES := {
 	"swordsman": "Alden",

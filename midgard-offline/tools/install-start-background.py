@@ -35,12 +35,21 @@ func _svv_class_arrow_texture(point_left: bool) -> Texture2D:
 
 
 func _svv_fix_class_select_navigation() -> void:
+	# show_class_select may run on a Menus instance before it enters the tree.
+	# The existing deferred hook is not enough if no viewport exists yet.
+	if not is_inside_tree():
+		if not tree_entered.is_connected(_svv_fix_class_select_navigation):
+			tree_entered.connect(_svv_fix_class_select_navigation, CONNECT_ONE_SHOT)
+		return
+	var viewport: Viewport = get_viewport()
+	if viewport == null:
+		return
 	if _mode != "class_select":
 		return
 	# Find the existing NEXT button first. Its ▶ glyph renders correctly.
 	# Its sibling PREVIOUS button is at the same height on the left side of
 	# the class-selector row. Use geometry rather than the broken glyph text.
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var viewport_size: Vector2 = viewport.get_visible_rect().size
 	var next_button: Button = null
 	for node in find_children("*", "Button", true, false):
 		var button: Button = node as Button
