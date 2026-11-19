@@ -85,7 +85,7 @@ def offline_party_bootstrap() -> str:
     Previously saved class-only parties are not automatically considered friends.
     CLI overrides cannot bypass recruitment in a production or QA build.
     """
-    return "\\n".join([
+    return "\n".join([
         '\tvar saved_offline_party = Save.setting("svv_offline_party", [])',
         '\tvar recruited_friends = Save.setting("svv_offline_friends", [])',
         '\tif not saved_offline_party is Array:',
