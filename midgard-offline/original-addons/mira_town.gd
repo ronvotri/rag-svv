@@ -184,7 +184,18 @@ func play_heal_fx(target: Player, recovered: float) -> void:
 	if heal_tween != null and heal_tween.is_running():
 		heal_tween.kill()
 	heal_float.text = "✚ +%d HP" % int(recovered)
-	heal_float.position = target.get_global_transform_with_canvas().origin - Vector2(54, 88)
+	# Player is Node3D in the original Godot client, never CanvasItem.
+	# Camera3D projects the healing world position into the CanvasLayer.
+	# Headless QA can have no camera: place the cue in the viewport center.
+	var viewport := get_viewport()
+	var screen_position: Vector2 = viewport.get_visible_rect().size * 0.5
+	var camera: Camera3D = viewport.get_camera_3d()
+	if camera != null and not camera.is_position_behind(target.global_position):
+		screen_position = camera.unproject_position(target.global_position + Vector3(0.0, 1.2, 0.0))
+	var safe_size := viewport.get_visible_rect().size
+	heal_float.position = Vector2(
+		clampf(screen_position.x - 54.0, 8.0, maxf(8.0, safe_size.x - 120.0)),
+		clampf(screen_position.y - 88.0, 8.0, maxf(8.0, safe_size.y - 72.0)))
 	heal_float.scale = Vector2.ONE
 	heal_float.modulate = Color(1.0, 1.0, 1.0, 1.0)
 	heal_float.show()

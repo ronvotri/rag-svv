@@ -61,6 +61,15 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertIn('if not _unlocked_friends().has("acolyte"):', assistant)
         self.assertNotIn('http', script.lower())
 
+    def test_mira_heal_projection_is_3d_safe(self):
+        root = module_path.parents[1]
+        script = (root / "original-addons/mira_town.gd").read_text(encoding="utf-8")
+        self.assertIn('target.global_position', script)
+        self.assertIn('viewport.get_camera_3d()', script)
+        self.assertIn('camera.unproject_position(', script)
+        self.assertIn('if camera != null', script)
+        self.assertNotIn('get_global_transform_with_canvas()', script)
+
     def test_original_boot_skips_online_login_and_preloads_guard(self):
         source = module_path.read_text(encoding="utf-8")
         self.assertIn('"show_login": "show_class_select()"', source)
