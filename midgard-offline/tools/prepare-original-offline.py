@@ -80,27 +80,23 @@ def set_setting(text: str, section: str, key: str, value: str) -> str:
 
 
 def offline_party_bootstrap() -> str:
-    """Load saved AI companions on every new World, with an explicit CLI override.
+    """Spawn only recruited NPC jobs selected from Friends List; new saves start solo.
 
-    An intentionally empty saved roster means solo. Invalid/duplicated class IDs
-    are ignored; old or malformed settings fall back to the default roster.
+    Previously saved class-only parties are not automatically considered friends.
+    CLI overrides cannot bypass recruitment in a production or QA build.
     """
-    return "\n".join([
-        '\tvar saved_offline_party = Save.setting("svv_offline_party", ["acolyte", "mage", "archer"])',
+    return "\\n".join([
+        '\tvar saved_offline_party = Save.setting("svv_offline_party", [])',
+        '\tvar recruited_friends = Save.setting("svv_offline_friends", [])',
         '\tif not saved_offline_party is Array:',
-        '\t\tsaved_offline_party = ["acolyte", "mage", "archer"]',
+        '\t\tsaved_offline_party = []',
+        '\tif not recruited_friends is Array:',
+        '\t\trecruited_friends = []',
         '\tcoop_classes.clear()',
         '\tfor candidate in saved_offline_party:',
         '\t\tvar offline_class: String = str(candidate)',
-        '\t\tif GameData.CLASSES.has(offline_class) and not coop_classes.has(offline_class) and coop_classes.size() < 3:',
+        '\t\tif recruited_friends.has(offline_class) and GameData.CLASSES.has(offline_class) and not coop_classes.has(offline_class) and coop_classes.size() < 3:',
         '\t\t\tcoop_classes.append(offline_class)',
-        '\tfor offline_arg in OS.get_cmdline_user_args():',
-        '\t\tif str(offline_arg).begins_with("--offline-party="):',
-        '\t\t\tcoop_classes.clear()',
-        '\t\t\tfor offline_candidate in str(offline_arg).substr(16).split(",", false):',
-        '\t\t\t\tvar offline_class: String = str(offline_candidate)',
-        '\t\t\t\tif GameData.CLASSES.has(offline_class) and not coop_classes.has(offline_class) and coop_classes.size() < 3:',
-        '\t\t\t\t\tcoop_classes.append(offline_class)',
         '\t_build_scene()',
     ])
 

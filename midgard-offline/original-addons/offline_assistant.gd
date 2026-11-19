@@ -5,7 +5,27 @@ extends CanvasLayer
 var panel: PanelContainer
 var messages: RichTextLabel
 var entry: LineEdit
-var selectors: Array[OptionButton] = []
+var friend_list: VBoxContainer
+var friend_details: Label
+var friend_action: Button
+var selected_class := "acolyte"
+# Authored local NPC friendship profiles; class IDs come from recovered GameData.
+# These are story characters, not simulated online player accounts.
+const FRIEND_PROFILES := {
+	"acolyte": {"name": "Mira", "rarity": "Normal", "kills": 8, "runs": 1, "quest": "Tiếp tế y viện: giúp Mira chống trả 8 quái và hoàn thành 1 lượt phiêu lưu."},
+	"swordsman": {"name": "Alden", "rarity": "Normal", "kills": 20, "runs": 1, "quest": "Lời thề vệ binh: chiến đấu với 20 quái và trở về an toàn sau 1 lượt."},
+	"mage": {"name": "Eira", "rarity": "Normal", "kills": 25, "runs": 1, "quest": "Thí nghiệm phép thuật: xử lý 25 quái trong hành trình cùng Eira."},
+	"archer": {"name": "Elowen", "rarity": "Normal", "kills": 25, "runs": 1, "quest": "Tuần tra cung thủ: hạ 25 quái qua ít nhất 1 lượt phiêu lưu."},
+	"thief": {"name": "Riku", "rarity": "Normal", "kills": 30, "runs": 1, "quest": "Bài kiểm tra của Riku: vượt qua 30 quái, đừng bỏ cuộc giữa đường."},
+	"merchant": {"name": "Mino", "rarity": "Normal", "kills": 30, "runs": 2, "quest": "Bảo vệ thương đoàn: hạ 30 quái qua ít nhất 2 lượt."},
+	"novice": {"name": "Nao", "rarity": "Normal", "kills": 15, "runs": 2, "quest": "Đường của tân binh: giúp Nao vượt qua 15 quái trong 2 lượt."},
+	"gunslinger": {"name": "Cole", "rarity": "Rare", "kills": 90, "runs": 3, "quest": "Hợp đồng của Cole: hạ 90 quái trong ít nhất 3 lượt."},
+	"taekwon": {"name": "Haneul", "rarity": "Rare", "kills": 100, "runs": 3, "quest": "Rèn luyện của Haneul: hạ 100 quái và hoàn thành 3 lượt."},
+	"ninja": {"name": "Kira", "rarity": "Ultra Rare", "kills": 220, "runs": 5, "quest": "Thử thách bóng đêm: hạ 220 quái và hoàn thành 5 lượt."},
+	"doram": {"name": "Lumi", "rarity": "Ultra Rare", "kills": 240, "runs": 5, "quest": "Giao ước với Lumi: hạ 240 quái và hoàn thành 5 lượt."},
+}
+
+
 var status: Label
 var open_button: Button
 var veil: ColorRect
@@ -23,7 +43,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 110
 	open_button = Button.new()
-	open_button.text = "Tìm party"
+	open_button.text = "Bạn bè"
 	open_button.position = Vector2(12, 56)
 	open_button.custom_minimum_size = Vector2(168, 36)
 	open_button.pressed.connect(_open)
@@ -63,28 +83,40 @@ func _ready() -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(column)
 	var title := Label.new()
-	title.text = "Tìm party tại Midgard"
+	title.text = "Friends List · Bằng hữu Midgard"
 	title.add_theme_font_size_override("font_size", 23)
 	column.add_child(title)
 	status = Label.new()
-	status.text = "Chọn tối đa 3 đồng đội. Tu sĩ có Tiếp Sức hồi máu khẩn cấp trong party offline."
+	status.text = "Làm nhiệm vụ của NPC, kết bạn rồi mới có thể mời vào party (tối đa 3)."
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(status)
 	for key in GameData.CLASSES:
 		available_ids.append(str(key))
-	for i in 3:
-		var option := OptionButton.new()
-		option.add_item("Để trống vị trí")
-		for id in available_ids:
-			option.add_item(tr(str(GameData.CLASSES[id].get("name", id))))
-		column.add_child(option)
-		selectors.append(option)
-	var apply := Button.new()
-	apply.text = "Xác nhận party"
-	apply.pressed.connect(_apply_party)
-	column.add_child(apply)
+	available_ids.sort()
+	if available_ids.has("acolyte"):
+		available_ids.erase("acolyte")
+		available_ids.insert(0, "acolyte")
+	elif not available_ids.is_empty():
+		selected_class = available_ids[0]
+	friend_details = Label.new()
+	friend_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	friend_details.custom_minimum_size.y = 115
+	column.add_child(friend_details)
+	friend_action = Button.new()
+	friend_action.text = "Nhận nhiệm vụ"
+	friend_action.custom_minimum_size.y = 42
+	friend_action.pressed.connect(_friend_action_pressed)
+	column.add_child(friend_action)
+	var roster_heading := Label.new()
+	roster_heading.text = "Cư dân Midgard · chọn NPC để xem nhiệm vụ"
+	roster_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(roster_heading)
+	friend_list = VBoxContainer.new()
+	friend_list.add_theme_constant_override("separation", 5)
+	column.add_child(friend_list)
+	_refresh_friends()
 	var explanation := Label.new()
-	explanation.text = "Cần lời khuyên? Trò chuyện với NPC Linh ngay bên dưới. Hội thoại có sẵn trên máy."
+	explanation.text = "NPC đồng hành được game điều khiển, không phải người chơi online. Hỏi NPC Linh nếu cần trợ giúp."
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.add_theme_font_size_override("font_size", 12)
 	column.add_child(explanation)
@@ -199,36 +231,152 @@ func _try_support_heal(world: World) -> bool:
 	support_flash_seconds = 1.5
 	return true
 
-func _restore_party() -> void:
-	var ids = Save.setting("svv_offline_party", ["acolyte", "mage", "archer"])
-	if not ids is Array:
-		ids = []
-	var valid: Array[String] = []
-	for id in ids:
-		if GameData.CLASSES.has(str(id)) and not valid.has(str(id)) and valid.size() < 3:
-			valid.append(str(id))
-	var world := _world()
-	if world != null:
-		world.coop_classes.assign(valid)
-	for i in selectors.size():
-		selectors[i].select(available_ids.find(valid[i]) + 1 if i < valid.size() else 0)
-	status.text = "Party hiện tại: %d/3 thành viên. Đồng đội sẽ tham chiến tự động." % valid.size()
+func _unlocked_friends() -> Array:
+	var friends = Save.setting("svv_offline_friends", [])
+	return friends if friends is Array else []
 
-func _apply_party() -> void:
-	var ids: Array[String] = []
-	for option in selectors:
-		if option.selected > 0:
-			var id: String = available_ids[option.selected - 1]
-			if ids.has(id):
-				status.text = "Hãy chọn các nghề khác nhau trong đội hình."
-				return
-			ids.append(id)
-	Save.set_setting("svv_offline_party", ids)
+
+func _friend_quests() -> Dictionary:
+	var quests = Save.setting("svv_friend_quests", {})
+	return quests if quests is Dictionary else {}
+
+
+func _friend_profile(job: String) -> Dictionary:
+	if FRIEND_PROFILES.has(job):
+		return FRIEND_PROFILES[job]
+	return {"name": "Lữ khách " + job, "rarity": "Normal", "kills": 35, "runs": 2,
+		"quest": "Giúp lữ khách vượt qua 35 quái và hoàn thành 2 lượt phiêu lưu."}
+
+
+func _job_name(job: String) -> String:
+	if GameData.CLASSES.has(job):
+		return tr(str(GameData.CLASSES[job].get("name", job)))
+	return job
+
+
+func _party_members() -> Array[String]:
+	var saved = Save.setting("svv_offline_party", [])
+	var friends: Array = _unlocked_friends()
+	var result: Array[String] = []
+	if saved is Array:
+		for candidate in saved:
+			var job: String = str(candidate)
+			if friends.has(job) and GameData.CLASSES.has(job) and not result.has(job) and result.size() < 3:
+				result.append(job)
+	return result
+
+
+func _quest_progress(job: String) -> Dictionary:
+	var profile: Dictionary = _friend_profile(job)
+	var quest = _friend_quests().get(job, {})
+	if not quest is Dictionary or quest.is_empty():
+		return {"started": false, "ready": false, "kills": 0, "runs": 0}
+	var kills: int = maxi(0, int(Save.stat("kills")) - int(quest.get("kills_at_start", 0)))
+	var runs: int = maxi(0, int(Save.stat("runs")) - int(quest.get("runs_at_start", 0)))
+	return {"started": true, "ready": kills >= int(profile["kills"]) and runs >= int(profile["runs"]),
+		"kills": mini(kills, int(profile["kills"])), "runs": mini(runs, int(profile["runs"]))}
+
+
+func _refresh_friends() -> void:
+	if friend_list == null:
+		return
+	var unlocked: Array = _unlocked_friends()
+	var party: Array[String] = _party_members()
+	status.text = "Party: %d/3 · Chỉ mời NPC đã kết bạn. Tất cả hoạt động offline." % party.size()
+	for child in friend_list.get_children():
+		friend_list.remove_child(child)
+		child.queue_free()
+	for job in available_ids:
+		var profile: Dictionary = _friend_profile(job)
+		var button := Button.new()
+		var state := " · Đang đi cùng" if party.has(job) else (" · Bạn bè" if unlocked.has(job) else " · Chưa kết bạn")
+		button.text = str(profile["name"]) + " · " + _job_name(job) + " [" + str(profile["rarity"]) + "]" + state
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.clip_text = true
+		button.custom_minimum_size.y = 36
+		button.pressed.connect(_select_friend.bind(job))
+		friend_list.add_child(button)
+	if not available_ids.has(selected_class):
+		selected_class = available_ids[0] if not available_ids.is_empty() else ""
+	if selected_class.is_empty():
+		return
+	var profile: Dictionary = _friend_profile(selected_class)
+	var progress: Dictionary = _quest_progress(selected_class)
+	var description: String = str(profile["name"]) + " · " + _job_name(selected_class) + " · " + str(profile["rarity"]) + "\n"
+	if unlocked.has(selected_class):
+		description += "Đã kết bạn. Bạn có thể mời NPC này vào party trước khi bắt đầu phiêu lưu."
+		friend_action.text = "Rời party" if party.has(selected_class) else "Mời vào party"
+		friend_action.disabled = not party.has(selected_class) and party.size() >= 3
+	elif selected_class != "acolyte" and not unlocked.has("acolyte") and available_ids.has("acolyte"):
+		description += "Hãy hoàn thành nhiệm vụ của Mira (Acolyte) trước để mở hệ thống kết bạn."
+		friend_action.text = "Chưa mở khóa"
+		friend_action.disabled = true
+	elif bool(progress["started"]):
+		description += str(profile["quest"]) + "\nTiến độ: %d/%d quái · %d/%d lượt." % [
+			int(progress["kills"]), int(profile["kills"]), int(progress["runs"]), int(profile["runs"])]
+		friend_action.text = "Thu nhận NPC" if bool(progress["ready"]) else "Đang làm nhiệm vụ"
+		friend_action.disabled = not bool(progress["ready"])
+	else:
+		description += str(profile["quest"]) + "\nHoàn thành nhiệm vụ mới có thể kết bạn."
+		friend_action.text = "Nhận nhiệm vụ"
+		friend_action.disabled = false
+	friend_details.text = description
+
+
+func _select_friend(job: String) -> void:
+	if not available_ids.has(job):
+		return
+	selected_class = job
+	_refresh_friends()
+
+
+func _friend_action_pressed() -> void:
+	if not available_ids.has(selected_class):
+		return
+	var unlocked: Array = _unlocked_friends()
+	if unlocked.has(selected_class):
+		var party: Array[String] = _party_members()
+		if party.has(selected_class):
+			party.erase(selected_class)
+		elif party.size() < 3:
+			party.append(selected_class)
+		else:
+			return
+		Save.set_setting("svv_offline_party", party)
+		Save.flush()
+		var world := _world()
+		if world != null and not world.running:
+			world.coop_classes.assign(party)
+	elif selected_class == "acolyte" or unlocked.has("acolyte") or not available_ids.has("acolyte"):
+		var quests: Dictionary = _friend_quests()
+		var progress: Dictionary = _quest_progress(selected_class)
+		if not bool(progress["started"]):
+			quests[selected_class] = {
+				"kills_at_start": int(Save.stat("kills")),
+				"runs_at_start": int(Save.stat("runs")),
+			}
+			Save.set_setting("svv_friend_quests", quests)
+			Save.flush()
+		elif bool(progress["ready"]):
+			unlocked.append(selected_class)
+			quests.erase(selected_class)
+			Save.set_setting("svv_offline_friends", unlocked)
+			Save.set_setting("svv_friend_quests", quests)
+			Save.flush()
+	_refresh_friends()
+
+
+func _restore_party() -> void:
+	# Legacy class-only rosters are retained in the profile, but unbefriended
+	# companions never spawn in a new run after switching to Friends List.
+	var party: Array[String] = _party_members()
+	Save.set_setting("svv_offline_party", party)
 	Save.flush()
 	var world := _world()
-	if world != null:
-		world.coop_classes.assign(ids)
-	status.text = "Đã chọn %d/3 thành viên. Party mới áp dụng từ lượt tiếp theo." % ids.size()
+	if world != null and not world.running:
+		world.coop_classes.assign(party)
+	_refresh_friends()
+
 
 func _open() -> void:
 	var world := _world()
@@ -240,6 +388,7 @@ func _open() -> void:
 	get_tree().paused = true
 	veil.show()
 	panel.show()
+	_refresh_friends()
 	entry.grab_focus()
 	if messages.text.is_empty():
 		messages.add_text("Linh: Chào nhà thám hiểm! Bạn có thể hỏi về kỹ năng, boss, trang bị, thẻ, nhiệm vụ hoặc save.\n\n")
@@ -265,8 +414,8 @@ func _answer(input: String) -> void:
 		answer = "Chào bạn! Mình có thể hướng dẫn ngay cả khi máy không có mạng."
 	elif _has(query, ["chatgpt", "mô hình", "llm", "internet", "ai thật"]):
 		answer = "NPC Linh trò chuyện theo kịch bản offline, không phải mô hình ngôn ngữ lớn. Thành viên party do game tự điều khiển, không phải người chơi trực tuyến."
-	elif _has(query, ["party", "tìm party", "tổ đội", "đồng đội", "đội hình", "bot", "hồi sinh"]):
-		answer = "Mở Tìm party, chọn tối đa ba nghề rồi xác nhận. Party mới tham gia từ lượt tiếp theo. Đồng đội tự dùng kỹ năng, có thể bị hạ và được hỗ trợ. Chọn Tu sĩ nếu cần hồi máu."
+	elif _has(query, ["party", "bạn bè", "friends list", "tổ đội", "đồng đội", "đội hình", "bot", "hồi sinh"]):
+		answer = "Mở Bạn bè, nhận và hoàn thành nhiệm vụ NPC để kết bạn. Sau đó mời tối đa ba người vào party. Mira là Tu sĩ hỗ trợ hồi máu đầu tiên."
 	elif _has(query, ["lưu", "save", "đổi máy", "dữ liệu"]):
 		answer = "Để chuyển save sang máy khác, nhấn Sao lưu / Nạp save ở màn hình chính rồi chọn Tải save về máy (JSON). Trên máy mới, mở cùng mục và chọn Nạp save từ máy (JSON). Game kiểm tra file và giữ một bản dự phòng trước khi nhập. Save không tự đồng bộ lên mạng."
 	elif _has(query, ["boss", "mvp", "thủ lĩnh"]):

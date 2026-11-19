@@ -10,25 +10,41 @@ spec.loader.exec_module(prepare)
 
 
 class OriginalPartyBootstrap(unittest.TestCase):
-    def test_saved_party_is_used_instead_of_hardcoded_defaults(self):
+    def test_only_recruited_friends_can_enter_new_run(self):
         body = prepare.offline_party_bootstrap()
-        self.assertIn('Save.setting("svv_offline_party", ["acolyte", "mage", "archer"])', body)
+        self.assertIn('Save.setting("svv_offline_party", [])', body)
+        self.assertIn('Save.setting("svv_offline_friends", [])', body)
         self.assertIn("for candidate in saved_offline_party:", body)
+        self.assertIn("recruited_friends.has(offline_class)", body)
         self.assertIn("coop_classes.clear()", body)
-        self.assertLess(body.index('Save.setting("svv_offline_party"'), body.index("_build_scene()"))
+        self.assertLess(body.index('Save.setting("svv_offline_friends"'), body.index("_build_scene()"))
 
-    def test_empty_and_malformed_roster_and_cli_override(self):
+    def test_empty_malformed_and_duplicate_rosters_are_safe(self):
         body = prepare.offline_party_bootstrap()
         self.assertIn("if not saved_offline_party is Array:", body)
-        self.assertNotIn("if saved_offline_party.is_empty():", body)
+        self.assertIn("if not recruited_friends is Array:", body)
         self.assertIn("GameData.CLASSES.has(offline_class)", body)
         self.assertIn("not coop_classes.has(offline_class)", body)
         self.assertIn("coop_classes.size() < 3", body)
-        self.assertIn('begins_with("--offline-party=")', body)
-        self.assertIn("substr(16)", body)
-        self.assertLess(body.index("for candidate in saved_offline_party:"), body.index('begins_with("--offline-party=")'))
+        self.assertNotIn('begins_with("--offline-party=")', body)
         self.assertTrue(body.rstrip().endswith("_build_scene()"))
 
+    def test_friends_list_is_sole_party_selection_surface(self):
+        root = module_path.parents[1]
+        assistant = (root / "original-addons/offline_assistant.gd").read_text(encoding="utf-8")
+        self.assertIn('open_button.text = "Bạn bè"', assistant)
+        self.assertIn('title.text = "Friends List · Bằng hữu Midgard"', assistant)
+        self.assertIn('Save.setting("svv_offline_friends", [])', assistant)
+        self.assertIn('Save.set_setting("svv_friend_quests", quests)', assistant)
+        self.assertIn('Save.set_setting("svv_offline_party", party)', assistant)
+        self.assertIn('if not bool(progress["started"]):', assistant)
+        self.assertIn('elif bool(progress["ready"]):', assistant)
+        self.assertIn('world.coop_classes.assign(party)', assistant)
+        self.assertNotIn('open_button.text = "Tìm party"', assistant)
+        self.assertIn('"acolyte": {"name": "Mira", "rarity": "Normal"', assistant)
+        for rarity in ('Normal', 'Rare', 'Ultra Rare'):
+            self.assertIn('"rarity": "' + rarity + '"', assistant)
+        self.assertIn('const FRIEND_PROFILES := {', assistant)
 
     def test_original_boot_skips_online_login_and_preloads_guard(self):
         source = module_path.read_text(encoding="utf-8")

@@ -19,7 +19,9 @@ func _run() -> void:
 	check(Save._name == "profile_offline_test", "isolated QA profile")
 	check(RunSave.path().contains("profile_offline_test"), "QA run snapshot isolated from player")
 	check(get_tree().root.get_node_or_null("SVVAssistant") != null, "authored party and NPC assistant loaded")
-	check(SVVAssistant.open_button.text == "Tìm party", "party discovery UI uses natural wording")
+	check(SVVAssistant.open_button.text == "Bạn bè", "Friends List replaces standalone party selector")
+	check(SVVAssistant._unlocked_friends().is_empty(), "fresh QA profile starts with no recruited friends")
+	check(SVVAssistant._party_members().is_empty(), "no unbefriended NPC can enter party")
 	if Save._name != "profile_offline_test":
 		get_tree().quit(2)
 		return
@@ -60,10 +62,21 @@ func _run() -> void:
 	check(SVVSaveGuardian.backup_now(), "Save Guardian creates verified offline backup")
 	check(FileAccess.file_exists(SVVSaveGuardian.latest_path()), "Save Guardian latest snapshot exists")
 	var expected_party: Array[String] = ["mage", "archer", "acolyte"]
+	# Test a completed starter quest on the isolated QA profile only.
+	Save.set_setting("svv_friend_quests", {"acolyte": {
+		"kills_at_start": int(Save.stat("kills")) - 8,
+		"runs_at_start": int(Save.stat("runs")) - 1,
+	}})
+	SVVAssistant._select_friend("acolyte")
+	SVVAssistant._friend_action_pressed()
+	check(SVVAssistant._unlocked_friends().has("acolyte"), "Acolyte Mira is recruited after her quest")
+	# Remaining companions are fixture recruits for legacy 3-ally run-save QA.
+	Save.set_setting("svv_offline_friends", ["acolyte", "mage", "archer"])
 	Save.set_setting("svv_offline_party", expected_party)
 	Save.flush()
 	Save.load_profile()
-	check(Save.setting("svv_offline_party", []) == expected_party, "chosen AI roster survives profile reload")
+	check(Save.setting("svv_offline_party", []) == expected_party, "Friends List party survives profile reload")
+	check(Save.setting("svv_offline_friends", []) == ["acolyte", "mage", "archer"], "recruited friends survive profile reload")
 	var packed: PackedScene = load("res://scenes/main.tscn")
 	check(packed != null, "main scene resource loaded")
 	if packed == null:
