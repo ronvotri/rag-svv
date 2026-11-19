@@ -50,6 +50,11 @@ class StartBackgroundTests(unittest.TestCase):
             self.assertIn("func show_loading() -> void:", patched)
             self.assertNotIn("func _svv_replace_class_screen_backdrop()", patched)
             self.assertIn('if _mode != "class_select":', patched)
+            self.assertIn('if not is_inside_tree():', patched)
+            self.assertIn('tree_entered.connect(_svv_fix_class_select_navigation, CONNECT_ONE_SHOT)', patched)
+            self.assertIn('if viewport == null:', patched)
+            self.assertIn('var viewport_size: Vector2 = viewport.get_visible_rect().size', patched)
+            self.assertNotIn('get_viewport().get_visible_rect()', patched)
             source = ROOT / "original-addons/svv_home_background.jpg"
             self.assertFalse((project / "assets/svv/svv_home_background.jpg").exists())
             self.assertEqual(source.read_bytes()[:3], b"\xff\xd8\xff")
