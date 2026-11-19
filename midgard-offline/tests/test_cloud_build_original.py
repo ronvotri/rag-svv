@@ -23,7 +23,7 @@ class CloudInputs(unittest.TestCase):
         ]
         reported = cloud.find_untranslated_prose_candidates(pending)
         self.assertEqual([entry["msgid"] for entry in reported],
-                         ["Ayuda"])
+                         ["Mantén la distancia", "Ayuda"])
         self.assertEqual(cloud.find_untranslated_prose_candidates([]), [])
         script = (Path(__file__).resolve().parents[1] /
                   "tools/cloud-build-original.py").read_text(encoding="utf-8")
