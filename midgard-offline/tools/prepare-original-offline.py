@@ -195,13 +195,13 @@ def patch_main_town_place(text: str) -> str:
     """Tag the actual city request so authored NPCs never bleed into other towns."""
     if 'svv_offline_town_place' in text:
         raise ValueError("Town metadata patch already applied")
-    header = re.search(r'(?m)^func enter_town\\([^\\n]*\\)\\s*->\\s*void\\s*:\\s*$', text)
+    header = re.search(r'(?m)^func enter_town\([^\n]*\)\s*->\s*void\s*:\s*$', text)
     if header is None:
         raise ValueError("Original enter_town signature changed; inspect source")
-    end = text.find("\\n", header.start())
+    end = text.find("\n", header.start())
     if end < 0:
         raise ValueError("Original enter_town has no function body")
-    return text[:end + 1] + '\\tset_meta("svv_offline_town_place", str(place))\\n' + text[end + 1:]
+    return text[:end + 1] + '\tset_meta("svv_offline_town_place", str(place))\n' + text[end + 1:]
 
 
 def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
