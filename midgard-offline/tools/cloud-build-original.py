@@ -154,6 +154,62 @@ def find_untranslated_prose_candidates(pending):
     return candidates
 
 
+def inspect_town_visual_api(project):
+    """Report the recovered town renderer's API without shipping game assets.
+
+    Metadata and tiny filtered construction hints are enough to choose the
+    original Acolyte sprite factory; do not publish recovered full sources.
+    """
+    modules = {
+        "scripts/core/town.gd": {"setup", "_town_npcs", "npc_node",
+                                 "_at", "_draw_member", "_sprite_args", "_party_hero"},
+        "scripts/core/town_crowd.gd": {"setup", "_spawn", "_collect_looks",
+                                       "_place_sign", "_at"},
+        "scripts/ro/ro_sprite.gd": {"_init", "get_frame", "compose_image"},
+        "scripts/core/player.gd": {"_build_visual", "setup"},
+    }
+    report = {"schema": 1, "modules": {}, "acolyte_asset_paths": [],
+              "metadata_only": True}
+    visible = re.compile(r"(?i)\\b(?:Sprite3D|AnimatedSprite3D|ROSprite|RoSprite|"
+                         r"SpriteFrames|ImageTexture|AtlasTexture|Texture2D|"
+                         r"sprite|draw_member|draw_npc|set_texture|\.texture|"
+                         r"instantiate|\.load\\(|\.new\\(|npc_node)\\b")
+    for filename, methods in modules.items():
+        path = project / filename
+        if not path.is_file():
+            report["modules"][filename] = {"missing": True}
+            continue
+        body = path.read_text(encoding="utf-8")
+        headers = list(re.finditer(
+            r"(?m)^(?:static )?func\\s+([A-Za-z_][\\w]*)\\s*\\([^\\n]*\\)[^\\n]*:", body))
+        matches = {}
+        for index, entry in enumerate(headers):
+            method = entry.group(1)
+            if method not in methods:
+                continue
+            end = headers[index + 1].start() if index + 1 < len(headers) else len(body)
+            fragment = body[entry.end():end]
+            hints = [line.strip()[:220] for line in fragment.splitlines()
+                     if visible.search(line) and "http" not in line.lower()]
+            matches[method] = {
+                "signature": entry.group(0).strip()[:300],
+                "visual_hints": hints[:18],
+                "node_types": sorted(set(re.findall(
+                    r"\\b(?:Sprite3D|AnimatedSprite3D|Node3D|MeshInstance3D|"
+                    r"ROSprite|RoSprite|SpriteFrames|ImageTexture)\\b", fragment))),
+            }
+        report["modules"][filename] = {"methods": matches}
+    assets = []
+    for root in (project / "assets", project / "scenes"):
+        if root.is_dir():
+            for path in root.rglob("*"):
+                if path.is_file() and re.search(r"(?i)(acolyte|sprite.*job|job.*sprite)", path.name):
+                    assets.append(path.relative_to(project).as_posix())
+    report["acolyte_asset_paths"] = sorted(assets)[:80]
+    report["acolyte_asset_path_count"] = len(assets)
+    return report
+
+
 def write_context(project, work, translation):
     """Small text artifacts help a web chat continue without downloading a game."""
     context = work / "context"
@@ -212,6 +268,9 @@ def write_context(project, work, translation):
     (context / "untranslated-prose-review.json").write_text(
         json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    (context / "town-rendering-api.json").write_text(
+        json.dumps(inspect_town_visual_api(project), ensure_ascii=False, indent=2),
+        encoding="utf-8")
     # Inspector for the exact recovered character-selection background.
     # Only sampled UI-construction lines, not the publisher's full source.
     # Avoid replacing the wrong scene or adding a front-layer image over buttons.

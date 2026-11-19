@@ -30,6 +30,26 @@ class CloudInputs(unittest.TestCase):
         self.assertIn("untranslated-prose-review.json", script)
         self.assertIn("likely_untranslated_prose", script)
 
+    def test_town_visual_inspection_exports_only_targeted_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            town = root / "scripts/core/town.gd"
+            town.parent.mkdir(parents=True)
+            town.write_text(
+                "func _draw_member(look: Dictionary) -> void:\\n"
+                "\\tvar sprite = Sprite3D.new()\\n"
+                "\\tsprite.texture = load(\\\"res://assets/ro/acolyte.png\\\")\\n"
+                "func tick(delta: float) -> void:\\n\\tpass\\n",
+                encoding="utf-8")
+            result = cloud.inspect_town_visual_api(root)
+            self.assertTrue(result["metadata_only"])
+            entry = result["modules"]["scripts/core/town.gd"]["methods"]["_draw_member"]
+            self.assertIn("look: Dictionary", entry["signature"])
+            self.assertIn("Sprite3D", entry["node_types"])
+            self.assertTrue(any("Sprite3D.new" in row for row in entry["visual_hints"]))
+            self.assertNotIn("tick", result["modules"]["scripts/core/town.gd"]["methods"])
+            self.assertTrue(result["modules"]["scripts/core/town_crowd.gd"]["missing"])
+
     def test_archive_paths_cannot_escape_and_templates_are_selected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
