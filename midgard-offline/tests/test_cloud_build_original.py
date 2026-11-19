@@ -12,6 +12,24 @@ cloud = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cloud)
 
 class CloudInputs(unittest.TestCase):
+    def test_untranslated_long_prose_triage(self):
+        """New dialogue/help text is flagged, but equipment and skills stay."""
+        pending = [
+            {"msgid": "Mantén la distancia", "english": "Keep your distance when the enemy starts the attack."},
+            {"msgid": "Cofre", "english": "Treasure Box"},
+            {"msgid": "Valhalla", "english": "Valhalla"},
+            {"msgid": "Ayuda", "english": "Choose a class and start your next battle in this region."},
+            {"msgid": "Épico", "english": "Union of the Sun, Moon and Stars!"},
+        ]
+        reported = cloud.find_untranslated_prose_candidates(pending)
+        self.assertEqual([entry["msgid"] for entry in reported],
+                         ["Ayuda"])
+        self.assertEqual(cloud.find_untranslated_prose_candidates([]), [])
+        script = (Path(__file__).resolve().parents[1] /
+                  "tools/cloud-build-original.py").read_text(encoding="utf-8")
+        self.assertIn("untranslated-prose-review.json", script)
+        self.assertIn("likely_untranslated_prose", script)
+
     def test_archive_paths_cannot_escape_and_templates_are_selected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
