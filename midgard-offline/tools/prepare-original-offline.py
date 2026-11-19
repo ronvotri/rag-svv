@@ -196,7 +196,7 @@ def patch_main_town_place(text: str) -> str:
     if 'svv_offline_town_place' in text:
         raise ValueError("Town metadata patch already applied")
     header = re.search(r'(?m)^func enter_town\([^\n]*\)\s*->\s*void\s*:\s*$', text)
-    if header is None:
+    if header is None or re.search(r"\bplace\b", header.group(0)) is None:
         raise ValueError("Original enter_town signature changed; inspect source")
     end = text.find("\n", header.start())
     if end < 0:
