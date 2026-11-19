@@ -196,6 +196,23 @@ func _run() -> void:
 			check(npc.sprite is Sprite3D and npc.sprite.texture != null, job + " uses genuine rendered Ragnarok sprite")
 			if kafra != null:
 				check(npc.global_position.distance_to(kafra.global_position) >= 1.0, job + " does not overlap Kafra")
+	# Regression: switching city context removes living visuals, dialogue,
+	# and fallback buttons before the player can interact in another town.
+	SVVCompanionTown._show_dialog("swordsman")
+	check(SVVCompanionTown.dialog.visible, "Alden dialogue opens before changing town")
+	world.set_meta("svv_offline_town_place", "payon")
+	SVVCompanionTown._process(0.35)
+	check(SVVCompanionTown.npc_visuals.is_empty(), "cross-city transition removes old companion visuals")
+	check(not SVVCompanionTown.dialog.visible, "cross-city transition closes old companion dialogue")
+	var hidden_fallbacks := true
+	for fallback in SVVCompanionTown.fallback_buttons.values():
+		if fallback.visible:
+			hidden_fallbacks = false
+	check(hidden_fallbacks, "cross-city transition hides fallback buttons")
+	await get_tree().process_frame
+	world.set_meta("svv_offline_town_place", "prontera")
+	SVVCompanionTown._process(0.35)
+	check(SVVCompanionTown.npc_visuals.size() == 2, "returning to Prontera restores exactly two companion NPCs")
 	# Exercise the real click/tap projection path, not only _show_dialog().
 	# The game is still headless here: full PC/mobile visual QA remains separate.
 	for job in ["swordsman", "mage"]:
