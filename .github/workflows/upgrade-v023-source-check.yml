@@ -1,0 +1,32 @@
+name: Upstream v0.2.3 - inspect public Windows source (NO UPGRADE)
+
+on:
+  push:
+    branches:
+      - upgrade/midgard-0.2.3-staging
+    paths:
+      - '.github/workflows/upgrade-v023-source-check.yml'
+      - 'midgard-offline/docs/UPSTREAM_0_2_3_UPGRADE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run archive inspection tests (synthetic data only)
+        run: python -m unittest discover -s midgard-offline/tests -p 'test_inspect_original_upstream.py'
+      - name: Verify current official public Windows upload without publishing game assets
+        run: python midgard-offline/tools/inspect-original-upstream.py
+      - name: Explain version semantics
+        run: |
+          echo "Itch Windows upload is not automatically the latest in-app patched client."
+          echo "If the source PCK matches the 0.2.0 pin, this has NOT upgraded the client to 0.2.3."
+          echo "No version pin was modified and no game binary is saved as an artifact."
