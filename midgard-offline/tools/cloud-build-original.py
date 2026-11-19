@@ -170,10 +170,10 @@ def inspect_town_visual_api(project):
     }
     report = {"schema": 1, "modules": {}, "acolyte_asset_paths": [],
               "metadata_only": True}
-    visible = re.compile(r"(?i)\\b(?:Sprite3D|AnimatedSprite3D|ROSprite|RoSprite|"
+    visible = re.compile(r"(?i)\b(?:Sprite3D|AnimatedSprite3D|ROSprite|RoSprite|"
                          r"SpriteFrames|ImageTexture|AtlasTexture|Texture2D|"
                          r"sprite|draw_member|draw_npc|set_texture|\.texture|"
-                         r"instantiate|\.load\\(|\.new\\(|npc_node)\\b")
+                         r"instantiate|\.load\(|\.new\(|npc_node)\b")
     for filename, methods in modules.items():
         path = project / filename
         if not path.is_file():
@@ -181,7 +181,7 @@ def inspect_town_visual_api(project):
             continue
         body = path.read_text(encoding="utf-8")
         headers = list(re.finditer(
-            r"(?m)^(?:static )?func\\s+([A-Za-z_][\\w]*)\\s*\\([^\\n]*\\)[^\\n]*:", body))
+            r"(?m)^(?:static )?func\s+([A-Za-z_][\w]*)\s*\([^\n]*\)[^\n]*:", body))
         matches = {}
         for index, entry in enumerate(headers):
             method = entry.group(1)
@@ -195,8 +195,8 @@ def inspect_town_visual_api(project):
                 "signature": entry.group(0).strip()[:300],
                 "visual_hints": hints[:18],
                 "node_types": sorted(set(re.findall(
-                    r"\\b(?:Sprite3D|AnimatedSprite3D|Node3D|MeshInstance3D|"
-                    r"ROSprite|RoSprite|SpriteFrames|ImageTexture)\\b", fragment))),
+                    r"\b(?:Sprite3D|AnimatedSprite3D|Node3D|MeshInstance3D|"
+                    r"ROSprite|RoSprite|SpriteFrames|ImageTexture)\b", fragment))),
             }
         report["modules"][filename] = {"methods": matches}
     assets = []

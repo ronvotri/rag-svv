@@ -36,10 +36,10 @@ class CloudInputs(unittest.TestCase):
             town = root / "scripts/core/town.gd"
             town.parent.mkdir(parents=True)
             town.write_text(
-                "func _draw_member(look: Dictionary) -> void:\\n"
-                "\\tvar sprite = Sprite3D.new()\\n"
-                "\\tsprite.texture = load(\\\"res://assets/ro/acolyte.png\\\")\\n"
-                "func tick(delta: float) -> void:\\n\\tpass\\n",
+                'func _draw_member(look: Dictionary) -> void:\n'
+                '\tvar sprite = Sprite3D.new()\n'
+                '\tsprite.texture = load("res://assets/ro/acolyte.png")\n'
+                'func tick(delta: float) -> void:\n\tpass\n',
                 encoding="utf-8")
             result = cloud.inspect_town_visual_api(root)
             self.assertTrue(result["metadata_only"])
