@@ -742,6 +742,25 @@ class OriginalLocalization(unittest.TestCase):
         ):
             self.assertNotIn(untouched_skill_or_item, rows)
 
+    def test_batch_062_generic_boss_hud_translation(self):
+        """Translate generic boss labels, not named Ragnarok monsters or skills."""
+        patches = MODULE_PATH.parents[1] / "patches"
+        rows = json.loads((patches / "vi-ui-batch-062.json").read_text(encoding="utf-8"))
+        expected = {
+            "Boss": "Trùm",
+            "Boss: %s": "Trùm: %s",
+        }
+        self.assertEqual(rows, expected)
+        merged = locale.load_translations(patches / "vi-ui.json")
+        for english, vietnamese in expected.items():
+            with self.subTest(english=english):
+                self.assertEqual(merged[english], vietnamese)
+                self.assertEqual(locale.placeholders(english),
+                                 locale.placeholders(vietnamese))
+        for protected in ("MVP", "Baphomet", "Ifrit", "Orc Hero",
+                          "Double Attack", "Red Potion", "Endless Tower"):
+            self.assertNotIn(protected, rows)
+
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
                "weapon and when it fills it goes +1. Past the safe limit it "
