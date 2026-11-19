@@ -56,13 +56,13 @@ class OriginalLocalization(unittest.TestCase):
             dictionary = root / "l10n.json"
             dictionary.write_text(json.dumps({
                 "Play": "Chơi", "Guest": "Nhà thám hiểm",
-                "Midgard Survivors": "Quái triều xâm lăng"
+                "Midgard Survivors": "Ragnarok: Quái Vật Trỗi Dậy"
             }, ensure_ascii=False), encoding="utf-8")
             report = locale.localize(root, dictionary)
             entries = locale.read_po(root / "locale/vi.po")
             localized = {entry["id"]: entry["en"] for entry in entries}
             self.assertEqual(localized["Guest"], "Nhà thám hiểm")
-            self.assertEqual(localized["Midgard Survivors"], "Quái triều xâm lăng")
+            self.assertEqual(localized["Midgard Survivors"], "Ragnarok: Quái Vật Trỗi Dậy")
             self.assertEqual(report["supplemental_ui_entries"], 2)
 
     def test_mobile_skill_descriptions_are_translated_without_renaming_skills(self):
@@ -659,7 +659,7 @@ class OriginalLocalization(unittest.TestCase):
                 self.assertEqual(locale.placeholders(source),
                                  locale.placeholders(translated))
                 self.assertEqual(merged[source], translated)
-        self.assertEqual(rows["MVP ✓  D%d"], "MVP ✓ · Danger %d")
+        self.assertEqual(rows["MVP ✓  D%d"], "MVP ✓ · Độ nguy hiểm %d")
         self.assertIn("nearQ",
                       rows["Pawgress Studios  ·  programmed by nearQ"])
 
@@ -697,6 +697,20 @@ class OriginalLocalization(unittest.TestCase):
         self.assertIn("control is RichTextLabel", script)
         self.assertNotIn("control.scale =", script)
         self.assertNotIn("get_window().size = ", script)
+
+    def test_current_game_title_not_legacy_name(self):
+        """All player-facing game name entrypoints use the latest approved title."""
+        root = MODULE_PATH.parents[1]
+        expected = "Ragnarok: Quái Vật Trỗi Dậy"
+        web = (root / "cloudflare/pages-bootstrap.html").read_text(encoding="utf-8")
+        placeholder = (root / "cloudflare/placeholder/index.html").read_text(encoding="utf-8")
+        prepare = (root / "tools/prepare-original-offline.py").read_text(encoding="utf-8")
+        main_dict = json.loads((root / "patches/vi-ui.json").read_text(encoding="utf-8"))
+        self.assertIn(expected, web)
+        self.assertIn(expected, placeholder)
+        self.assertIn(expected, prepare)
+        self.assertEqual(main_dict["Midgard Survivors"], expected)
+        self.assertNotIn("Quái triều xâm lăng", web + placeholder + prepare)
 
     def test_literal_percent_is_not_printf_argument(self):
         src = ("The orange bar under your HP is your forge: your hits heat the "
