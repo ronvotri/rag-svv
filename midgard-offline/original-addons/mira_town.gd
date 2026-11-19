@@ -142,7 +142,7 @@ func _process(delta: float) -> void:
 		# Keep the walk small and anchored to the y-position of the native
 		# Kafra NPC to avoid walking through unknown collisions.
 		mira_visual.global_position = kafra_anchor.global_position + STAND_OFFSET + Vector3(
-			sinf(patrol_time * 0.52) * 0.45, 0.0, cosf(patrol_time * 0.52) * 0.2)
+			sin(patrol_time * 0.52) * 0.45, 0.0, cos(patrol_time * 0.52) * 0.2)
 
 
 func _town_active() -> bool:
