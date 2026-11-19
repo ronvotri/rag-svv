@@ -317,7 +317,7 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
     settings = config.read_text(encoding="utf-8")
     settings = re.sub(r'^\w+="\*res://addons/epic-online-services-godot/[^\n]*\n', "", settings, flags=re.MULTILINE)
     settings = re.sub(r'^enabled=PackedStringArray\([^\n]*epic-online-services-godot[^\n]*\)\n', "enabled=PackedStringArray()\n", settings, flags=re.MULTILINE)
-    settings = set_setting(settings, "application", "config/name", '"Quái triều xâm lăng"')
+    settings = set_setting(settings, "application", "config/name", '"Ragnarok: Quái Vật Trỗi Dậy"')
     settings = set_setting(settings, "application", "config/use_custom_user_dir", "true")
     settings = set_setting(settings, "application", "config/custom_user_dir_name", '"VotriValley/MidgardSVVOffline"')
     settings = set_setting(settings, "rendering", "renderer/rendering_method", '"gl_compatibility"')
