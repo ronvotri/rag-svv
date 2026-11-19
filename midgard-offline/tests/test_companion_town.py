@@ -58,6 +58,9 @@ class NativeCompanionTownTests(unittest.TestCase):
             self.assertIn('"' + job + '": ["' + job + '_', self.npcs)
         self.assertIn('job + " original Ragnarok sprite renders for later town placement"', self.smoke)
         self.assertIn('OFFLINE_QA WAVE2_SPRITE ', self.smoke)
+        self.assertIn('"super_novice_f"', self.npcs)
+        self.assertIn('verified visual match for the basic Novice job', self.npcs)
+        self.assertIn('OFFLINE_QA NAO_VISUAL basic Novice is unverified', self.smoke)
 
 
 
