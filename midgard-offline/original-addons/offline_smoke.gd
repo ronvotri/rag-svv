@@ -108,6 +108,39 @@ func _run() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	check(world.menus != null, "original menu constructed")
+	# Enter the real Prontera town flow, not just a fake RoVisual preview.
+	world.enter_town("swordsman")
+	for frame in 6:
+		await get_tree().process_frame
+	var actual_town = world.get("town")
+	check(actual_town is Town and is_instance_valid(actual_town), "original Prontera Town instantiated")
+	SVVMiraTown._sync_world_sprite()
+	var kafra: Node3D = actual_town.npc_node("kafra") if actual_town != null else null
+	check(kafra != null and is_instance_valid(kafra), "native Kafra NPC available as Mira anchor")
+	check(SVVMiraTown._town_active(), "Mira visible only in actual town")
+	check(SVVMiraTown.mira_visual != null and is_instance_valid(SVVMiraTown.mira_visual), "Mira spawned inside actual Prontera Town")
+	if SVVMiraTown.mira_visual != null and is_instance_valid(SVVMiraTown.mira_visual) and kafra != null:
+		var mira: RoVisual = SVVMiraTown.mira_visual
+		check(mira.get_parent() == actual_town, "Mira sprite belongs to actual Town scene")
+		check(mira.sprite is Sprite3D and mira.sprite.texture != null, "Mira has rendered original sprite texture")
+		var old_pos: Vector3 = mira.global_position
+		SVVMiraTown._tick_patrol(1.0)
+		check(mira.global_position.distance_to(old_pos) <= 0.7, "Mira patrol stays safely near Kafra")
+		check(mira.global_position.distance_to(kafra.global_position) > 1.0, "Mira does not overlap Kafra")
+		var cam: Camera3D = get_viewport().get_camera_3d()
+		if cam != null:
+			var hit: Vector2 = SVVMiraTown._mira_screen_point()
+			if hit.is_finite():
+				var tap := InputEventMouseButton.new()
+				tap.pressed = true
+				tap.button_index = MOUSE_BUTTON_LEFT
+				tap.position = hit
+				SVVMiraTown._unhandled_input(tap)
+				check(SVVMiraTown.dialog.visible, "click on Mira world sprite opens NPC dialogue")
+				SVVMiraTown._close_dialog()
+	world.leave_town()
+	SVVMiraTown._clear_world_sprite()
+	await get_tree().process_frame
 	world.menus.show_login()
 	await get_tree().process_frame
 	check(world.menus._mode == "class_select", "offline login redirects to character selection")

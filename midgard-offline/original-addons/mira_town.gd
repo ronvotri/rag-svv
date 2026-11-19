@@ -12,6 +12,7 @@ var heal_float: Label
 var heal_tween: Tween
 var elapsed := 0.0
 var patrol_time := 0.0
+var last_sprite_action := -1
 var visual_town: Node3D
 var kafra_anchor: Node3D
 var mira_visual: RoVisual
@@ -20,6 +21,10 @@ var mira_visual: RoVisual
 const MIRA_SPRITE := "acolyte_f"
 const KAFRA_NPC := "kafra"
 const STAND_OFFSET := Vector3(1.5, 0.0, 0.6)
+# Patrons stop at Mira's sprite, not at Kafra; small slow steps stay near
+# an existing occupied (safe) town tile instead of random-map roaming.
+const PATROL_STEP := Vector3(0.32, 0.0, 0.10)
+const PATROL_PERIOD := 12.0
 
 
 func _ready() -> void:
@@ -126,23 +131,56 @@ func _process(delta: float) -> void:
 	elapsed += delta
 	if elapsed < 0.25:
 		return
+	var frame_seconds := elapsed
 	elapsed = 0.0
 	var in_town := _town_active()
 	if in_town:
 		_sync_world_sprite()
 	else:
 		_clear_world_sprite()
-	# The overlay button is a fallback only if the original town NPC renderer
-	# is unavailable. Normal play opens the dialogue by tapping Mira in-world.
+	# Fallback action is visible only if the native town visual cannot spawn.
 	npc_button.visible = in_town and not dialog.visible and not is_instance_valid(mira_visual)
 	if dialog.visible and not in_town:
 		_close_dialog()
-	if is_instance_valid(mira_visual) and is_instance_valid(kafra_anchor):
-		patrol_time += 0.25
-		# Keep the walk small and anchored to the y-position of the native
-		# Kafra NPC to avoid walking through unknown collisions.
-		mira_visual.global_position = kafra_anchor.global_position + STAND_OFFSET + Vector3(
-			sin(patrol_time * 0.52) * 0.45, 0.0, cos(patrol_time * 0.52) * 0.2)
+	if in_town and not dialog.visible:
+		_tick_patrol(frame_seconds)
+
+
+func _set_mira_animation(action_name: String) -> void:
+	if not is_instance_valid(mira_visual):
+		return
+	# Action indices belong to the recovered RoVisual class, not hard-coded
+	# sprite-frame assumptions. Unsupported animations leave the last pose.
+	var script: Script = mira_visual.get_script()
+	if script == null:
+		return
+	var actions: Dictionary = script.get_script_constant_map()
+	var action: int = int(actions.get(action_name, -1))
+	if action >= 0 and action != last_sprite_action:
+		mira_visual.play(action, true, true)
+		last_sprite_action = action
+
+
+func _tick_patrol(delta: float) -> void:
+	if not is_instance_valid(mira_visual) or not is_instance_valid(kafra_anchor):
+		return
+	patrol_time += maxf(0.0, delta)
+	var phase := fposmod(patrol_time, PATROL_PERIOD)
+	var step_fraction := 0.0
+	if phase < 2.0:
+		step_fraction = phase / 2.0
+	elif phase < 6.0:
+		step_fraction = 1.0
+	elif phase < 8.0:
+		step_fraction = 1.0 - (phase - 6.0) / 2.0
+	var next_position: Vector3 = kafra_anchor.global_position + STAND_OFFSET + PATROL_STEP * step_fraction
+	var motion: Vector3 = next_position - mira_visual.global_position
+	if motion.length() > 0.005:
+		mira_visual.face(motion)
+		_set_mira_animation("PC_WALK")
+	else:
+		_set_mira_animation("PC_IDLE")
+	mira_visual.global_position = next_position
 
 
 func _town_active() -> bool:
@@ -152,8 +190,10 @@ func _town_active() -> bool:
 	var mode := str(world.menus._mode)
 	if mode in ["login", "server_select", "class_select", "loading"]:
 		return false
-	# Only display while a real town scene is present, not on a splash screen.
-	return world.get("town") != null or mode.contains("town")
+	# Never show Mira in a lobby/menu just because a mode name contains town.
+	# Require the original Town node to be active in the scene tree.
+	var town = world.get("town")
+	return town is Node3D and is_instance_valid(town) and town.is_inside_tree()
 
 
 func _sync_world_sprite() -> void:
@@ -210,6 +250,7 @@ func _clear_world_sprite() -> void:
 	visual_town = null
 	kafra_anchor = null
 	patrol_time = 0.0
+	last_sprite_action = -1
 
 
 func _mira_screen_point() -> Vector2:

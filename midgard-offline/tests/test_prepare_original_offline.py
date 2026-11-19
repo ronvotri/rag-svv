@@ -89,6 +89,20 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertNotIn('load("res://assets/ro/sprites/acolyte_f.png")', script)
         self.assertNotIn('TextureRect.new()', script)
 
+    def test_native_mira_animation_and_town_lifecycle(self):
+        root = module_path.parents[1]
+        script = (root / "original-addons/mira_town.gd").read_text(encoding="utf-8")
+        smoke = (root / "original-addons/offline_smoke.gd").read_text(encoding="utf-8")
+        self.assertIn('func _tick_patrol(delta: float) -> void:', script)
+        self.assertIn('_set_mira_animation("PC_WALK")', script)
+        self.assertIn('_set_mira_animation("PC_IDLE")', script)
+        self.assertIn('script.get_script_constant_map()', script)
+        self.assertIn('town.is_inside_tree()', script)
+        self.assertIn('world.enter_town("swordsman")', smoke)
+        self.assertIn('world.leave_town()', smoke)
+        self.assertIn('mira.sprite is Sprite3D', smoke)
+        self.assertIn('click on Mira world sprite opens NPC dialogue', smoke)
+
     def test_original_boot_skips_online_login_and_preloads_guard(self):
         source = module_path.read_text(encoding="utf-8")
         self.assertIn('"show_login": "show_class_select()"', source)
