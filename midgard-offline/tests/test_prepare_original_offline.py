@@ -70,6 +70,7 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertIn('SVVAssistant._quest_progress("acolyte")', script)
         self.assertIn('mira_npc.play_heal_fx(recipient, recovered)', assistant)
         self.assertIn('if not _unlocked_friends().has("acolyte"):', assistant)
+        self.assertIn('get_meta("svv_offline_town_place", "")', script)
         self.assertNotIn('http', script.lower())
 
     def test_mira_heal_projection_is_3d_safe(self):

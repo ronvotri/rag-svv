@@ -157,6 +157,7 @@ func _run() -> void:
 		"original town entry records the requested city")
 	world.set_meta("svv_offline_town_place", "payon")
 	check(SVVCompanionTown._town() == null, "Alden/Eira are not assigned to an unverified Payon town")
+	check(not SVVMiraTown._town_active(), "Mira is not assigned to an unverified Payon town")
 	world.set_meta("svv_offline_town_place", "prontera")
 	check(SVVCompanionTown._town() == actual_town, "Prontera restores valid companion town context")
 	SVVMiraTown._sync_world_sprite()

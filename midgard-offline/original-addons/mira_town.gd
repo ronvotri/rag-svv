@@ -190,6 +190,9 @@ func _town_active() -> bool:
 	var mode := str(world.menus._mode)
 	if mode in ["login", "server_select", "class_select", "loading"]:
 		return false
+	# These NPC placement coordinates were verified only in Prontera.
+	if str(world.get_meta("svv_offline_town_place", "")) != "prontera":
+		return false
 	# Never show Mira in a lobby/menu just because a mode name contains town.
 	# Require the original Town node to be active in the scene tree.
 	var town = world.get("town")
@@ -198,7 +201,8 @@ func _town_active() -> bool:
 
 func _sync_world_sprite() -> void:
 	var world = SVVAssistant._world()
-	if world == null:
+	if world == null or str(world.get_meta("svv_offline_town_place", "")) != "prontera":
+		_clear_world_sprite()
 		return
 	var candidate = world.get("town")
 	if not candidate is Node3D or not candidate.is_inside_tree():
