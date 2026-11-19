@@ -34,6 +34,27 @@ def replace_function(text: str, name: str, body: str) -> str:
     return "".join(lines[:start]) + replacement + "".join(lines[end:])
 
 
+def defer_menu_navigation_until_ready(text: str) -> str:
+    """Preserve original class-select UI logic, but defer it until a viewport exists."""
+    lines = text.splitlines(keepends=True)
+    matches = [i for i, line in enumerate(lines)
+               if line.startswith("func _svv_fix_class_select_navigation(")]
+    if len(matches) != 1:
+        raise ValueError("Expected one class-select navigation helper")
+    index = matches[0]
+    if not lines[index].rstrip().endswith(":"):
+        raise ValueError("Unsupported class-select navigation signature")
+    guard = (
+        "\tif not is_inside_tree():\n"
+        '\t\tcall_deferred("_svv_fix_class_select_navigation")\n'
+        "\t\treturn\n"
+    )
+    if "".join(lines[index + 1:index + 4]) == guard:
+        return text
+    lines.insert(index + 1, guard)
+    return "".join(lines)
+
+
 def block_shell_calls(text: str) -> tuple[str, int]:
     count = 0
     marker = "OS.shell_open("
@@ -242,6 +263,12 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
         "_ask_notes": "pass",
         "show_login": "show_class_select()",
     })
+    # Godot may construct class-selection controls before their viewport exists.
+    # Preserve the original navigation code and defer its first invocation.
+    menus_file = output / "scripts/ui/menus.gd"
+    menus_file.write_text(
+        defer_menu_navigation_until_ready(menus_file.read_text(encoding="utf-8")),
+        encoding="utf-8", newline="\n")
     patch("scripts/net/net_sync.gd", {"eos": "return null", "host": "return false", "join": "return false"})
     patch("scripts/net/town_channel.gd", {"join_enet": "return false"})
     patch("scripts/net/channel_bot.gd", {"connect_now": "pass"})

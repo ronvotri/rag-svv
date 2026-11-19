@@ -52,6 +52,14 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn('npc.sprite.texture != null', self.smoke)
         self.assertIn('Alden town NPC and Friends List share quest state', self.smoke)
 
+    def test_wave_two_sprite_candidates_are_audited_but_not_spawned_in_prontera(self):
+        self.assertIn('const JOBS := ["swordsman", "mage"]', self.npcs)
+        for job in ("archer", "thief", "merchant", "novice"):
+            self.assertIn('"' + job + '": ["' + job + '_', self.npcs)
+        self.assertIn('job + " original Ragnarok sprite renders for later town placement"', self.smoke)
+        self.assertIn('OFFLINE_QA WAVE2_SPRITE ', self.smoke)
+
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,11 @@ const JOBS := ["swordsman", "mage"]
 const SPRITE_CANDIDATES := {
 	"swordsman": ["swordsman_m", "swordsman_f"],
 	"mage": ["mage_f", "mage_m"],
+	# Wave two: audit original sprites BEFORE any city placement.
+	"archer": ["archer_f", "archer_m"],
+	"thief": ["thief_m", "thief_f"],
+	"merchant": ["merchant_m", "merchant_f"],
+	"novice": ["novice_f", "novice_m"],
 }
 const NPC_NAMES := {
 	"swordsman": "Alden",
