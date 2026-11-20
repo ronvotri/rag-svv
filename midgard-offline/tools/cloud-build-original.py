@@ -165,15 +165,21 @@ def inspect_town_visual_api(project):
                                  "_at", "_draw_member", "_sprite_args", "_party_hero"},
         "scripts/core/town_crowd.gd": {"setup", "_spawn", "_collect_looks",
                                        "_place_sign", "_at"},
+        "scripts/autoload/ro_assets.gd": {"styled_character", "_gendered", "_load_part", "_recolored_part", "sprite", "has_sprite"},
         "scripts/ro/ro_sprite.gd": {"_init", "get_frame", "compose_image"},
         "scripts/ro/ro_visual.gd": {"setup", "play", "face", "_ready"},
         "scripts/core/player.gd": {"_build_visual", "setup"},
     }
     report = {"schema": 1, "modules": {}, "acolyte_asset_paths": [],
-              "metadata_only": True}
+              "metadata_only": True,
+              "rare_npc_composition_review": {
+                  "state": "body_frames_only_head_hair_unverified",
+                  "full_character_factory_to_inspect": "RoAssets.styled_character",
+                  "town_placement_approved": False,
+              }}
     visible = re.compile(r"(?i)\b(?:Sprite3D|AnimatedSprite3D|ROSprite|RoSprite|"
                          r"SpriteFrames|ImageTexture|AtlasTexture|Texture2D|"
-                         r"sprite|draw_member|draw_npc|set_texture|\.texture|"
+                         r"sprite|draw_member|draw_npc|styled_character|head|hair|body|gender|look|set_texture|\.texture|"
                          r"instantiate|\.load\(|\.new\(|npc_node)\b")
     for filename, methods in modules.items():
         path = project / filename
