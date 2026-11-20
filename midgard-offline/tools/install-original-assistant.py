@@ -62,6 +62,12 @@ def install(project):
     if not rare_audit.is_file():
         raise ValueError("Authored rare-job QA script missing")
     shutil.copyfile(rare_audit, qa / rare_audit.name)
+    # Original-frame captures are installed only in the isolated visual-QA
+    # subdirectory; no runtime/autoload/production Town change.
+    rare_visual = source.parent / "rare_job_visual.gd"
+    if not rare_visual.is_file():
+        raise ValueError("Authored rare-job visual QA script missing")
+    shutil.copyfile(rare_visual, qa / rare_visual.name)
     config = project / "project.godot"
     text = config.read_text(encoding="utf-8")
     if "[autoload]" not in text:
