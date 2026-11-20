@@ -275,9 +275,21 @@ def write_context(project, work, translation):
     (context / "untranslated-prose-review.json").write_text(
         json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    town_api = inspect_town_visual_api(project)
     (context / "town-rendering-api.json").write_text(
-        json.dumps(inspect_town_visual_api(project), ensure_ascii=False, indent=2),
+        json.dumps(town_api, ensure_ascii=False, indent=2),
         encoding="utf-8")
+    # The Windows export can take longer than metadata recovery. Surface the
+    # minimum composition API contract in streaming CI logs before export,
+    # without publishing recovered code, assets or claiming NPC approval.
+    factory = town_api["modules"].get("scripts/autoload/ro_assets.gd", {})
+    styled = factory.get("methods", {}).get("styled_character", {})
+    print("RARE_NPC_COMPOSITION_FACTORY " + json.dumps({
+        "signature": styled.get("signature", "missing"),
+        "layer_hint_count": len(styled.get("visual_hints", [])),
+        "metadata_only": True,
+        "town_placement_approved": False,
+    }, ensure_ascii=False), flush=True)
     # Inspector for the exact recovered character-selection background.
     # Only sampled UI-construction lines, not the publisher's full source.
     # Avoid replacing the wrong scene or adding a front-layer image over buttons.
