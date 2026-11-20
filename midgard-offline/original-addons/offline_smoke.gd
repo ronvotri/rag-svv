@@ -153,6 +153,13 @@ func _run() -> void:
 		await get_tree().process_frame
 	var actual_town = world.get("town")
 	check(actual_town is Town and is_instance_valid(actual_town), "original Prontera Town instantiated")
+	check(str(world.get_meta("svv_offline_town_place", "")) == "prontera",
+		"original town entry records the requested city")
+	world.set_meta("svv_offline_town_place", "payon")
+	check(SVVCompanionTown._town() == null, "Alden/Eira are not assigned to an unverified Payon town")
+	check(not SVVMiraTown._town_active(), "Mira is not assigned to an unverified Payon town")
+	world.set_meta("svv_offline_town_place", "prontera")
+	check(SVVCompanionTown._town() == actual_town, "Prontera restores valid companion town context")
 	SVVMiraTown._sync_world_sprite()
 	var kafra: Node3D = actual_town.npc_node("kafra") if actual_town != null else null
 	check(kafra != null and is_instance_valid(kafra), "native Kafra NPC available as Mira anchor")
@@ -189,6 +196,69 @@ func _run() -> void:
 			check(npc.sprite is Sprite3D and npc.sprite.texture != null, job + " uses genuine rendered Ragnarok sprite")
 			if kafra != null:
 				check(npc.global_position.distance_to(kafra.global_position) >= 1.0, job + " does not overlap Kafra")
+	# Regression: switching city context removes living visuals, dialogue,
+	# and fallback buttons before the player can interact in another town.
+	SVVCompanionTown._show_dialog("swordsman")
+	check(SVVCompanionTown.dialog.visible, "Alden dialogue opens before changing town")
+	world.set_meta("svv_offline_town_place", "payon")
+	SVVCompanionTown._process(0.35)
+	check(SVVCompanionTown.npc_visuals.is_empty(), "cross-city transition removes old companion visuals")
+	check(not SVVCompanionTown.dialog.visible, "cross-city transition closes old companion dialogue")
+	var hidden_fallbacks := true
+	for fallback in SVVCompanionTown.fallback_buttons.values():
+		if fallback.visible:
+			hidden_fallbacks = false
+	check(hidden_fallbacks, "cross-city transition hides fallback buttons")
+	await get_tree().process_frame
+	world.set_meta("svv_offline_town_place", "prontera")
+	SVVCompanionTown._process(0.35)
+	check(SVVCompanionTown.npc_visuals.size() == 2, "returning to Prontera restores exactly two companion NPCs")
+	# Exercise the real click/tap projection path, not only _show_dialog().
+	# The game is still headless here: full PC/mobile visual QA remains separate.
+	for job in ["swordsman", "mage"]:
+		var click_target: RoVisual = SVVCompanionTown.npc_visuals.get(job)
+		if click_target != null and is_instance_valid(click_target):
+			var npc_camera: Camera3D = get_viewport().get_camera_3d()
+			if npc_camera != null:
+				var hit_point: Vector2 = SVVCompanionTown._screen_point(click_target)
+				check(hit_point.is_finite(), job + " projects a valid click target")
+				if hit_point.is_finite():
+					for pointer_kind in ["mouse", "touch"]:
+						var pointer_event: InputEvent
+						if pointer_kind == "mouse":
+							var mouse_event := InputEventMouseButton.new()
+							mouse_event.button_index = MOUSE_BUTTON_LEFT
+							mouse_event.pressed = true
+							mouse_event.position = hit_point
+							pointer_event = mouse_event
+						else:
+							var touch_event := InputEventScreenTouch.new()
+							touch_event.pressed = true
+							touch_event.position = hit_point
+							pointer_event = touch_event
+						SVVCompanionTown._unhandled_input(pointer_event)
+						check(SVVCompanionTown.dialog.visible and SVVCompanionTown.selected_job == job,
+							job + " opens correct dialogue from " + pointer_kind)
+						SVVCompanionTown._close_dialog()
+	# Lost/free'd sprites should restore on a later tick, without a
+	# duplicate Alden visual and without replacing the original textures.
+	var persistent_alden: RoVisual = SVVCompanionTown.npc_visuals.get("swordsman")
+	var disposable_eira: RoVisual = SVVCompanionTown.npc_visuals.get("mage")
+	if disposable_eira != null and is_instance_valid(disposable_eira):
+		var previous_eira_id: int = disposable_eira.get_instance_id()
+		disposable_eira.queue_free()
+		await get_tree().process_frame
+		SVVCompanionTown.sprite_retry_seconds = 4.0
+		SVVCompanionTown._process(0.35)
+		var restored_eira: RoVisual = SVVCompanionTown.npc_visuals.get("mage")
+		check(restored_eira != null and is_instance_valid(restored_eira)
+			and restored_eira.get_instance_id() != previous_eira_id,
+			"Eira recreates original sprite after it is freed")
+		check(SVVCompanionTown.npc_visuals.get("swordsman") == persistent_alden,
+			"Alden remains one stable NPC during Eira's retry")
+		if restored_eira != null and is_instance_valid(restored_eira):
+			check(restored_eira.sprite is Sprite3D and restored_eira.sprite.texture != null,
+				"recreated Eira still renders genuine Ragnarok textures")
 	SVVCompanionTown._show_dialog("swordsman")
 	check(SVVCompanionTown.dialog.visible, "Alden town dialogue opens")
 	check(SVVCompanionTown.action.text == "Nhận nhiệm vụ", "Alden quest is available from town after Mira")

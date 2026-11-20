@@ -10,6 +10,17 @@ spec.loader.exec_module(prepare)
 
 
 class OriginalPartyBootstrap(unittest.TestCase):
+    def test_npc_city_is_stamped_from_real_enter_town_argument(self):
+        original = ('func enter_town(class_id: String, place: = "prontera") -> void:\n'
+                    '\tpass\n\nfunc leave_town() -> void:\n\tpass\n')
+        patched = prepare.patch_main_town_place(original)
+        self.assertIn('set_meta("svv_offline_town_place", str(place))', patched)
+        self.assertIn('func leave_town() -> void:', patched)
+        with self.assertRaisesRegex(ValueError, "already applied"):
+            prepare.patch_main_town_place(patched)
+        with self.assertRaisesRegex(ValueError, "signature changed"):
+            prepare.patch_main_town_place('func enter_town() -> void:\n\tpass\n')
+
     def test_only_recruited_friends_can_enter_new_run(self):
         body = prepare.offline_party_bootstrap()
         self.assertIn('Save.setting("svv_offline_party", [])', body)
@@ -59,6 +70,7 @@ class OriginalPartyBootstrap(unittest.TestCase):
         self.assertIn('SVVAssistant._quest_progress("acolyte")', script)
         self.assertIn('mira_npc.play_heal_fx(recipient, recovered)', assistant)
         self.assertIn('if not _unlocked_friends().has("acolyte"):', assistant)
+        self.assertIn('get_meta("svv_offline_town_place", "")', script)
         self.assertNotIn('http', script.lower())
 
     def test_mira_heal_projection_is_3d_safe(self):

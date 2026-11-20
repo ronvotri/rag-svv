@@ -33,6 +33,9 @@ var npc_visuals: Dictionary = {}
 var missing_sprites: Dictionary = {}
 var fallback_buttons: Dictionary = {}
 var elapsed := 0.0
+# Some original RO sprite textures load late or their visual node gets freed.
+# Retry without duplicating living NPCs; keep the button fallback meanwhile.
+var sprite_retry_seconds := 0.0
 var veil: ColorRect
 var dialog: PanelContainer
 var story: Label
@@ -133,6 +136,10 @@ func _town() -> Node3D:
 		return null
 	if str(world.menus._mode) in ["login", "server_select", "class_select", "loading"]:
 		return null
+	# The core client has a city argument; only Prontera positions are audited.
+	# An unknown/missing city tag fails closed instead of copying NPCs into Payon.
+	if str(world.get_meta("svv_offline_town_place", "")) != "prontera":
+		return null
 	var candidate = world.get("town")
 	if candidate is Node3D and is_instance_valid(candidate) and candidate.is_inside_tree():
 		return candidate
@@ -143,11 +150,17 @@ func _process(delta: float) -> void:
 	elapsed += delta
 	if elapsed < 0.35:
 		return
+	var frame_seconds := elapsed
 	elapsed = 0.0
 	var current_town: Node3D = _town()
 	if current_town != town_node:
 		_clear_world()
 		if current_town != null:
+			_spawn_in_town(current_town)
+	elif current_town != null:
+		sprite_retry_seconds += frame_seconds
+		if sprite_retry_seconds >= 4.0:
+			sprite_retry_seconds = 0.0
 			_spawn_in_town(current_town)
 	for job in JOBS:
 		var visual = npc_visuals.get(job)
@@ -164,18 +177,24 @@ func _spawn_in_town(parent: Node3D) -> void:
 	if not kafra is Node3D or not is_instance_valid(kafra):
 		return
 	town_node = parent
-	missing_sprites.clear()
 	for job in JOBS:
+		# A late retry must preserve the existing visual, nameplate and identity.
+		if is_instance_valid(npc_visuals.get(job)):
+			continue
+		npc_visuals.erase(job)
 		var sprite_id: String = _first_original_sprite(job)
 		if sprite_id.is_empty():
+			if not missing_sprites.has(job):
+				push_warning("SVV Town companion: no original sprite for %s; not creating substitute art" % job)
 			missing_sprites[job] = true
-			push_warning("SVV Town companion: no original sprite for %s; not creating substitute art" % job)
 			continue
 		var original_sprite = RoAssets.sprite([sprite_id])
 		if original_sprite == null:
+			if not missing_sprites.has(job):
+				push_warning("SVV Town companion: sprite asset unavailable for " + job)
 			missing_sprites[job] = true
-			push_warning("SVV Town companion: sprite asset unavailable for " + job)
 			continue
+		missing_sprites.erase(job)
 		var visual := RoVisual.new()
 		parent.add_child(visual)
 		visual.name = "SVV" + job.capitalize() + "FriendNPC"
@@ -217,6 +236,7 @@ func _clear_world() -> void:
 	npc_visuals.clear()
 	town_node = null
 	missing_sprites.clear()
+	sprite_retry_seconds = 0.0
 
 
 func _screen_point(visual: RoVisual) -> Vector2:

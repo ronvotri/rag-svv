@@ -45,12 +45,37 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn('"mage": {"name": "Eira"', self.assistant)
         self.assertIn('world.coop_classes.assign(party)', self.assistant)
 
+    def test_companions_are_scoped_to_verified_prontera_only(self):
+        self.assertIn('get_meta("svv_offline_town_place", "")', self.npcs)
+        self.assertIn('!= "prontera":', self.npcs)
+        self.assertIn('SVVCompanionTown._town() == null', self.smoke)
+        self.assertIn('SVVCompanionTown._town() == actual_town', self.smoke)
+
+    def test_missing_original_sprite_retries_without_cloning_a_live_npc(self):
+        self.assertIn("sprite_retry_seconds += frame_seconds", self.npcs)
+        self.assertIn("if sprite_retry_seconds >= 4.0:", self.npcs)
+        self.assertIn("if is_instance_valid(npc_visuals.get(job)):", self.npcs)
+        self.assertIn("missing_sprites.erase(job)", self.npcs)
+        self.assertIn("sprite_retry_seconds = 0.0", self.npcs)
+        self.assertIn("SVVCompanionTown.sprite_retry_seconds = 4.0", self.smoke)
+        self.assertIn('SVVCompanionTown._process(0.35)', self.smoke)
+        self.assertIn("SVVCompanionTown._unhandled_input(pointer_event)", self.smoke)
+        self.assertIn('for pointer_kind in ["mouse", "touch"]:', self.smoke)
+
+    def test_cross_city_transition_cleans_live_npcs_and_dialogue(self):
+        self.assertIn('world.set_meta("svv_offline_town_place", "payon")', self.smoke)
+        self.assertIn("cross-city transition removes old companion visuals", self.smoke)
+        self.assertIn("cross-city transition closes old companion dialogue", self.smoke)
+        self.assertIn("cross-city transition hides fallback buttons", self.smoke)
+        self.assertIn("returning to Prontera restores exactly two companion NPCs", self.smoke)
+
     def test_installed_for_each_original_client_build_and_runtime_qa(self):
         self.assertIn('companions_source = source.parent / "companions_town.gd"', self.installer)
         self.assertIn('SVVCompanionTown="*res://addons/svv_offline/companions_town.gd"', self.installer)
         self.assertIn('SVVCompanionTown._spawn_in_town(actual_town)', self.smoke)
         self.assertIn('npc.sprite.texture != null', self.smoke)
         self.assertIn('Alden town NPC and Friends List share quest state', self.smoke)
+
 
     def test_wave_two_sprite_candidates_are_audited_but_not_spawned_in_prontera(self):
         self.assertIn('const JOBS := ["swordsman", "mage"]', self.npcs)
@@ -61,8 +86,6 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn('"super_novice_f"', self.npcs)
         self.assertIn('verified visual match for the basic Novice job', self.npcs)
         self.assertIn('OFFLINE_QA NAO_VISUAL basic Novice is unverified', self.smoke)
-
-
 
 if __name__ == "__main__":
     unittest.main()

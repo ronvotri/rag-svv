@@ -191,6 +191,19 @@ def patch_party_run_save(text: str) -> str:
     return text
 
 
+def patch_main_town_place(text: str) -> str:
+    """Tag the actual city request so authored NPCs never bleed into other towns."""
+    if 'svv_offline_town_place' in text:
+        raise ValueError("Town metadata patch already applied")
+    header = re.search(r'(?m)^func enter_town\([^\n]*\)\s*->\s*void\s*:\s*$', text)
+    if header is None or re.search(r"\bplace\b", header.group(0)) is None:
+        raise ValueError("Original enter_town signature changed; inspect source")
+    end = text.find("\n", header.start())
+    if end < 0:
+        raise ValueError("Original enter_town has no function body")
+    return text[:end + 1] + '\tset_meta("svv_offline_town_place", str(place))\n' + text[end + 1:]
+
+
 def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
     source = source.resolve(strict=True)
     output = output.resolve()
@@ -266,6 +279,7 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
     party = offline_party_bootstrap()
     main.write_text(text.replace(anchor, party, 1), encoding="utf-8", newline="\n")
     text = main.read_text(encoding="utf-8")
+    text = patch_main_town_place(text)
     text = text.replace('if coop_classes.is_empty() and net.mode == "":', 'if net.mode == "":', 1)
     text = re.sub(r'if not is_coop\(\):\n(\s+)RunSave\.clear\(\)', r'if net.mode == "":\n\1RunSave.clear()', text)
     main.write_text(text, encoding="utf-8", newline="\n")
