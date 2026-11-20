@@ -190,6 +190,34 @@ func _run() -> void:
 	# In-world encounters must use genuine rendered Ragnarok job sprites.
 	SVVCompanionTown._clear_world()
 	SVVCompanionTown._spawn_in_town(actual_town)
+	# Wave 6: objective placement guard rails before any human visual signoff.
+	# Spacing between sprites is verifiable; collision with original town props
+	# and walkable lanes still needs real desktop/mobile screenshot review.
+	var staged_jobs: Array[String] = ["swordsman", "mage", "archer", "thief", "merchant"]
+	var frame_rect := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	var staged_mira: RoVisual = SVVMiraTown.mira_visual
+	for index in staged_jobs.size():
+		var current_job: String = staged_jobs[index]
+		var current_npc: RoVisual = SVVCompanionTown.npc_visuals.get(current_job)
+		if current_npc == null or not is_instance_valid(current_npc):
+			continue
+		var hit_point: Vector2 = SVVCompanionTown._screen_point(current_npc)
+		print("OFFLINE_QA NPC_PLACEMENT ", current_job, " world=", current_npc.global_position,
+			" screen=", hit_point, " viewport=", frame_rect.size)
+		check(hit_point.is_finite() and frame_rect.grow(48.0).has_point(hit_point),
+			current_job + " screen target remains near town viewport")
+		for next_index in range(index + 1, staged_jobs.size()):
+			var other_job: String = staged_jobs[next_index]
+			var other_npc: RoVisual = SVVCompanionTown.npc_visuals.get(other_job)
+			if other_npc == null or not is_instance_valid(other_npc):
+				continue
+			var separation := Vector2(current_npc.global_position.x, current_npc.global_position.z).distance_to(
+				Vector2(other_npc.global_position.x, other_npc.global_position.z))
+			check(separation >= 1.75, current_job + " has space from " + other_job)
+		if is_instance_valid(staged_mira):
+			var mira_gap := Vector2(current_npc.global_position.x, current_npc.global_position.z).distance_to(
+				Vector2(staged_mira.global_position.x, staged_mira.global_position.z))
+			check(mira_gap >= 1.75, current_job + " has space from Mira patrol")
 	for job in ["swordsman", "mage", "archer", "thief", "merchant"]:
 		var npc: RoVisual = SVVCompanionTown.npc_visuals.get(job)
 		check(npc != null and is_instance_valid(npc), job + " physically appears in Prontera")
