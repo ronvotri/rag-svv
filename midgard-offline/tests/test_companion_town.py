@@ -69,6 +69,19 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn("cross-city transition hides fallback buttons", self.smoke)
         self.assertIn("returning to Prontera restores exactly two companion NPCs", self.smoke)
 
+    def test_wave_two_profiles_ready_but_town_spawn_allowlist_unchanged(self):
+        self.assertIn('const JOBS := ["swordsman", "mage"]', self.npcs)
+        for job, name in (("archer", "Elowen"), ("thief", "Riku"),
+                          ("merchant", "Mino"), ("novice", "Nao")):
+            self.assertIn('"' + job + '": "' + name + '"', self.npcs)
+            self.assertIn('"' + job + '": {', self.assistant)
+            self.assertIn('"' + job + '": "' + name + ':', self.npcs)
+        self.assertIn('NPC_GREETINGS.get(selected_job', self.npcs)
+        self.assertNotIn('"archer": Vector3(', self.npcs)
+        self.assertNotIn('"thief": Vector3(', self.npcs)
+        self.assertNotIn('"merchant": Vector3(', self.npcs)
+        self.assertNotIn('"novice": Vector3(', self.npcs)
+
     def test_visual_qa_captures_real_town_dialogues_without_spawning_wave_two(self):
         visual = (ROOT / "original-addons/offline_visual.gd").read_text(encoding="utf-8")
         self.assertIn('await snap("town-dialog-" + job)', visual)
