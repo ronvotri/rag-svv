@@ -13,7 +13,7 @@ Checkpoint: 2026-11-21 (ICT). Source branch: PR #14 at `162f2cfd181158a542788025
 
 ## Wave 25 changes
 
-- The original-client API metadata inspector now looks at recovered `scripts/ro/ro_assets.gd` factory signatures and filtered head/hair/body/gender/appearance hints.
+- The original-client API metadata inspector now looks at recovered `scripts/autoload/ro_assets.gd` factory signatures and filtered head/hair/body/gender/appearance hints.
 - The generated `town-rendering-api.json` includes explicit `rare_npc_composition_review` with `town_placement_approved: false`, even if a source body texture has eight direction hashes.
 - Regression tests verify the metadata is discoverable without approving an NPC, including when the factory is absent.
 - No recovered source or copyrighted game sprite is committed to Git. Contact sheets and PNG files remain QA/download artifacts, not repository assets.
