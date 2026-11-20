@@ -346,9 +346,24 @@ def build(target):
     write_context(project, work, translation)
     run([sys.executable, TOOLS / "create-original-presets.py", project, templates])
     run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
-    run([godot, "--headless", "--path", project, "--", "--offline-test", "--offline-qa"])
+    # Capture authentic recovered-client QA stdout for machine-readable
+    # rare-job preflight evidence. Preserve the full log in Actions output.
+    qa_command = [str(x) for x in (godot, "--headless", "--path", project,
+                                   "--", "--offline-test", "--offline-qa")]
+    qa_process = subprocess.run(qa_command, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True,
+                                encoding="utf-8", errors="replace")
+    print(qa_process.stdout, end="")
     output = work / "artifacts"
     output.mkdir(exist_ok=True)
+    rare_report = own_tool("rare_job_qa_report").from_log(qa_process.stdout)
+    (output / "RARE_JOB_QA.json").write_text(
+        json.dumps(rare_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+    if qa_process.returncode:
+        raise subprocess.CalledProcessError(qa_process.returncode, qa_command)
+    if not rare_report["runtime_probe_completed"]:
+        raise RuntimeError("Rare NPC QA marker missing/invalid: " + rare_report["reason"])
     # Optional proof for the staging Windows build: real Godot viewport PNGs
     # from the recovered town and its ORIGINAL sprite assets. Never label the
     # ordinary headless test as an approval of prop collisions or mobile UI.
