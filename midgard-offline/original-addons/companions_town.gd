@@ -1,10 +1,10 @@
 extends CanvasLayer
-## Two recruitable offline town NPCs using ORIGINAL Ragnarok job sprites.
+## Five recruitable offline town NPCs using ORIGINAL Ragnarok job sprites.
 ## No simulated human accounts, replacement artwork or new map assets.
 ## Placement is confined to the one town currently verified by runtime QA:
 ## Prontera. Move NPCs to actual other towns only after those scenes are found.
 
-const JOBS := ["swordsman", "mage"]
+const JOBS := ["swordsman", "mage", "archer", "thief", "merchant"]
 const SPRITE_CANDIDATES := {
 	"swordsman": ["swordsman_m", "swordsman_f"],
 	"mage": ["mage_f", "mage_m"],
@@ -18,7 +18,7 @@ const SPRITE_CANDIDATES := {
 	"novice": ["novice_f", "novice_m"],
 }
 # Character profiles can be authored now, independently of physical placement.
-# JOBS above remains the verified two-person spawn allowlist.
+# JOBS above includes three experimental Prontera placements for visual QA.
 const NPC_NAMES := {
 	"swordsman": "Alden",
 	"mage": "Eira",
@@ -35,11 +35,14 @@ const NPC_GREETINGS := {
 	"merchant": "Mino: Đi săn quái thì được, nhưng phá hàng của tôi là phải đền. Có hóa đơn đầy đủ!",
 	"novice": "Nao: Tôi mới vào nghề thôi. Nếu thấy tôi chạy ngược hướng, gọi với nhé!",
 }
-# Start near the original Kafra anchor, separated from Mira's (1.5, 0, 0.6)
-# and each other. Do not wander into unverified town collision tiles.
+# Experimental offsets near Kafra; visually inspect walking lanes and props
+# before accepting these placements. Nao has NO town coordinate.
 const POSITIONS := {
 	"swordsman": Vector3(-2.2, 0.0, 0.4),
 	"mage": Vector3(2.25, 0.0, -1.8),
+	"archer": Vector3(-4.4, 0.0, -1.8),
+	"thief": Vector3(4.4, 0.0, 1.6),
+	"merchant": Vector3(-0.3, 0.0, -4.2),
 }
 
 var town_node: Node3D
@@ -134,7 +137,9 @@ func _fit() -> void:
 	for index in JOBS.size():
 		var job: String = JOBS[index]
 		# Used only when the ORIGINAL sprite cannot be resolved.
-		fallback_buttons[job].position = Vector2(12, maxf(10.0, size.y - 177.0 - 55.0 * index))
+		var column_index: int = index % 2
+		var row_index: int = floori(float(index) / 2.0)
+		fallback_buttons[job].position = Vector2(12.0 + float(column_index) * 205.0, maxf(10.0, size.y - 177.0 - 55.0 * row_index))
 	var width := minf(490.0, size.x - 24.0)
 	var height := minf(430.0, size.y - 24.0)
 	dialog.offset_left = -width / 2.0
