@@ -20,8 +20,11 @@ func capture(folder: String) -> Dictionary:
 		"directions_verified": false,
 		"entries": [],
 	}
+	var scene_tree := Engine.get_main_loop() as SceneTree
+	if scene_tree == null:
+		return result
 	var parent := Node3D.new()
-	Engine.get_main_loop().root.add_child(parent)
+	scene_tree.root.add_child(parent)
 	for npc_name in PREVIEWS:
 		for sprite_id in PREVIEWS[npc_name]:
 			var entry := {
