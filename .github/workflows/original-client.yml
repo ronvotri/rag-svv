@@ -60,6 +60,16 @@ jobs:
             midgard-offline/work/cloud/artifacts/*.txt
           if-no-files-found: error
           retention-days: 1
+      - name: Upload rare NPC source-frame visual QA separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rare-npc-source-sprite-QA
+          path: |
+            midgard-offline/work/cloud/artifacts/Rare-NPC-Sprite-QA.zip
+            midgard-offline/work/cloud/artifacts/RARE_JOB_QA.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload small continuation context for web chats
         if: always()
         uses: actions/upload-artifact@v4

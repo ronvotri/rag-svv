@@ -59,6 +59,16 @@ func _run() -> void:
 			preview_job.setup(source_sprite, Color(0.8, 0.8, 0.9), 40)
 			check(preview_job.sprite is Sprite3D and preview_job.sprite.texture != null,
 				job + " original Ragnarok sprite renders for later town placement")
+	# Probe rare-class IDs and ORIGINAL sprites without spawning or recruiting
+	# any of the four unapproved NPCs. Machine-readable JSON is report-only.
+	var rare_audit_script: Script = load("res://addons/svv_offline/qa/rare_job_asset_audit.gd")
+	check(rare_audit_script != null, "rare NPC sprite audit helper loaded")
+	if rare_audit_script != null:
+		var rare_audit = rare_audit_script.new()
+		var rare_report: Dictionary = rare_audit.run(preview_root)
+		check(rare_report.get("all_jobs_approved", true) == false,
+			"rare jobs remain locked pending sprite identity and town visual QA")
+		check(rare_report.get("jobs", {}).size() == 4, "all four rare NPC jobs audited")
 	preview_root.queue_free()
 
 	check(SVVAssistant._unlocked_friends().is_empty(), "fresh QA profile starts with no recruited friends")

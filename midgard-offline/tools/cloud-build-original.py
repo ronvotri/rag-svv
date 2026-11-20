@@ -346,13 +346,29 @@ def build(target):
     write_context(project, work, translation)
     run([sys.executable, TOOLS / "create-original-presets.py", project, templates])
     run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
-    run([godot, "--headless", "--path", project, "--", "--offline-test", "--offline-qa"])
+    # Capture authentic recovered-client QA stdout for machine-readable
+    # rare-job preflight evidence. Preserve the full log in Actions output.
+    qa_command = [str(x) for x in (godot, "--headless", "--path", project,
+                                   "--", "--offline-test", "--offline-qa")]
+    qa_process = subprocess.run(qa_command, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True,
+                                encoding="utf-8", errors="replace")
+    print(qa_process.stdout, end="")
     output = work / "artifacts"
     output.mkdir(exist_ok=True)
+    rare_report = own_tool("rare_job_qa_report").from_log(qa_process.stdout)
+    (output / "RARE_JOB_QA.json").write_text(
+        json.dumps(rare_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+    if qa_process.returncode:
+        raise subprocess.CalledProcessError(qa_process.returncode, qa_command)
+    if not rare_report["runtime_probe_completed"]:
+        raise RuntimeError("Rare NPC QA marker missing/invalid: " + rare_report["reason"])
     # Optional proof for the staging Windows build: real Godot viewport PNGs
     # from the recovered town and its ORIGINAL sprite assets. Never label the
     # ordinary headless test as an approval of prop collisions or mobile UI.
     visual_qa = "not_applicable"
+    rare_visual_qa = "not_applicable"
     if target == "windows":
         xvfb = shutil.which("xvfb-run")
         visual_qa = "xvfb_missing" if not xvfb else "not_captured"
@@ -373,6 +389,29 @@ def build(target):
                     "town-npcs-844x390.png",
                 }
                 found = {p.name for p in visual_folder.glob("*.png")}
+                rare_expected = {
+                    "rare-frame-gunslinger.png", "rare-frame-gunslinger_f.png",
+                    "rare-frame-taekwon.png", "rare-frame-taekwon_f.png",
+                    "rare-frame-ninja.png", "rare-frame-ninja_f.png",
+                    "rare-frame-summoner.png", "rare-frame-summoner_f.png",
+                }
+                rare_found = sorted(rare_expected.intersection(found))
+                if rare_found:
+                    # Separate small, short-lived QA evidence; original assets
+                    # are never committed or deployed to the production Web.
+                    rare_zip = output / "Rare-NPC-Sprite-QA.zip"
+                    with ZipFile(rare_zip, "w", ZIP_DEFLATED) as archive:
+                        for name in rare_found:
+                            archive.write(visual_folder / name, name)
+                        rare_metadata = visual_folder / "RARE_NPC_VISUAL.json"
+                        if rare_metadata.is_file():
+                            archive.write(rare_metadata, rare_metadata.name)
+                rare_visual_qa = ("frames_ready_for_manual_review"
+                                  if rare_expected.issubset(found)
+                                  else "incomplete_frames")
+                print("RARE_NPC_VISUAL_STATUS", rare_visual_qa)
+                if not rare_expected.issubset(found):
+                    print("RARE_NPC_VISUAL_MISSING", sorted(rare_expected - found))
                 if expected.issubset(found):
                     archive_folder(visual_folder, output / "Prontera-Visual-QA.zip")
                     visual_qa = "screenshots_ready_for_manual_review"
@@ -405,7 +444,7 @@ def build(target):
         run([java / "bin/keytool", "-genkeypair", "-keystore", keystore, "-storepass", "android", "-alias", "androiddebugkey", "-keypass", "android", "-dname", "CN=Android Debug,O=Android,C=US", "-keyalg", "RSA", "-keysize", "2048", "-validity", "3650"])
         run([sys.executable, TOOLS / "create-original-android-preset.py", project, "--templates", templates, "--debug-keystore", keystore])
         run([sys.executable, TOOLS / "export-original-android.py", "--godot", godot, "--project", project, "--java-home", java, "--android-sdk", sdk, "--debug-keystore", keystore, "--output", output / "MidgardSVV-Original-Offline-Android-DEBUG-TEST.apk"])
-    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False, "prontera_visual_qa": visual_qa}
+    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False, "prontera_visual_qa": visual_qa, "rare_job_visual_qa": rare_visual_qa}
     (output / "BUILD_STATUS.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     sums = [digest(path) + "  " + path.name for path in output.iterdir() if path.is_file()]
     (output / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
