@@ -53,13 +53,22 @@ func capture(folder: String) -> Dictionary:
 					entry["reason"] = "texture_image_empty"
 				else:
 					var original_size := frame.get_size()
-					var filename := "rare-frame-" + sprite_id + ".png"
-					var save_error := frame.save_png(folder.path_join(filename))
-					entry["saved"] = save_error == OK
-					entry["filename"] = filename
+					var visible_bounds: Rect2i = frame.get_used_rect()
 					entry["image_size"] = [original_size.x, original_size.y]
-					if save_error != OK:
-						entry["reason"] = "png_save_failed"
+					entry["visible_bounds"] = [
+						visible_bounds.position.x, visible_bounds.position.y,
+						visible_bounds.size.x, visible_bounds.size.y,
+					]
+					entry["visible_content"] = visible_bounds.has_area()
+					if not visible_bounds.has_area():
+						entry["reason"] = "texture_fully_transparent"
+					else:
+						var filename: String = "rare-frame-" + str(sprite_id) + ".png"
+						var save_error := frame.save_png(folder.path_join(filename))
+						entry["saved"] = save_error == OK
+						entry["filename"] = filename
+						if save_error != OK:
+							entry["reason"] = "png_save_failed"
 			print("RARE_NPC_VISUAL_FRAME " + JSON.stringify(entry))
 			result["entries"].append(entry)
 			visual.queue_free()

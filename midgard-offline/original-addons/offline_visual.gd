@@ -27,6 +27,21 @@ func _run() -> void:
 		if str(argument).begins_with("--offline-output="):
 			folder = str(argument).substr(17)
 	DirAccess.make_dir_recursive_absolute(folder)
+	# Independent fast path for original sprite frames. This skips the expensive
+	# Town, full viewport screenshots and combat sequence (150s CI timeout).
+	# Still uses the recovered original RoVisual / RoAssets, never fake art.
+	if "--rare-only" in OS.get_cmdline_user_args():
+		var rare_script: Script = load("res://addons/svv_offline/qa/rare_job_visual.gd")
+		if rare_script == null:
+			push_error("RARE_NPC_VISUAL missing original-frame capture script")
+			get_tree().quit(2)
+			return
+		var rare_visual = rare_script.new()
+		var rare_frames: Dictionary = rare_visual.capture(folder)
+		print("RARE_NPC_VISUAL_SUMMARY frames=", rare_frames.get("entries", []).size(),
+			" approved_for_town=", rare_frames.get("approved_for_town", true))
+		get_tree().quit()
+		return
 	Save.set_setting("privacy_seen", true)
 	Save.set_setting("onboarded", true)
 	var packed: PackedScene = load("res://scenes/main.tscn")

@@ -70,6 +70,144 @@ def from_log(log: str) -> dict:
     }
 
 
+
+def validate_visual_frames(folder) -> dict:
+    """Validate 8 genuine exported PNGs and their fail-closed Godot manifest.
+
+    This proves file integrity / consistent capture metadata, NOT that the
+    artwork depicts the correct character or that animations are usable.
+    """
+    from pathlib import Path
+    import struct
+    import zlib
+
+    expected = {
+        "gunslinger": "Cole", "gunslinger_f": "Cole",
+        "taekwon": "Haneul", "taekwon_f": "Haneul",
+        "ninja": "Kira", "ninja_f": "Kira",
+        "summoner": "Lumi", "summoner_f": "Lumi",
+    }
+    base = {
+        "approved_for_town": False,
+        "manual_art_identity_qa": "pending",
+        "animation_verified": False,
+        "directions_verified": False,
+    }
+
+    def reject(reason):
+        return {**base, "status": "incomplete_frames", "verified_frames": 0, "reason": reason}
+
+    def checked_png_size(path):
+        raw = path.read_bytes()
+        if not 45 <= len(raw) <= 16 * 1024 * 1024 or not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("invalid PNG signature or file length")
+        offset = 8
+        size = None
+        pixel_chunks = []
+        found_end = False
+        while offset < len(raw):
+            if offset + 12 > len(raw):
+                raise ValueError("truncated PNG chunk")
+            length = int.from_bytes(raw[offset:offset + 4], "big")
+            kind = raw[offset + 4:offset + 8]
+            end = offset + 12 + length
+            if end > len(raw):
+                raise ValueError("truncated PNG payload")
+            data = raw[offset + 8:offset + 8 + length]
+            crc = int.from_bytes(raw[offset + 8 + length:end], "big")
+            if zlib.crc32(kind + data) & 0xffffffff != crc:
+                raise ValueError("PNG CRC mismatch")
+            if size is None:
+                if kind != b"IHDR" or length != 13:
+                    raise ValueError("PNG missing IHDR")
+                width, height, bits, kind_id, compression, filtering, interlace = struct.unpack(">IIBBBBB", data)
+                if not (2 <= width <= 4096 and 2 <= height <= 4096
+                        and bits in (8, 16) and kind_id in (0, 2, 4, 6)
+                        and compression == filtering == interlace == 0):
+                    raise ValueError("unsupported PNG dimensions or encoding")
+                size = width, height, bits, kind_id
+            elif kind == b"IDAT":
+                pixel_chunks.append(data)
+            elif kind == b"IEND":
+                if length or end != len(raw):
+                    raise ValueError("invalid PNG end")
+                found_end = True
+                break
+            offset = end
+        if not found_end or not pixel_chunks:
+            raise ValueError("missing PNG pixels or end")
+        width, height, bits, kind_id = size
+        channels = {0: 1, 2: 3, 4: 2, 6: 4}[kind_id]
+        expected_bytes = height * (1 + ((width * channels * bits + 7) // 8))
+        if expected_bytes > 140 * 1024 * 1024:
+            raise ValueError("oversized PNG pixels")
+        decoder = zlib.decompressobj()
+        decoded = decoder.decompress(b"".join(pixel_chunks), expected_bytes + 1)
+        if (len(decoded) != expected_bytes or not decoder.eof
+                or decoder.unconsumed_tail or decoder.unused_data):
+            raise ValueError("PNG scanline data invalid")
+        return width, height
+
+    folder = Path(folder)
+    manifest = folder / "RARE_NPC_VISUAL.json"
+    if not manifest.is_file():
+        return reject("missing source-frame manifest")
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeError, OSError):
+        return reject("invalid source-frame manifest")
+    if (not isinstance(payload, dict)
+            or payload.get("source") != "recovered_original_RoVisual_texture_frame"
+            or payload.get("scope") != "visual_qa_only"
+            or payload.get("approved_for_town") is not False
+            or payload.get("animation_verified") is not False
+            or payload.get("directions_verified") is not False):
+        return reject("unsafe or unknown source-frame manifest")
+    entries = payload.get("entries")
+    if not isinstance(entries, list) or len(entries) != len(expected):
+        return reject("expected exactly eight source-frame records")
+    seen = set()
+    for row in entries:
+        if not isinstance(row, dict):
+            return reject("invalid frame record")
+        sprite_id = row.get("sprite_id")
+        if sprite_id not in expected or sprite_id in seen:
+            return reject("unexpected or duplicate sprite ID")
+        seen.add(sprite_id)
+        npc = expected[sprite_id]
+        if (row.get("npc") != npc
+                or row.get("candidate_alias_only") is not (npc == "Lumi")
+                or row.get("saved") is not True
+                or row.get("visible_content") is not True
+                or row.get("filename") != "rare-frame-" + sprite_id + ".png"):
+            return reject("unsafe sprite mapping, missing image or empty texture: " + sprite_id)
+        dims = row.get("image_size")
+        bounds = row.get("visible_bounds")
+        if (not isinstance(dims, list) or len(dims) != 2
+                or any(type(n) is not int or n < 2 for n in dims)
+                or not isinstance(bounds, list) or len(bounds) != 4
+                or any(type(n) is not int for n in bounds)
+                or bounds[0] < 0 or bounds[1] < 0
+                or bounds[2] <= 0 or bounds[3] <= 0
+                or bounds[0] + bounds[2] > dims[0]
+                or bounds[1] + bounds[3] > dims[1]):
+            return reject("invalid visible bounds or dimensions: " + sprite_id)
+        try:
+            actual = checked_png_size(folder / row["filename"])
+        except (ValueError, OSError, zlib.error):
+            return reject("corrupt/missing PNG: " + sprite_id)
+        if tuple(dims) != actual:
+            return reject("PNG and manifest dimensions disagree: " + sprite_id)
+    if seen != set(expected):
+        return reject("source-frame inventory incomplete")
+    return {
+        **base,
+        "status": "frames_ready_for_manual_review",
+        "verified_frames": len(expected),
+        "reason": "integrity checked; character identity and animations NOT approved",
+    }
+
+
 if __name__ == "__main__":
     import argparse
     from pathlib import Path
