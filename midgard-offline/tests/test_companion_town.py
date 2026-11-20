@@ -83,9 +83,11 @@ class NativeCompanionTownTests(unittest.TestCase):
             self.assertIn('"' + job + '": ["' + job + '_', self.npcs)
         self.assertIn('job + " original Ragnarok sprite renders for later town placement"', self.smoke)
         self.assertIn('OFFLINE_QA WAVE2_SPRITE ', self.smoke)
-        self.assertIn('"super_novice_f"', self.npcs)
-        self.assertIn('verified visual match for the basic Novice job', self.npcs)
-        self.assertIn('OFFLINE_QA NAO_VISUAL basic Novice is unverified', self.smoke)
+        self.assertIn('"novice": ["novice_f", "novice_m"]', self.npcs)
+        self.assertNotIn('"super_novice_f"', self.npcs)
+        self.assertNotIn('"super_novice",', self.npcs)
+        self.assertIn("Nao never uses Super Novice substitute", self.smoke)
+        self.assertIn("OFFLINE_QA NAO_VISUAL basic Novice ", self.smoke)
 
 if __name__ == "__main__":
     unittest.main()
