@@ -65,6 +65,17 @@ func _run() -> void:
 		else:
 			push_warning("VISUAL_QA cannot capture town dialogue for " + job)
 		SVVCompanionTown._close_dialog()
+	# Extract currently rendered genuine Ragnarok frames OFF-MAP for manual
+	# Cole/Haneul/Kira/Lumi art identity checks. These are not 8-direction
+	# animation proof and never spawn NPCs into Prontera.
+	var rare_visual_script: Script = load("res://addons/svv_offline/qa/rare_job_visual.gd")
+	if rare_visual_script != null:
+		var rare_visual = rare_visual_script.new()
+		var rare_frames: Dictionary = rare_visual.capture(folder)
+		print("RARE_NPC_VISUAL_SUMMARY ", "frames=", rare_frames.get("entries", []).size(),
+			" approved_for_town=", rare_frames.get("approved_for_town", true))
+	else:
+		push_warning("VISUAL_QA rare NPC frame helper unavailable")
 	# Off-map job audit: do not instantiate unverified NPCs in town.
 	for job in ["novice"]:
 		var sprite_id: String = SVVCompanionTown._first_original_sprite(job)
