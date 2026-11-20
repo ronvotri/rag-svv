@@ -375,6 +375,49 @@ def build(target):
         if xvfb:
             visual_folder = output / "Prontera-Visual-QA"
             visual_folder.mkdir(exist_ok=True)
+            # Fast independent run: do NOT depend on the full Town/phone/combat
+            # screenshot sequence, which may exceed its 150s timeout.
+            try:
+                run([
+                    xvfb, "--auto-servernum",
+                    "--server-args=-screen 0 1280x1024x24",
+                    godot, "--path", project, "--",
+                    "--offline-test", "--offline-visual", "--rare-only",
+                    "--offline-output=" + str(visual_folder),
+                ], timeout=75)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                print("RARE_NPC_VISUAL fast capture failed:", error, file=sys.stderr)
+
+            rare_expected = {
+                "rare-frame-gunslinger.png", "rare-frame-gunslinger_f.png",
+                "rare-frame-taekwon.png", "rare-frame-taekwon_f.png",
+                "rare-frame-ninja.png", "rare-frame-ninja_f.png",
+                "rare-frame-summoner.png", "rare-frame-summoner_f.png",
+            }
+            found_rare = {p.name for p in visual_folder.glob("*.png")}
+            rare_found = sorted(rare_expected.intersection(found_rare))
+            rare_validation = own_tool("rare_job_qa_report").validate_visual_frames(visual_folder)
+            rare_visual_qa = rare_validation["status"]
+            validation_path = output / "RARE_NPC_VISUAL_CHECK.json"
+            validation_path.write_text(json.dumps(rare_validation, indent=2) + "\n", encoding="utf-8")
+            if rare_found:
+                # Upload original frames and explicit validation result even
+                # if subsequent full-Town screenshot QA times out.
+                rare_zip = output / "Rare-NPC-Sprite-QA.zip"
+                with ZipFile(rare_zip, "w", ZIP_DEFLATED) as archive:
+                    for name in rare_found:
+                        archive.write(visual_folder / name, name)
+                    rare_metadata = visual_folder / "RARE_NPC_VISUAL.json"
+                    if rare_metadata.is_file():
+                        archive.write(rare_metadata, rare_metadata.name)
+                    archive.write(validation_path, validation_path.name)
+            print("RARE_NPC_VISUAL_STATUS", rare_visual_qa)
+            print("RARE_NPC_VISUAL_CHECK", rare_validation["reason"])
+            if rare_visual_qa != "frames_ready_for_manual_review":
+                print("RARE_NPC_VISUAL_MISSING", sorted(rare_expected - found_rare))
+
+            # Separate optional full scene QA. Failure here must NEVER erase
+            # or prevent uploading the independent source sprite evidence.
             try:
                 run([
                     xvfb, "--auto-servernum",
@@ -389,44 +432,17 @@ def build(target):
                     "town-npcs-844x390.png",
                 }
                 found = {p.name for p in visual_folder.glob("*.png")}
-                rare_expected = {
-                    "rare-frame-gunslinger.png", "rare-frame-gunslinger_f.png",
-                    "rare-frame-taekwon.png", "rare-frame-taekwon_f.png",
-                    "rare-frame-ninja.png", "rare-frame-ninja_f.png",
-                    "rare-frame-summoner.png", "rare-frame-summoner_f.png",
-                }
-                rare_found = sorted(rare_expected.intersection(found))
-                # Strictly validate the ORIGINAL Godot capture manifest, PNG
-                # bytes/CRCs/pixels, mapping and visible image bounds. Mere
-                # PNG filename existence can never mark QA as ready.
-                rare_validation = own_tool("rare_job_qa_report").validate_visual_frames(visual_folder)
-                rare_visual_qa = rare_validation["status"]
-                validation_path = output / "RARE_NPC_VISUAL_CHECK.json"
-                validation_path.write_text(json.dumps(rare_validation, indent=2) + "\n", encoding="utf-8")
-                if rare_found:
-                    # Keep evidence accessible even when validation rejects it,
-                    # but do NOT label such images ready for approval.
-                    rare_zip = output / "Rare-NPC-Sprite-QA.zip"
-                    with ZipFile(rare_zip, "w", ZIP_DEFLATED) as archive:
-                        for name in rare_found:
-                            archive.write(visual_folder / name, name)
-                        rare_metadata = visual_folder / "RARE_NPC_VISUAL.json"
-                        if rare_metadata.is_file():
-                            archive.write(rare_metadata, rare_metadata.name)
-                        archive.write(validation_path, validation_path.name)
-                print("RARE_NPC_VISUAL_STATUS", rare_visual_qa)
-                print("RARE_NPC_VISUAL_CHECK", rare_validation["reason"])
-                if rare_visual_qa != "frames_ready_for_manual_review":
-                    print("RARE_NPC_VISUAL_MISSING", sorted(rare_expected - found))
                 if expected.issubset(found):
-                    archive_folder(visual_folder, output / "Prontera-Visual-QA.zip")
                     visual_qa = "screenshots_ready_for_manual_review"
                 else:
                     visual_qa = "incomplete_screenshots"
                     print("VISUAL_QA MISSING", sorted(expected - found))
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
                 visual_qa = "capture_failed"
-                print("VISUAL_QA capture failed; windows build remains a separate result:", error, file=sys.stderr)
+                print("VISUAL_QA capture failed; Windows build remains separate:", error, file=sys.stderr)
+            finally:
+                if any(visual_folder.glob("original-*.png")) or any(visual_folder.glob("town-*.png")):
+                    archive_folder(visual_folder, output / "Prontera-Visual-QA.zip")
         print("VISUAL_QA STATUS", visual_qa)
     notice = "Original-based offline test client. Original game art and code retain their respective owners.\nVietnamese translation and feature parity are not complete; NPC guide is rule-based, not a native LLM.\nKeep save backups. Android output is DEBUG-TEST, not a stable signed update.\n"
     if target == "windows":
