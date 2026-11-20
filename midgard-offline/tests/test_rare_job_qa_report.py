@@ -210,6 +210,12 @@ class RareNpcFrameValidation(unittest.TestCase):
         (self.root / "RARE_NPC_VISUAL.json").unlink()
         self.assertEqual(reporter.validate_visual_frames(self.root)["status"], "incomplete_frames")
 
+    def test_gdscript_filename_inference_regression(self):
+        # Build #325 failed at GDScript parsing before exporting rare PNGs.
+        source = (ROOT / "original-addons/rare_job_visual.gd").read_text(encoding="utf-8")
+        self.assertIn('var filename: String = "rare-frame-" + str(sprite_id) + ".png"', source)
+        self.assertNotIn("var filename :=", source)
+
     def test_builder_uses_structural_validator_not_png_filenames_alone(self):
         builder = (ROOT / "tools/cloud-build-original.py").read_text(encoding="utf-8")
         visual = (ROOT / "original-addons/rare_job_visual.gd").read_text(encoding="utf-8")

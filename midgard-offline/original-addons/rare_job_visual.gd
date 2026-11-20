@@ -63,7 +63,7 @@ func capture(folder: String) -> Dictionary:
 					if not visible_bounds.has_area():
 						entry["reason"] = "texture_fully_transparent"
 					else:
-						var filename := "rare-frame-" + sprite_id + ".png"
+						var filename: String = "rare-frame-" + str(sprite_id) + ".png"
 						var save_error := frame.save_png(folder.path_join(filename))
 						entry["saved"] = save_error == OK
 						entry["filename"] = filename
