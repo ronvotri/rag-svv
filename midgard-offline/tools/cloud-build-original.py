@@ -165,7 +165,7 @@ def inspect_town_visual_api(project):
                                  "_at", "_draw_member", "_sprite_args", "_party_hero"},
         "scripts/core/town_crowd.gd": {"setup", "_spawn", "_collect_looks",
                                        "_place_sign", "_at"},
-        "scripts/ro/ro_assets.gd": {"styled_character", "sprite", "has_sprite"},
+        "scripts/autoload/ro_assets.gd": {"styled_character", "_gendered", "_load_part", "_recolored_part", "sprite", "has_sprite"},
         "scripts/ro/ro_sprite.gd": {"_init", "get_frame", "compose_image"},
         "scripts/ro/ro_visual.gd": {"setup", "play", "face", "_ready"},
         "scripts/core/player.gd": {"_build_visual", "setup"},
