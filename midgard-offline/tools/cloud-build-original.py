@@ -396,9 +396,16 @@ def build(target):
                     "rare-frame-summoner.png", "rare-frame-summoner_f.png",
                 }
                 rare_found = sorted(rare_expected.intersection(found))
+                # Strictly validate the ORIGINAL Godot capture manifest, PNG
+                # bytes/CRCs/pixels, mapping and visible image bounds. Mere
+                # PNG filename existence can never mark QA as ready.
+                rare_validation = own_tool("rare_job_qa_report").validate_visual_frames(visual_folder)
+                rare_visual_qa = rare_validation["status"]
+                validation_path = output / "RARE_NPC_VISUAL_CHECK.json"
+                validation_path.write_text(json.dumps(rare_validation, indent=2) + "\n", encoding="utf-8")
                 if rare_found:
-                    # Separate small, short-lived QA evidence; original assets
-                    # are never committed or deployed to the production Web.
+                    # Keep evidence accessible even when validation rejects it,
+                    # but do NOT label such images ready for approval.
                     rare_zip = output / "Rare-NPC-Sprite-QA.zip"
                     with ZipFile(rare_zip, "w", ZIP_DEFLATED) as archive:
                         for name in rare_found:
@@ -406,11 +413,10 @@ def build(target):
                         rare_metadata = visual_folder / "RARE_NPC_VISUAL.json"
                         if rare_metadata.is_file():
                             archive.write(rare_metadata, rare_metadata.name)
-                rare_visual_qa = ("frames_ready_for_manual_review"
-                                  if rare_expected.issubset(found)
-                                  else "incomplete_frames")
+                        archive.write(validation_path, validation_path.name)
                 print("RARE_NPC_VISUAL_STATUS", rare_visual_qa)
-                if not rare_expected.issubset(found):
+                print("RARE_NPC_VISUAL_CHECK", rare_validation["reason"])
+                if rare_visual_qa != "frames_ready_for_manual_review":
                     print("RARE_NPC_VISUAL_MISSING", sorted(rare_expected - found))
                 if expected.issubset(found):
                     archive_folder(visual_folder, output / "Prontera-Visual-QA.zip")
