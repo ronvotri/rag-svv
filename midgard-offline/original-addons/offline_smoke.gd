@@ -26,11 +26,13 @@ func _run() -> void:
 	check(get_tree().root.get_node_or_null("SVVCompanionTown") != null, "Alden/Eira town encounters autoloaded")
 	for job in ["swordsman", "mage", "archer", "thief", "merchant", "novice"]:
 		var original_id: String = SVVCompanionTown._first_original_sprite(job)
-		var visual_label: String = ("original Novice-family sprite available (Super Novice fallback is provisional)"
-			if job == "novice" else "original " + job + " job sprite available for companion NPC")
-		check(not original_id.is_empty(), visual_label)
 		if job == "novice":
-			print("OFFLINE_QA NAO_VISUAL basic Novice is unverified; selected=", original_id)
+			# Missing basic Novice is an honest pending-art state, not a build failure.
+			# Super Novice is not interchangeable with the requested job.
+			check(not original_id.begins_with("super_novice"), "Nao never uses Super Novice substitute")
+			print("OFFLINE_QA NAO_VISUAL basic Novice ", "available=" if not original_id.is_empty() else "missing=", original_id)
+		else:
+			check(not original_id.is_empty(), "original " + job + " job sprite available for companion NPC")
 
 	# Exercise the same RoVisual constructor used for town Mira, with a
 	# temporary tree. No custom artwork, live network or normal save involved.

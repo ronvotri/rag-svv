@@ -12,14 +12,28 @@ const SPRITE_CANDIDATES := {
 	"archer": ["archer_f", "archer_m"],
 	"thief": ["thief_m", "thief_f"],
 	"merchant": ["merchant_m", "merchant_f"],
-	# The pinned client has no basic Novice body. Super Novice below is an
-	# ORIGINAL Ragnarok asset, but only a provisional visual for Nao (not a
-	# verified visual match for the basic Novice job).
-	"novice": ["novice_f", "novice_m", "super_novice_f", "super_novice"],
+	# Never substitute Super Novice for Nao: a valid source asset is not
+	# automatically a correct visual match for the basic Novice job.
+	# A missing Novice remains visibly unverified during QA, not silently faked.
+	"novice": ["novice_f", "novice_m"],
 }
+# Character profiles can be authored now, independently of physical placement.
+# JOBS above remains the verified two-person spawn allowlist.
 const NPC_NAMES := {
 	"swordsman": "Alden",
 	"mage": "Eira",
+	"archer": "Elowen",
+	"thief": "Riku",
+	"merchant": "Mino",
+	"novice": "Nao",
+}
+const NPC_GREETINGS := {
+	"swordsman": "Alden: Đứng sau tôi. Quái đông thế nào cũng phải có người giữ tuyến đầu chứ!",
+	"mage": "Eira: Đừng chạm vào cuốn sách đó! Lần trước có người chạm, cả phòng thơm mùi khét ba ngày.",
+	"archer": "Elowen: Cung không tự bắn trúng đâu nhé. Muốn theo tôi đi tuần thì chứng minh tay nghề trước!",
+	"thief": "Riku: Đừng nhìn tôi kiểu đó. Ví của cậu còn nguyên mà... chắc thế.",
+	"merchant": "Mino: Đi săn quái thì được, nhưng phá hàng của tôi là phải đền. Có hóa đơn đầy đủ!",
+	"novice": "Nao: Tôi mới vào nghề thôi. Nếu thấy tôi chạy ngược hướng, gọi với nhé!",
 }
 # Start near the original Kafra anchor, separated from Mira's (1.5, 0, 0.6)
 # and each other. Do not wander into unverified town collision tiles.
@@ -293,12 +307,7 @@ func _refresh_dialog() -> void:
 	var progress: Dictionary = SVVAssistant._quest_progress(selected_job)
 	header.text = "%s · %s · %s" % [
 		NPC_NAMES[selected_job], SVVAssistant._job_name(selected_job), str(profile["rarity"])]
-	var greeting := ""
-	if selected_job == "swordsman":
-		greeting = "Alden: Đứng sau tôi. Quái đông thế nào cũng phải có người giữ tuyến đầu chứ!"
-	else:
-		greeting = "Eira: Đừng chạm vào cuốn sách đó! Lần trước có người chạm, cả phòng thơm mùi khét ba ngày."
-	story.text = greeting
+	story.text = str(NPC_GREETINGS.get(selected_job, str(profile.get("intro", ""))))
 	if unlocked.has(selected_job):
 		description.text = "Đã kết bạn! Mời tôi từ Friends List hoặc ngay tại đây trước khi phiêu lưu."
 		action.text = "Để %s nghỉ" % NPC_NAMES[selected_job] if party.has(selected_job) else "Mời %s vào party" % NPC_NAMES[selected_job]
