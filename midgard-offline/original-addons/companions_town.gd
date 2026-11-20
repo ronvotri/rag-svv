@@ -137,8 +137,9 @@ func _fit() -> void:
 	for index in JOBS.size():
 		var job: String = JOBS[index]
 		# Used only when the ORIGINAL sprite cannot be resolved.
-		var column_index: int = index % 2
-		var row_index: int = floori(float(index) / 2.0)
+		var columns: int = 2 if size.x >= 430.0 else 1
+		var column_index: int = index % columns
+		var row_index: int = floori(float(index) / float(columns))
 		fallback_buttons[job].position = Vector2(12.0 + float(column_index) * 205.0, maxf(10.0, size.y - 177.0 - 55.0 * row_index))
 	var width := minf(490.0, size.x - 24.0)
 	var height := minf(430.0, size.y - 24.0)
