@@ -69,6 +69,15 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn("cross-city transition hides fallback buttons", self.smoke)
         self.assertIn("returning to Prontera restores exactly two companion NPCs", self.smoke)
 
+    def test_visual_qa_captures_real_town_dialogues_without_spawning_wave_two(self):
+        visual = (ROOT / "original-addons/offline_visual.gd").read_text(encoding="utf-8")
+        self.assertIn('await snap("town-dialog-" + job)', visual)
+        self.assertIn('for job in ["swordsman", "mage"]:', visual)
+        self.assertIn('SVVCompanionTown._show_dialog(job)', visual)
+        self.assertIn('SVVCompanionTown._close_dialog()', visual)
+        self.assertIn('VISUAL_QA WAVE2_SPRITE ', visual)
+        self.assertNotIn('SVVCompanionTown._spawn_in_town(', visual)
+
     def test_installed_for_each_original_client_build_and_runtime_qa(self):
         self.assertIn('companions_source = source.parent / "companions_town.gd"', self.installer)
         self.assertIn('SVVCompanionTown="*res://addons/svv_offline/companions_town.gd"', self.installer)
