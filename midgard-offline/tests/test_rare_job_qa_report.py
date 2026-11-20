@@ -217,6 +217,11 @@ class RareNpcFrameValidation(unittest.TestCase):
         self.assertIn("RARE_NPC_VISUAL_CHECK.json", builder)
         self.assertIn("frame.get_used_rect()", visual)
         self.assertIn('"texture_fully_transparent"', visual)
+        visual_runner = (ROOT / "original-addons/offline_visual.gd").read_text(encoding="utf-8")
+        self.assertIn('if "--rare-only" in OS.get_cmdline_user_args():', visual_runner)
+        self.assertIn('"--offline-visual", "--rare-only"', builder)
+        self.assertLess(builder.index('"--offline-visual", "--rare-only"'), builder.index('if expected.issubset(found):'))
+        self.assertIn("RARE_NPC_VISUAL_STATUS", builder)
 
 
 if __name__ == "__main__":
