@@ -39,7 +39,7 @@ func _run() -> void:
 	await snap("original-town")
 	# Capture actual NPC encounters in the recovered town scene; do not
 	# synthesize alternate sprite art or claim an off-map preview is placed.
-	for job in ["swordsman", "mage"]:
+	for job in ["swordsman", "mage", "archer", "thief", "merchant"]:
 		SVVCompanionTown._show_dialog(job)
 		if SVVCompanionTown.dialog.visible and SVVCompanionTown.selected_job == job:
 			await snap("town-dialog-" + job)
@@ -47,7 +47,7 @@ func _run() -> void:
 			push_warning("VISUAL_QA cannot capture town dialogue for " + job)
 		SVVCompanionTown._close_dialog()
 	# Off-map job audit: do not instantiate unverified NPCs in town.
-	for job in ["archer", "thief", "merchant", "novice"]:
+	for job in ["novice"]:
 		var sprite_id: String = SVVCompanionTown._first_original_sprite(job)
 		print("VISUAL_QA WAVE2_SPRITE ", job, "=", sprite_id if not sprite_id.is_empty() else "MISSING")
 

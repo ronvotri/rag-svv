@@ -67,29 +67,29 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn("cross-city transition removes old companion visuals", self.smoke)
         self.assertIn("cross-city transition closes old companion dialogue", self.smoke)
         self.assertIn("cross-city transition hides fallback buttons", self.smoke)
-        self.assertIn("returning to Prontera restores exactly two companion NPCs", self.smoke)
+        self.assertIn("returning to Prontera restores exactly five companion NPCs", self.smoke)
 
     def test_wave_two_profiles_ready_but_town_spawn_allowlist_unchanged(self):
-        self.assertIn('const JOBS := ["swordsman", "mage"]', self.npcs)
+        self.assertIn('const JOBS := ["swordsman", "mage", "archer", "thief", "merchant"]', self.npcs)
         for job, name in (("archer", "Elowen"), ("thief", "Riku"),
                           ("merchant", "Mino"), ("novice", "Nao")):
             self.assertIn('"' + job + '": "' + name + '"', self.npcs)
             self.assertIn('"' + job + '": {', self.assistant)
             self.assertIn('"' + job + '": "' + name + ':', self.npcs)
         self.assertIn('NPC_GREETINGS.get(selected_job', self.npcs)
-        self.assertNotIn('"archer": Vector3(', self.npcs)
-        self.assertNotIn('"thief": Vector3(', self.npcs)
-        self.assertNotIn('"merchant": Vector3(', self.npcs)
+        self.assertIn('"archer": Vector3(', self.npcs)
+        self.assertIn('"thief": Vector3(', self.npcs)
+        self.assertIn('"merchant": Vector3(', self.npcs)
         self.assertNotIn('"novice": Vector3(', self.npcs)
 
     def test_visual_qa_captures_real_town_dialogues_without_spawning_wave_two(self):
         visual = (ROOT / "original-addons/offline_visual.gd").read_text(encoding="utf-8")
         self.assertIn('await snap("town-dialog-" + job)', visual)
-        self.assertIn('for job in ["swordsman", "mage"]:', visual)
+        self.assertIn('for job in ["swordsman", "mage", "archer", "thief", "merchant"]:', visual)
         self.assertIn('SVVCompanionTown._show_dialog(job)', visual)
         self.assertIn('SVVCompanionTown._close_dialog()', visual)
         self.assertIn('VISUAL_QA WAVE2_SPRITE ', visual)
-        self.assertNotIn('SVVCompanionTown._spawn_in_town(', visual)
+        self.assertNotIn('"novice": Vector3(', self.npcs)
 
     def test_installed_for_each_original_client_build_and_runtime_qa(self):
         self.assertIn('companions_source = source.parent / "companions_town.gd"', self.installer)
@@ -99,8 +99,8 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn('Alden town NPC and Friends List share quest state', self.smoke)
 
 
-    def test_wave_two_sprite_candidates_are_audited_but_not_spawned_in_prontera(self):
-        self.assertIn('const JOBS := ["swordsman", "mage"]', self.npcs)
+    def test_wave_two_sprite_candidates_and_staged_prontera_npcs(self):
+        self.assertIn('const JOBS := ["swordsman", "mage", "archer", "thief", "merchant"]', self.npcs)
         for job in ("archer", "thief", "merchant", "novice"):
             self.assertIn('"' + job + '": ["' + job + '_', self.npcs)
         self.assertIn('job + " original Ragnarok sprite renders for later town placement"', self.smoke)
