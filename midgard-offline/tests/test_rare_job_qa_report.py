@@ -96,6 +96,26 @@ class RareNpcPreflight(unittest.TestCase):
         self.assertNotIn('"gunslinger": Vector3(', town)
         self.assertNotIn('"doram": Vector3(', town)
 
+    def test_rare_sprite_frames_are_visual_qa_only(self):
+        visual = (ROOT / "original-addons/rare_job_visual.gd").read_text(encoding="utf-8")
+        visual_runner = (ROOT / "original-addons/offline_visual.gd").read_text(encoding="utf-8")
+        installer = (ROOT / "tools/install-original-assistant.py").read_text(encoding="utf-8")
+        cloud = (ROOT / "tools/cloud-build-original.py").read_text(encoding="utf-8")
+        workflow = (ROOT.parent / ".github/workflows/original-client.yml").read_text(encoding="utf-8")
+        for name in ("gunslinger", "taekwon", "ninja", "summoner"):
+            self.assertIn('"' + name + '"', visual)
+            self.assertIn('"' + name + '_f"', visual)
+        self.assertIn('"approved_for_town": false', visual)
+        self.assertIn('"animation_verified": false', visual)
+        self.assertIn("visual.sprite.texture.get_image()", visual)
+        self.assertIn("RARE_NPC_VISUAL.json", visual)
+        self.assertIn('rare_visual.capture(folder)', visual_runner)
+        self.assertIn('shutil.copyfile(rare_visual, qa / rare_visual.name)', installer)
+        self.assertIn("Rare-NPC-Sprite-QA.zip", cloud)
+        self.assertIn('"rare_job_visual_qa": rare_visual_qa', cloud)
+        self.assertIn("rare-npc-source-sprite-QA", workflow)
+        self.assertIn("retention-days: 7", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
