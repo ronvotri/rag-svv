@@ -18,8 +18,8 @@ def png():
     def chunk(kind, data):
         return (struct.pack(">I", len(data)) + kind + data
                 + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
-    raw_rows = (b"\\x00" + b"\\xff\\x00\\x00\\xff" * 2) * 2
-    return (b"\\x89PNG\\r\\n\\x1a\\n" +
+    raw_rows = (b"\x00" + b"\xff\x00\x00\xff" * 2) * 2
+    return (b"\x89PNG\r\n\x1a\n" +
             chunk(b"IHDR", struct.pack(">IIBBBBB", 2, 2, 8, 6, 0, 0, 0)) +
             chunk(b"IDAT", zlib.compress(raw_rows)) + chunk(b"IEND", b""))
 
