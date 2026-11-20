@@ -15,7 +15,7 @@ class OriginalCharacterLayerMetadataTests(unittest.TestCase):
     def test_original_styled_character_factory_is_surfaced_without_approval(self):
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp)
-            ro = project / "scripts/ro"
+            ro = project / "scripts/autoload"
             ro.mkdir(parents=True)
             (ro / "ro_assets.gd").write_text(
                 "class_name RoAssets\n"
@@ -26,7 +26,7 @@ class OriginalCharacterLayerMetadataTests(unittest.TestCase):
                 encoding="utf-8",
             )
             report = builder.inspect_town_visual_api(project)
-            methods = report["modules"]["scripts/ro/ro_assets.gd"]["methods"]
+            methods = report["modules"]["scripts/autoload/ro_assets.gd"]["methods"]
             self.assertIn("styled_character", methods)
             self.assertIn("gender: String", methods["styled_character"]["signature"])
             self.assertTrue(any(
@@ -40,7 +40,7 @@ class OriginalCharacterLayerMetadataTests(unittest.TestCase):
     def test_missing_factory_is_explicitly_unverified(self):
         with tempfile.TemporaryDirectory() as temp:
             report = builder.inspect_town_visual_api(Path(temp))
-            self.assertTrue(report["modules"]["scripts/ro/ro_assets.gd"]["missing"])
+            self.assertTrue(report["modules"]["scripts/autoload/ro_assets.gd"]["missing"])
             self.assertFalse(report["rare_npc_composition_review"]["town_placement_approved"])
 
 
