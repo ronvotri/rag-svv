@@ -37,6 +37,25 @@ func _run() -> void:
 	world.enter_town("swordsman")
 	await get_tree().create_timer(1.0).timeout
 	await snap("original-town")
+	# Wave 6: capture the original town and real job sprites in phone-sized
+	# viewports, not substitute textures or an off-map mockup. These are
+	# inspection evidence only, not proof of walkability or collision-free lanes.
+	var original_window_size: Vector2i = get_window().size
+	for phone_size in [Vector2i(390, 844), Vector2i(844, 390)]:
+		get_window().size = phone_size
+		await get_tree().create_timer(0.45).timeout
+		var frame_size: Vector2 = get_viewport().get_visible_rect().size
+		var frame_rect := Rect2(Vector2.ZERO, frame_size)
+		for job in ["swordsman", "mage", "archer", "thief", "merchant"]:
+			var npc: RoVisual = SVVCompanionTown.npc_visuals.get(job)
+			if npc != null and is_instance_valid(npc):
+				var point: Vector2 = SVVCompanionTown._screen_point(npc)
+				print("VISUAL_QA NPC_FRAME job=", job, " requested=", phone_size,
+					" actual=", frame_size, " screen=", point,
+					" visible=", point.is_finite() and frame_rect.has_point(point))
+		await snap("town-npcs-" + str(phone_size.x) + "x" + str(phone_size.y))
+	get_window().size = original_window_size
+	await get_tree().create_timer(0.35).timeout
 	# Capture actual NPC encounters in the recovered town scene; do not
 	# synthesize alternate sprite art or claim an off-map preview is placed.
 	for job in ["swordsman", "mage", "archer", "thief", "merchant"]:

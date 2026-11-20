@@ -111,5 +111,19 @@ class NativeCompanionTownTests(unittest.TestCase):
         self.assertIn("Nao never uses Super Novice substitute", self.smoke)
         self.assertIn("OFFLINE_QA NAO_VISUAL basic Novice ", self.smoke)
 
+
+    def test_wave_six_spatial_and_mobile_visual_audits(self):
+        # A green headless build alone cannot sign off map props or walkable lanes.
+        self.assertIn("OFFLINE_QA NPC_PLACEMENT ", self.smoke)
+        self.assertIn("screen target remains near town viewport", self.smoke)
+        self.assertIn(" has space from Mira patrol", self.smoke)
+        self.assertIn(" has space from ", self.smoke)
+        visual = (ROOT / "original-addons/offline_visual.gd").read_text(encoding="utf-8")
+        self.assertIn("Vector2i(390, 844)", visual)
+        self.assertIn("Vector2i(844, 390)", visual)
+        self.assertIn('await snap("town-npcs-"', visual)
+        self.assertIn("VISUAL_QA NPC_FRAME", visual)
+        self.assertNotIn('"novice": Vector3(', self.npcs)
+
 if __name__ == "__main__":
     unittest.main()

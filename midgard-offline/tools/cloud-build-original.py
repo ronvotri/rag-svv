@@ -349,6 +349,40 @@ def build(target):
     run([godot, "--headless", "--path", project, "--", "--offline-test", "--offline-qa"])
     output = work / "artifacts"
     output.mkdir(exist_ok=True)
+    # Optional proof for the staging Windows build: real Godot viewport PNGs
+    # from the recovered town and its ORIGINAL sprite assets. Never label the
+    # ordinary headless test as an approval of prop collisions or mobile UI.
+    visual_qa = "not_applicable"
+    if target == "windows":
+        xvfb = shutil.which("xvfb-run")
+        visual_qa = "xvfb_missing" if not xvfb else "not_captured"
+        if xvfb:
+            visual_folder = output / "Prontera-Visual-QA"
+            visual_folder.mkdir(exist_ok=True)
+            try:
+                run([
+                    xvfb, "--auto-servernum",
+                    "--server-args=-screen 0 1280x1024x24",
+                    godot, "--path", project, "--",
+                    "--offline-test", "--offline-visual",
+                    "--offline-output=" + str(visual_folder),
+                ], timeout=150)
+                expected = {
+                    "original-town.png",
+                    "town-npcs-390x844.png",
+                    "town-npcs-844x390.png",
+                }
+                found = {p.name for p in visual_folder.glob("*.png")}
+                if expected.issubset(found):
+                    archive_folder(visual_folder, output / "Prontera-Visual-QA.zip")
+                    visual_qa = "screenshots_ready_for_manual_review"
+                else:
+                    visual_qa = "incomplete_screenshots"
+                    print("VISUAL_QA MISSING", sorted(expected - found))
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                visual_qa = "capture_failed"
+                print("VISUAL_QA capture failed; windows build remains a separate result:", error, file=sys.stderr)
+        print("VISUAL_QA STATUS", visual_qa)
     notice = "Original-based offline test client. Original game art and code retain their respective owners.\nVietnamese translation and feature parity are not complete; NPC guide is rule-based, not a native LLM.\nKeep save backups. Android output is DEBUG-TEST, not a stable signed update.\n"
     if target == "windows":
         folder = output / "MidgardSVV-Original-Offline-Windows-TEST"
@@ -371,7 +405,7 @@ def build(target):
         run([java / "bin/keytool", "-genkeypair", "-keystore", keystore, "-storepass", "android", "-alias", "androiddebugkey", "-keypass", "android", "-dname", "CN=Android Debug,O=Android,C=US", "-keyalg", "RSA", "-keysize", "2048", "-validity", "3650"])
         run([sys.executable, TOOLS / "create-original-android-preset.py", project, "--templates", templates, "--debug-keystore", keystore])
         run([sys.executable, TOOLS / "export-original-android.py", "--godot", godot, "--project", project, "--java-home", java, "--android-sdk", sdk, "--debug-keystore", keystore, "--output", output / "MidgardSVV-Original-Offline-Android-DEBUG-TEST.apk"])
-    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False}
+    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False, "prontera_visual_qa": visual_qa}
     (output / "BUILD_STATUS.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     sums = [digest(path) + "  " + path.name for path in output.iterdir() if path.is_file()]
     (output / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
