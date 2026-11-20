@@ -190,7 +190,7 @@ func _run() -> void:
 	# In-world encounters must use genuine rendered Ragnarok job sprites.
 	SVVCompanionTown._clear_world()
 	SVVCompanionTown._spawn_in_town(actual_town)
-	for job in ["swordsman", "mage"]:
+	for job in ["swordsman", "mage", "archer", "thief", "merchant"]:
 		var npc: RoVisual = SVVCompanionTown.npc_visuals.get(job)
 		check(npc != null and is_instance_valid(npc), job + " physically appears in Prontera")
 		if npc != null and is_instance_valid(npc):
@@ -214,10 +214,10 @@ func _run() -> void:
 	await get_tree().process_frame
 	world.set_meta("svv_offline_town_place", "prontera")
 	SVVCompanionTown._process(0.35)
-	check(SVVCompanionTown.npc_visuals.size() == 2, "returning to Prontera restores exactly two companion NPCs")
+	check(SVVCompanionTown.npc_visuals.size() == 5, "returning to Prontera restores exactly five companion NPCs")
 	# Exercise the real click/tap projection path, not only _show_dialog().
 	# The game is still headless here: full PC/mobile visual QA remains separate.
-	for job in ["swordsman", "mage"]:
+	for job in ["swordsman", "mage", "archer", "thief", "merchant"]:
 		var click_target: RoVisual = SVVCompanionTown.npc_visuals.get(job)
 		if click_target != null and is_instance_valid(click_target):
 			var npc_camera: Camera3D = get_viewport().get_camera_3d()
