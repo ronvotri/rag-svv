@@ -68,6 +68,11 @@ def install(project):
     if not rare_visual.is_file():
         raise ValueError("Authored rare-job visual QA script missing")
     shutil.copyfile(rare_visual, qa / rare_visual.name)
+    # Wave 9: off-map Cole/Haneul animation probe, never an autoload or NPC unlock.
+    rare_motion = source.parent / "rare_job_motion.gd"
+    if not rare_motion.is_file():
+        raise ValueError("Authored rare-job motion QA script missing")
+    shutil.copyfile(rare_motion, qa / rare_motion.name)
     config = project / "project.godot"
     text = config.read_text(encoding="utf-8")
     if "[autoload]" not in text:
