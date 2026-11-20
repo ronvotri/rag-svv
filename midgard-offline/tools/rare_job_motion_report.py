@@ -104,11 +104,11 @@ def validate_motion_frames(folder) -> dict:
             except OSError:
                 return reject("missing motion PNG: " + filename)
             if (not 45 <= len(raw) <= 16 * 1024 * 1024
-                    or not raw.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+                    or not raw.startswith(b"\x89PNG\r\n\x1a\n")
                     or raw[12:16] != b"IHDR"
                     or int.from_bytes(raw[8:12], "big") != 13
                     or list(struct.unpack(">II", raw[16:24])) != dims
-                    or not raw.endswith(b"IEND\\xaeB\\x60\\x82")
+                    or not raw.endswith(b"IEND\xaeB\x60\x82")
                     or hashlib.sha256(raw).hexdigest() != digest):
                 return reject("PNG payload/hash disagree: " + filename)
             used_files.add(filename)
