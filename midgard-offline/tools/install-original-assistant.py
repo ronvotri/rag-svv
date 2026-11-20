@@ -73,6 +73,12 @@ def install(project):
     if not rare_motion.is_file():
         raise ValueError("Authored rare-job motion QA script missing")
     shutil.copyfile(rare_motion, qa / rare_motion.name)
+    # Wave 11: original RoAssets.styled_character full-layer evidence.
+    # QA-only helper, deliberately not an autoload or production Town actor.
+    composed = source.parent / "rare_job_composed.gd"
+    if not composed.is_file():
+        raise ValueError("Authored rare composed-character QA script missing")
+    shutil.copyfile(composed, qa / composed.name)
     config = project / "project.godot"
     text = config.read_text(encoding="utf-8")
     if "[autoload]" not in text:

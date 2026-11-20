@@ -18,3 +18,10 @@ The original recovered Town crowd calls `RoAssets.styled_character(...)` and `Ro
 Required safety invariants: `approved_for_town: false`, `animation_verified: false`, `directions_verified: false` until independent review; no save edits, unlocks, merges or deployment. Cole/Haneul remain unspawned in production Town. Kira stays locked; Lumi's Summoner/Doram identification remains unverified.
 
 This file is a **handoff**, not gameplay acceptance.
+
+## Wave 26 implementation
+
+- The off-map GDScript probe now invokes the exact original factory signature recovered from Build #342: `styled_character(body, weapon, weapon_fx, fx_bases, headgear, look, shield, extras)`.
+- Use the un-gendered base `gunslinger` or `taekwon` and the original factory's `look.gender` to select the `_f` variant. Hair index 2, hair color 0 and clothing dye 0 are neutral QA defaults.
+- Save separate `rare-composed-*.png` images and `RARE_NPC_COMPOSED.json`; compare against original body-only source evidence. PNG/hash checks do not confer visual approval.
+- Build #342 succeeded and supplied API metadata. The first Wave 11 composed-image build still requires its own runtime/visual QA.

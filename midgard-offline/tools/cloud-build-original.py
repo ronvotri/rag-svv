@@ -388,6 +388,7 @@ def build(target):
     visual_qa = "not_applicable"
     rare_visual_qa = "not_applicable"
     rare_motion_qa = "not_applicable"
+    rare_composed_qa = "not_applicable"
     if target == "windows":
         xvfb = shutil.which("xvfb-run")
         visual_qa = "xvfb_missing" if not xvfb else "not_captured"
@@ -420,13 +421,19 @@ def build(target):
             # off-map. This report NEVER grants Town or eight-direction approval.
             motion_validation = own_tool("rare_job_motion_report").validate_motion_frames(visual_folder)
             rare_motion_qa = motion_validation["status"]
+            composition_validation = own_tool("rare_job_composition_report").validate_composed_frames(visual_folder)
+            rare_composed_qa = composition_validation["status"]
+            composition_path = output / "RARE_NPC_COMPOSED_CHECK.json"
+            composition_path.write_text(
+                json.dumps(composition_validation, indent=2) + "\n", encoding="utf-8")
             motion_path = output / "RARE_NPC_MOTION_CHECK.json"
             motion_path.write_text(json.dumps(motion_validation, indent=2) + "\n", encoding="utf-8")
             rare_visual_qa = rare_validation["status"]
             validation_path = output / "RARE_NPC_VISUAL_CHECK.json"
             validation_path.write_text(json.dumps(rare_validation, indent=2) + "\n", encoding="utf-8")
             motion_found = sorted(visual_folder.glob("rare-motion-*.png"))
-            if rare_found or motion_found:
+            composed_found = sorted(visual_folder.glob("rare-composed-*.png"))
+            if rare_found or motion_found or composed_found:
                 # Upload original frames and explicit validation result even
                 # if subsequent full-Town screenshot QA times out.
                 rare_zip = output / "Rare-NPC-Sprite-QA.zip"
@@ -443,6 +450,14 @@ def build(target):
                     if motion_manifest.is_file():
                         archive.write(motion_manifest, motion_manifest.name)
                     archive.write(motion_path, motion_path.name)
+                    for composed_frame in composed_found:
+                        archive.write(composed_frame, composed_frame.name)
+                    composed_manifest = visual_folder / "RARE_NPC_COMPOSED.json"
+                    if composed_manifest.is_file():
+                        archive.write(composed_manifest, composed_manifest.name)
+                    archive.write(composition_path, composition_path.name)
+            print("RARE_NPC_COMPOSED_STATUS", rare_composed_qa)
+            print("RARE_NPC_COMPOSED_CHECK", composition_validation["reason"])
             print("RARE_NPC_VISUAL_STATUS", rare_visual_qa)
             print("RARE_NPC_MOTION_STATUS", rare_motion_qa)
             print("RARE_NPC_MOTION_CHECK", motion_validation["reason"])
@@ -500,7 +515,7 @@ def build(target):
         run([java / "bin/keytool", "-genkeypair", "-keystore", keystore, "-storepass", "android", "-alias", "androiddebugkey", "-keypass", "android", "-dname", "CN=Android Debug,O=Android,C=US", "-keyalg", "RSA", "-keysize", "2048", "-validity", "3650"])
         run([sys.executable, TOOLS / "create-original-android-preset.py", project, "--templates", templates, "--debug-keystore", keystore])
         run([sys.executable, TOOLS / "export-original-android.py", "--godot", godot, "--project", project, "--java-home", java, "--android-sdk", sdk, "--debug-keystore", keystore, "--output", output / "MidgardSVV-Original-Offline-Android-DEBUG-TEST.apk"])
-    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False, "prontera_visual_qa": visual_qa, "rare_job_visual_qa": rare_visual_qa, "rare_job_motion_qa": rare_motion_qa}
+    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False, "prontera_visual_qa": visual_qa, "rare_job_visual_qa": rare_visual_qa, "rare_job_motion_qa": rare_motion_qa, "rare_job_composition_qa": rare_composed_qa}
     (output / "BUILD_STATUS.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     sums = [digest(path) + "  " + path.name for path in output.iterdir() if path.is_file()]
     (output / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
