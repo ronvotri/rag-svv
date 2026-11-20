@@ -56,6 +56,12 @@ def install(project):
         shutil.copyfile(own_script, qa / own_script.name)
         scene = '[gd_scene load_steps=2 format=3]\n\n[ext_resource type="Script" path="res://addons/svv_offline/qa/' + name + '.gd" id="1"]\n\n[node name="OfflineQA" type="Node"]\nscript = ExtResource("1")\n'
         (qa / (name + ".tscn")).write_text(scene, encoding="utf-8")
+    # Audit is a RefCounted helper loaded ONLY by offline_smoke, not an autoload
+    # or an in-game scene. It does not create real NPCs.
+    rare_audit = source.parent / "rare_job_asset_audit.gd"
+    if not rare_audit.is_file():
+        raise ValueError("Authored rare-job QA script missing")
+    shutil.copyfile(rare_audit, qa / rare_audit.name)
     config = project / "project.godot"
     text = config.read_text(encoding="utf-8")
     if "[autoload]" not in text:
