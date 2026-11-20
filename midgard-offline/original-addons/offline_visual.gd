@@ -40,6 +40,14 @@ func _run() -> void:
 		var rare_frames: Dictionary = rare_visual.capture(folder)
 		print("RARE_NPC_VISUAL_SUMMARY frames=", rare_frames.get("entries", []).size(),
 			" approved_for_town=", rare_frames.get("approved_for_town", true))
+		var motion_script: Script = load("res://addons/svv_offline/qa/rare_job_motion.gd")
+		if motion_script != null:
+			var motion_helper = motion_script.new()
+			var motion_report: Dictionary = await motion_helper.capture(folder)
+			print("RARE_NPC_MOTION_CHECK entries=", motion_report.get("entries", []).size(),
+				" approved_for_town=", motion_report.get("approved_for_town", true))
+		else:
+			push_warning("RARE_NPC_MOTION missing optional original motion probe")
 		get_tree().quit()
 		return
 	Save.set_setting("privacy_seen", true)
