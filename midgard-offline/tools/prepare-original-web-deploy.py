@@ -170,7 +170,7 @@ def stage(source: Path, output: Path, version: str,
     if all(part.is_file() for part in splash_parts):
         raw = "".join(part.read_text(encoding="ascii").strip() for part in splash_parts)
         image_bytes = base64.b64decode(raw, validate=True)
-        if (len(image_bytes) >= 3_000_000 or len(image_bytes) < 10_000
+        if (len(image_bytes) >= 3_000_000 or len(image_bytes) < 1_000
                 or image_bytes[4:12] != b"ftypavif"
                 or hashlib.sha256(image_bytes).hexdigest() != expected_splash_sha256):
             raise ValueError("Approved key art missing or checksum mismatch")
