@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## Wave 28 — interactive Prontera visual QA for Cole and Haneul.
-## Strict opt-in: both --offline-test and --rare-town-qa are required.
+## Strict opt-in: paired Windows CLI flags or a separate Web preview export setting.
 ## NO recruitment, save writes, production spawn or NPC roster changes.
 
 const TARGETS := [
@@ -17,7 +17,7 @@ var dialog: AcceptDialog
 
 func _enabled() -> bool:
 	var args := OS.get_cmdline_user_args()
-	return "--offline-test" in args and "--rare-town-qa" in args
+	return ("--offline-test" in args and "--rare-town-qa" in args) or (OS.has_feature("web") and bool(ProjectSettings.get_setting("application/config/svv_web_npc_qa", false)))
 
 
 func _ready() -> void:
