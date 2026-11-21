@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repair class-select navigation icons without changing its original artwork.
+"""Use the outer class-page arrows and remove the redundant broken in-card previous glyph.
 
 The new Ragnarok picture belongs to the Web startup loading splash only.
 """
@@ -34,68 +34,61 @@ func _svv_class_arrow_texture(point_left: bool) -> Texture2D:
 	return ImageTexture.create_from_image(image)
 
 
+func _svv_reapply_class_navigation() -> void:
+	# Original handlers own the page change. We only restyle the freshly built UI.
+	call_deferred("_svv_fix_class_select_navigation")
+
+
 func _svv_fix_class_select_navigation() -> void:
-	# show_class_select may run on a Menus instance before it enters the tree.
-	# The existing deferred hook is not enough if no viewport exists yet.
 	if not is_inside_tree():
 		if not tree_entered.is_connected(_svv_fix_class_select_navigation):
 			tree_entered.connect(_svv_fix_class_select_navigation, CONNECT_ONE_SHOT)
 		return
 	var viewport: Viewport = get_viewport()
-	if viewport == null:
+	if viewport == null or _mode != "class_select":
 		return
-	if _mode != "class_select":
-		return
-	# Find the existing NEXT button first. Its ▶ glyph renders correctly.
-	# Its sibling PREVIOUS button is at the same height on the left side of
-	# the class-selector row. Use geometry rather than the broken glyph text.
 	var viewport_size: Vector2 = viewport.get_visible_rect().size
-	var next_button: Button = null
+	var outer_left: Button = null
+	var outer_right: Button = null
+	var inner_previous: Array[Button] = []
+	# Only classify page arrows; never touch the in-card PLAY / confirmation
+	# button. In particular, its existing pressed signal is preserved.
+	var left_glyphs := ["◀", "◁", "❮", "‹", "〈", "<", "◄", "⬅", "«"]
+	var right_glyphs := ["▶", "►", "❯", "›", "〉", ">", "►", "➡", "»"]
 	for node in find_children("*", "Button", true, false):
 		var button: Button = node as Button
 		if button == null or not button.is_visible_in_tree():
 			continue
 		var rect: Rect2 = button.get_global_rect()
-		if button.text.strip_edges() in ["▶", "►", "❯", ">"] and rect.get_center().x > viewport_size.x * 0.6 and rect.get_center().y < viewport_size.y * 0.65:
-			next_button = button
-			break
-	if next_button == null:
-		push_warning("SVV: class-selector next arrow not found; leave buttons unchanged")
+		if rect.size.x > 100.0 or rect.size.y > 88.0:
+			continue
+		var center: Vector2 = rect.get_center()
+		var label: String = button.text.strip_edges()
+		if center.y < viewport_size.y * 0.20 or center.y > viewport_size.y * 0.85:
+			continue
+		if center.x <= viewport_size.x * 0.15 and (label in left_glyphs or button.icon != null):
+			outer_left = button
+		elif center.x >= viewport_size.x * 0.85 and (label in right_glyphs or button.icon != null):
+			outer_right = button
+		elif center.x > viewport_size.x * 0.24 and center.x < viewport_size.x * 0.54 and center.y > viewport_size.y * 0.60 and label in left_glyphs:
+			inner_previous.append(button)
+	# Do not hide any in-card control unless BOTH native outer arrows exist.
+	# Otherwise the screen still has its original functional navigation.
+	if outer_left == null or outer_right == null:
+		push_warning("SVV: could not verify both outer class page arrows; preserve original controls")
 		return
-	var next_rect: Rect2 = next_button.get_global_rect()
-	var prev_button: Button = null
-	var best_score: float = INF
-	for node in find_children("*", "Button", true, false):
-		var button: Button = node as Button
-		if button == null or button == next_button or not button.is_visible_in_tree():
-			continue
-		var rect: Rect2 = button.get_global_rect()
-		if rect.get_center().x > viewport_size.x * 0.48:
-			continue
-		if next_rect.get_center().x - rect.get_center().x < viewport_size.x * 0.35:
-			continue
-		if absf(rect.size.x - next_rect.size.x) > 24.0 or absf(rect.size.y - next_rect.size.y) > 24.0:
-			continue
-		var y_distance: float = absf(rect.get_center().y - next_rect.get_center().y)
-		if y_distance > maxf(18.0, next_rect.size.y * 0.75):
-			continue
-		var score: float = y_distance * 8.0 + absf(rect.size.x - next_rect.size.x) + absf(rect.size.y - next_rect.size.y)
-		if score < best_score:
-			best_score = score
-			prev_button = button
-	if prev_button == null:
-		push_warning("SVV: class-selector previous arrow not matched; leave buttons unchanged")
-		return
-	# Presentation only. Do NOT disconnect signals, replace buttons or adjust
-	# their coordinates: this must not change the selection flow.
-	prev_button.text = ""
-	prev_button.icon = _svv_class_arrow_texture(true)
-	prev_button.expand_icon = true
-	prev_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	next_button.text = ""
-	next_button.icon = _svv_class_arrow_texture(false)
-	next_button.expand_icon = true
-	next_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var pair: Array[Button] = [outer_left, outer_right]
+	for arrow in pair:
+		arrow.text = ""
+		arrow.icon = _svv_class_arrow_texture(arrow == outer_left)
+		arrow.expand_icon = true
+		arrow.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if not arrow.pressed.is_connected(_svv_reapply_class_navigation):
+			arrow.pressed.connect(_svv_reapply_class_navigation)
+	# Hide only redundant interior PREVIOUS glyphs (the broken tofu on Web).
+	# The outside arrows keep their upstream page/selection handlers.
+	for duplicate in inner_previous:
+		duplicate.hide()
 
 
 
