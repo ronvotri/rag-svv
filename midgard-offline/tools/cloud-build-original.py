@@ -498,7 +498,20 @@ def build(target):
         folder = output / "MidgardSVV-Original-Offline-Windows-TEST"
         folder.mkdir(exist_ok=True)
         run([godot, "--headless", "--path", project, "--export-debug", "Windows Offline", folder / "MidgardSVVOffline.exe"])
-        (folder / "READ-ME.txt").write_text(notice, encoding="utf-8")
+        # Dedicated Windows launcher opts into the isolated QA profile.
+        # Normal EXE startup never enables unreleased Cole/Haneul placement.
+        launcher = folder / "TEST-PRONTERA-NPC-QA.cmd"
+        launcher.write_text(
+            '@echo off\r\ncd /d "%~dp0"\r\n"MidgardSVVOffline.exe" -- --offline-test --rare-town-qa\r\n',
+            encoding="utf-8")
+        playtest_notice = (
+            notice
+            + "\nWave 28: double-click TEST-PRONTERA-NPC-QA.cmd to open an isolated QA profile.\n"
+            + "Mira/Alden/Eira/Elowen/Riku/Mino have quest-based recruitment on this staging branch.\n"
+            + "Cole/Haneul are visible for visual/dialog QA only; they cannot be recruited yet.\n"
+            + "Never confuse a CI PASS with gameplay or art acceptance.\n"
+        )
+        (folder / "READ-ME.txt").write_text(playtest_notice, encoding="utf-8")
         archive_folder(folder, output / (folder.name + ".zip"))
     elif target == "web":
         folder = output / "MidgardSVV-Original-Offline-Web-TEST"
