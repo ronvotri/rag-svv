@@ -14,6 +14,38 @@ import re
 import shutil
 
 
+def offline_save_flush() -> str:
+    """Durable save writes retain retry state and cannot race an import."""
+    return "\n".join([
+        'var importer = get_node_or_null("/root/SVVSaveManager")',
+        "if importer != null and importer.import_in_progress:",
+        "\treturn",
+        "if not _dirty:",
+        "\treturn",
+        'if OS.has_feature("web") and data.get("settings") is Dictionary:',
+        '\tdata.settings["save_seq"] = int(data.settings.get("save_seq", 0)) + 1',
+        "var file = FileAccess.open_encrypted_with_pass(TMP_PATH, FileAccess.WRITE, SAVE_KEY)",
+        "if file == null:",
+        '\tpush_error("Save: cannot open temporary profile; retry remains pending")',
+        "\treturn",
+        "file.store_string(JSON.stringify(data))",
+        "file.flush()",
+        "var write_error = file.get_error()",
+        "file.close()",
+        "if write_error != OK:",
+        '\tpush_error("Save: write failed; retry remains pending")',
+        "\treturn",
+        "if FileAccess.file_exists(PATH):",
+        "\tif DirAccess.copy_absolute(PATH, BACKUP_PATH) != OK:",
+        '\t\tpush_error("Save: backup failed; keeping current profile")',
+        "\t\treturn",
+        "if DirAccess.rename_absolute(TMP_PATH, PATH) != OK:",
+        '\tpush_error("Save: rename failed; retry remains pending")',
+        "\treturn",
+        "_dirty = false",
+    ])
+
+
 def replace_function(text: str, name: str, body: str) -> str:
     """Replace one simple GDScript function body; preserve following constants."""
     lines = text.splitlines(keepends=True)
@@ -270,7 +302,7 @@ def prepare(source: Path, output: Path, vi_catalog: Path | None = None) -> dict:
         "svv_guard.restore_missing_profile(PATH, _name)",
         "load_profile()",
         "Lang.apply_saved()",
-    ])})
+    ]), "flush": offline_save_flush()})
     main = output / "scripts/core/main.gd"
     text = main.read_text(encoding="utf-8")
     anchor = "\t_build_scene()"

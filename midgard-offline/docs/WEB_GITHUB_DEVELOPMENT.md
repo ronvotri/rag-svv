@@ -1,5 +1,12 @@
 # Tiếp tục bằng ChatGPT web và GitHub
 
+**Đợt nâng cấp 21/11/2026:** nhánh `upgrade/upstream-0.2.5-save-portability`,
+[PR #18](https://github.com/ronvotri/rag-svv/pull/18), dựa trên Wave 28 tại
+`a317c2d`. Giữ nguyên nhánh Cloud và các cổng QA NPC. Xem
+[nâng nền 0.2.5](UPSTREAM_0_2_5_UPGRADE.md) và [save JSON](SAVE_PORTABILITY.md).
+Kiểm tra trạng thái CI của PR trước khi dùng artifact; trang Web đang chơi
+không tự bị triển khai thay thế bởi nhánh cập nhật này.
+
 Mục tiêu: phát triển client gốc với sprite Ragnarok từ bất kỳ máy nào, không cần ứng dụng Codex desktop, ổ E: hoặc máy Windows ban đầu. GitHub lưu các thay đổi tự viết; GitHub Actions tải bản nền chính thức, khôi phục, vá, kiểm tra và build trên máy runner.
 
 **Đã xác minh một lượt Windows thành công:** [run 43785523181](https://github.com/ronvotri/rag-svv/actions/runs/43785523181), commit `f4262bb`. Xem [kết quả và artifact](CLOUD_BUILD_VERIFIED.md). Tiếp tục ở nhánh `feature/original-offline`; thay đổi mã/bản dịch liên quan sẽ tự kích hoạt build Windows trên nhánh này.

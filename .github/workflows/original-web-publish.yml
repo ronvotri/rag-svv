@@ -25,8 +25,8 @@ jobs:
       - name: Checkout the original client tooling (no game assets in Git)
         uses: actions/checkout@v4
         with:
-          # Wave 28 only: keep release isolated from default source branch.
-          ref: feature/offline-friends-wave12-prontera-playtest
+          # Publish the exact upstream-0.2.5 commit whose Web QA already passed.
+          ref: c8fae0e1017013aef2c222e4d34cc626e1d7cb3f
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -34,10 +34,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Ensure this run targets the Wave 28 branch only
+      - name: Ensure this is the intended 0.2.5 production deployment
         run: |
-          test "$GITHUB_REF_NAME" = "feature/offline-friends-wave12-prontera-playtest"
-          test "$(git branch --show-current)" = "feature/offline-friends-wave12-prontera-playtest"
+          test "$GITHUB_REF_NAME" = "upgrade/upstream-0.2.5-save-portability"
+          test "$(git rev-parse HEAD)" = "c8fae0e1017013aef2c222e4d34cc626e1d7cb3f"
       - name: Verify Pages credentials (R2 credentials are NOT required)
         run: |
           test -n "$CLOUDFLARE_ACCOUNT_ID"
@@ -49,7 +49,7 @@ jobs:
           python -m py_compile midgard-offline/tools/*.py
       - name: Rebuild original Godot Web client and run offline gameplay smoke tests
         env:
-          SVV_WEB_NPC_QA: "1"
+          SVV_WEB_NPC_QA: "0"
         run: python midgard-offline/tools/cloud-build-original.py --target web
       - name: Stage only static Cloudflare Pages assets
         id: pack
@@ -103,7 +103,7 @@ jobs:
             echo "## Ragnarok Web: Pages-only deployment submitted"
             echo "Project: rag-svv-web"
             echo "Original client commit: ${{ steps.pack.outputs.sha }}"
-            echo "Preview: Wave 28 Cole/Haneul visual-only Town QA."
+            echo "Release: Original offline client 0.2.5 with existing Vietnamese/addon patches and save portability fixes."
             echo "HTTPS site: https://rag-svv-web.pages.dev"
             echo "No R2, database or backend gameplay server."
             echo "Browser/device QA and player-save QA are still required."

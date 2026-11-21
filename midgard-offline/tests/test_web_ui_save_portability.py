@@ -1,5 +1,8 @@
 """Regression checks for mobile/fullscreen layout and offline save file flow."""
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 
 
@@ -8,6 +11,19 @@ ADDONS = ROOT / "original-addons"
 
 
 class TestOfflineWebSaveAndUI(unittest.TestCase):
+    def test_export_csp_allows_godot_save_bridge_without_external_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / 'project.godot').write_text('config_version=5\n', encoding='utf-8')
+            subprocess.run([sys.executable, ROOT / 'tools/create-original-presets.py', project, project],
+                           check=True, capture_output=True)
+            preset = (project / 'export_presets.cfg').read_text(encoding='utf-8')
+            policy = next(line for line in preset.splitlines() if line.startswith('html/head_include='))
+            # wasm-unsafe-eval alone does not permit JavaScriptBridge.eval.
+            self.assertIn("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval'", policy)
+            self.assertIn("connect-src 'self' blob:", policy)
+            self.assertNotIn('https:', policy)
+
     def test_save_tools_visible_from_menu_and_paused_in_battle(self):
         src = (ADDONS / "web_save_manager.gd").read_text(encoding="utf-8")
         self.assertIn('open_button.text = "Sao lưu" if compact else "Sao lưu / Nạp save"', src)
@@ -29,7 +45,7 @@ class TestOfflineWebSaveAndUI(unittest.TestCase):
             'new Blob([b],{type:\'application/json\'})',
             '"Ragnarok-Quai-Vat-Troi-Day-"',
             'if _sha256(bytes) != str(container.get("sha256", "")).to_lower():',
-            'if not SVVSaveGuardian._write_atomically(BEFORE_IMPORT, old_data):',
+            'if not SVVSaveGuardian._write_atomically(_before_import_path(), old_data):',
             'SVVSaveGuardian.adopt_imported_profile(bytes)',
             'SVVSaveGuardian._write_atomically(_save_path(), old_data)',
         ):
@@ -38,7 +54,10 @@ class TestOfflineWebSaveAndUI(unittest.TestCase):
         self.assertIn("picker.accept='.json,.svvsave'", src)
         self.assertIn("JSON.parse_string(encoded)", src)
         self.assertIn("MAX_SAVE_BYTES", src)
-        self.assertIn('window.location.replace', src)
+        self.assertIn('window.location.reload', src)
+        self.assertIn('FS.syncfs(false', src)
+        self.assertIn('func _validated_profile', src)
+        self.assertIn('Save._read(VALIDATION_PATH)', src)
         self.assertNotIn("fetch(", src)
         self.assertNotIn("XMLHttpRequest", src)
 

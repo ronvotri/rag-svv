@@ -12,6 +12,7 @@ Repo có ba hướng riêng biệt: Switch (Unity mod tooling), web research, v�
 - Helper tự viết: `tools/prepare-original-offline.py`, `tools/localize_original.py`, `tools/install-original-assistant.py`, các helper export original. Khi sửa source riêng, cập nhật helper để có thể tái lập.
 - `original-addons/offline_assistant.gd` là overlay tự viết; NPC theo luật phải ghi rõ chưa phải LLM. LLM Qwen cục bộ đã thử CPU nhưng chất lượng chưa đạt, không bật mặc định hoặc ghi hoàn thiện native Android.
 - Save offline riêng; test phải dùng `--offline-test` và các tệp test riêng, không dùng `--coop` gốc vì nó có thể reset profile thử nghiệm. Tổ đội bot phải được lưu và khôi phục cả trạng thái.
+- Nâng nền 0.2.5: giữ pin ZIP 0.2.0, áp `config/official-update.json` qua `tools/update-original-client.py` TRƯỚC lớp offline/addon. Giữ các thay đổi Cloud Wave 28; xem `docs/UPSTREAM_0_2_5_UPGRADE.md`. Nhập save phải chờ IndexedDB và thay cả rescue localStorage của upstream; xem `docs/SAVE_PORTABILITY.md`.
 - Xem `docs/ORIGINAL_CLIENT.md` và `docs/FEATURE_PARITY.md` trước khi tiếp tục. Xác nhận artifact gốc và QA thật; số bản ghi dữ liệu hoặc việc build prototype không chứng minh full tính năng.
 - Người dùng ưu tiên tiếp tục bằng ChatGPT web + GitHub, không phụ thuộc Codex desktop. Đọc `midgard-offline/docs/WEB_GITHUB_DEVELOPMENT.md`; workflow `original-client.yml` tự tải client chính thức, kiểm hash, recover và build trong runner. Không bảo người dùng quay về máy này khi chỉ cần sửa bản dịch/addon hoặc build.
 
