@@ -10,6 +10,7 @@ on:
       - 'midgard-offline/tests/test_fetch_original_client.py'
       - 'midgard-offline/config/official-client.json'
       - 'midgard-offline/config/official-update.json'
+      - 'midgard-offline/config/retired-translation-keys.json'
       - 'midgard-offline/tools/update-original-client.py'
       - 'midgard-offline/tools/prepare-original-offline.py'
       - 'midgard-offline/tools/diagnose-original-flow.py'
