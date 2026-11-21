@@ -30,5 +30,5 @@ This is an isolated **pre-release** update. It is not deployed and must not be d
 ## Status
 - Publisher update config and independent patch-pin verification are committed.
 - Publisher binary verification: PASS.
-- Full Godot Web QA: in progress at the time of creating this handoff.
+- Full Godot Web QA: first run [#44890656532](https://github.com/ronvotri/rag-svv/actions/runs/44890656532) FAILED before export because retired-translation-keys.json was pinned to 0.2.5. The 0.2.7 version and SHA were updated without removing old translations. Current retry [#44891430042](https://github.com/ronvotri/rag-svv/actions/runs/44891430042) was in progress at the time of this amendment; check the current conclusion and, if failed, inspect its small localization QA artifact before altering any text.
 - Production website: unchanged by this staging branch.
