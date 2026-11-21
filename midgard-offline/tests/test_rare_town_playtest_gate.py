@@ -13,7 +13,9 @@ class RareTownPlaytestGateTests(unittest.TestCase):
         cls.build = (ROOT / "tools" / "cloud-build-original.py").read_text(encoding="utf-8")
 
     def test_both_qa_flags_required(self):
-        self.assertIn('return "--offline-test" in args and "--rare-town-qa" in args', self.qa)
+        self.assertIn('"--offline-test" in args and "--rare-town-qa" in args', self.qa)
+        self.assertIn('OS.has_feature("web")', self.qa)
+        self.assertIn('config/svv_web_npc_qa', self.qa)
         self.assertIn("set_process(false)", self.qa)
         self.assertIn("set_process_unhandled_input(false)", self.qa)
 
