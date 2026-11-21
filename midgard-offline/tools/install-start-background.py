@@ -45,7 +45,9 @@ func _svv_fix_class_select_navigation() -> void:
 			tree_entered.connect(_svv_fix_class_select_navigation, CONNECT_ONE_SHOT)
 		return
 	var viewport: Viewport = get_viewport()
-	if viewport == null or _mode != "class_select":
+	if viewport == null:
+		return
+	if _mode != "class_select":
 		return
 	var viewport_size: Vector2 = viewport.get_visible_rect().size
 	var outer_left: Button = null
