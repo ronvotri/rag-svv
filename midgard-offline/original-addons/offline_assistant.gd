@@ -8,24 +8,34 @@ var entry: LineEdit
 var friend_list: VBoxContainer
 var detail_card: PanelContainer
 var friend_details: RichTextLabel
+var friend_portrait: TextureRect
+var portrait_atlas: Texture2D
 var friend_action: Button
 var selected_class := "acolyte"
 # Authored local NPC friendship profiles; class IDs come from recovered GameData.
 # These are story characters, not simulated online player accounts.
 const FRIEND_PROFILES := {
-	"acolyte": {"name": "Mira", "rarity": "Normal", "kills": 8, "runs": 1, "quest": "Tiếp tế y viện: giúp Mira chống trả 8 quái và hoàn thành 1 lượt phiêu lưu."},
+	"acolyte": {"name": "Mira", "rarity": "Normal", "kills": 8, "runs": 1, "role": "Hồi máu · hỗ trợ cả đội", "intro": "Mira: Đứng lại cho tôi chữa thương nào! Ham đánh quá là hết cả bông băng đấy.", "quest": "Tiếp tế y viện: giúp Mira chống trả 8 quái và hoàn thành 1 lượt phiêu lưu."},
 	"swordsman": {"name": "Alden", "rarity": "Normal", "kills": 20, "runs": 1, "role": "Tuyến đầu · chịu đòn và giữ quái", "location": "Prontera", "quest": "Lời thề vệ binh: chiến đấu với 20 quái và trở về an toàn sau 1 lượt."},
 	"mage": {"name": "Eira", "rarity": "Normal", "kills": 25, "runs": 1, "role": "Tấn công phép · gây sát thương diện rộng", "location": "Prontera", "quest": "Thí nghiệm phép thuật: xử lý 25 quái trong hành trình cùng Eira."},
 	"archer": {"name": "Elowen", "rarity": "Normal", "kills": 25, "runs": 1, "role": "Đánh xa · giữ khoảng cách", "intro": "Elowen: Cung không tự bắn trúng đâu nhé. Muốn theo tôi đi tuần thì chứng minh tay nghề trước!", "quest": "Tuần tra cung thủ: hạ 25 quái qua ít nhất 1 lượt phiêu lưu."},
 	"thief": {"name": "Riku", "rarity": "Normal", "kills": 30, "runs": 1, "role": "Cận chiến cơ động · né tránh", "intro": "Riku: Đừng nhìn tôi kiểu đó. Ví của cậu còn nguyên mà... chắc thế.", "quest": "Bài kiểm tra của Riku: vượt qua 30 quái, đừng bỏ cuộc giữa đường."},
 	"merchant": {"name": "Mino", "rarity": "Normal", "kills": 30, "runs": 2, "role": "Đấu sĩ hỗ trợ · Merchant", "intro": "Mino: Đi săn quái thì được, nhưng phá hàng của tôi là phải đền. Có hóa đơn đầy đủ!", "quest": "Bảo vệ thương đoàn: hạ 30 quái qua ít nhất 2 lượt."},
 	"novice": {"name": "Nao", "rarity": "Normal", "kills": 15, "runs": 2, "role": "Tân binh · học hỏi và hỗ trợ", "intro": "Nao: Tôi mới vào nghề thôi. Nếu thấy tôi chạy ngược hướng, gọi với nhé!", "quest": "Đường của tân binh: giúp Nao vượt qua 15 quái trong 2 lượt."},
-	"gunslinger": {"name": "Cole", "rarity": "Rare", "kills": 90, "runs": 3, "quest": "Hợp đồng của Cole: hạ 90 quái trong ít nhất 3 lượt."},
-	"taekwon": {"name": "Haneul", "rarity": "Rare", "kills": 100, "runs": 3, "quest": "Rèn luyện của Haneul: hạ 100 quái và hoàn thành 3 lượt."},
-	"ninja": {"name": "Kira", "rarity": "Ultra Rare", "kills": 220, "runs": 5, "quest": "Thử thách bóng đêm: hạ 220 quái và hoàn thành 5 lượt."},
-	"doram": {"name": "Lumi", "rarity": "Ultra Rare", "kills": 240, "runs": 5, "quest": "Giao ước với Lumi: hạ 240 quái và hoàn thành 5 lượt."},
+	"gunslinger": {"name": "Cole", "rarity": "Rare", "kills": 90, "runs": 3, "role": "Xạ thủ · bắn xa liên tục", "intro": "Cole: Đứng yên cho tôi ngắm. Đùa thôi, quái đông thế ai mà đứng yên!", "quest": "Hợp đồng của Cole: hạ 90 quái trong ít nhất 3 lượt."},
+	"taekwon": {"name": "Haneul", "rarity": "Rare", "kills": 100, "runs": 3, "role": "Võ sư · cận chiến cơ động", "intro": "Haneul: Tôi đá nhanh hơn lời đồn. Cứ xem trận tới là biết!", "quest": "Rèn luyện của Haneul: hạ 100 quái và hoàn thành 3 lượt."},
+	"ninja": {"name": "Kira", "rarity": "Ultra Rare", "kills": 220, "runs": 5, "role": "Ninja · áp sát và đánh úp", "intro": "Kira: Tôi không biến mất đâu. Chỉ là cậu chớp mắt quá lâu thôi.", "quest": "Thử thách bóng đêm: hạ 220 quái và hoàn thành 5 lượt."},
+	"doram": {"name": "Lumi", "rarity": "Ultra Rare", "kills": 240, "runs": 5, "role": "Triệu hồi · hỗ trợ phép", "intro": "Lumi: Cục bông này hiền lắm! Trừ lúc đụng đến bạn tôi.", "quest": "Giao ước với Lumi: hạ 240 quái và hoàn thành 5 lượt."},
 }
 
+
+# 4-column, 192px source atlas. All portraits are authored art; names and
+# party/recruitment data remain the original offline profiles.
+const FRIEND_PORTRAIT_IDS := {
+	"acolyte": 0, "swordsman": 1, "mage": 2, "archer": 3,
+	"thief": 4, "merchant": 5, "novice": 6, "gunslinger": 7,
+	"taekwon": 8, "ninja": 9, "doram": 10,
+}
 
 var status: Label
 var open_button: Button
@@ -43,6 +53,11 @@ var support_flash_seconds := 0.0
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 110
+	var portrait_path := "res://addons/svv_offline/friend_portraits.jpg"
+	if ResourceLoader.exists(portrait_path):
+		portrait_atlas = load(portrait_path) as Texture2D
+	else:
+		push_warning("SVV: friend portrait atlas unavailable; retain text-only fallback")
 	open_button = Button.new()
 	open_button.text = "Bạn bè"
 	open_button.position = Vector2(12, 56)
@@ -116,7 +131,14 @@ func _ready() -> void:
 	friend_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	friend_details.add_theme_font_size_override("normal_font_size", 16)
 	friend_details.add_theme_color_override("default_color", Color("eff7f1"))
-	detail_card.add_child(friend_details)
+	var hero_line := HBoxContainer.new()
+	hero_line.add_theme_constant_override("separation", 14)
+	detail_card.add_child(hero_line)
+	friend_portrait = _portrait_view(selected_class, 170)
+	friend_portrait.custom_minimum_size = Vector2(170, 190)
+	hero_line.add_child(friend_portrait)
+	friend_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hero_line.add_child(friend_details)
 	friend_action = Button.new()
 	friend_action.text = "Nhận nhiệm vụ"
 	friend_action.custom_minimum_size.y = 50
@@ -182,6 +204,26 @@ func _ready() -> void:
 			get_tree().change_scene_to_file.call_deferred("res://addons/svv_offline/qa/offline_visual.tscn")
 
 # Visual styling only: independent of quest/save state and safe to refresh.
+func _portrait_texture(job: String) -> Texture2D:
+	if portrait_atlas == null:
+		return null
+	var slot: int = int(FRIEND_PORTRAIT_IDS.get(job, 11))
+	var atlas := AtlasTexture.new()
+	atlas.atlas = portrait_atlas
+	atlas.region = Rect2(Vector2((slot % 4) * 192 + 2, floori(float(slot) / 4.0) * 192 + 2), Vector2(188, 188))
+	return atlas
+
+
+func _portrait_view(job: String, side_px: int) -> TextureRect:
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(side_px, side_px)
+	icon.texture = _portrait_texture(job)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return icon
+
+
 func _friend_style(background_hex: String, border_hex: String, border_px: int, radius_px: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(background_hex)
@@ -347,17 +389,20 @@ func _refresh_friends() -> void:
 		child.queue_free()
 	for job in available_ids:
 		var profile: Dictionary = _friend_profile(job)
-		var row := PanelContainer.new()
 		var is_selected: bool = job == selected_class
+		var row := PanelContainer.new()
 		row.add_theme_stylebox_override("panel", _friend_style(
 			"295243" if is_selected else "183b31",
 			"f8cb68" if is_selected else "4b7768", 2 if is_selected else 1, 9))
-		var content := VBoxContainer.new()
-		content.add_theme_constant_override("separation", 4)
-		row.add_child(content)
-		var primary := HBoxContainer.new()
-		primary.add_theme_constant_override("separation", 8)
-		content.add_child(primary)
+		var main_line := HBoxContainer.new()
+		main_line.add_theme_constant_override("separation", 10)
+		row.add_child(main_line)
+		var face := _portrait_view(job, 52)
+		main_line.add_child(face)
+		var identity := VBoxContainer.new()
+		identity.add_theme_constant_override("separation", 5)
+		identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		main_line.add_child(identity)
 		var button := Button.new()
 		button.text = str(profile["name"]) + " · " + _job_name(job)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -368,24 +413,28 @@ func _refresh_friends() -> void:
 		button.add_theme_color_override("font_color", Color("ffdc89"))
 		button.add_theme_color_override("font_hover_color", Color("fff0b0"))
 		button.pressed.connect(_select_friend.bind(job))
-		primary.add_child(button)
+		identity.add_child(button)
 		var rarity := Label.new()
 		rarity.text = str(profile["rarity"])
 		rarity.add_theme_color_override("font_color", Color(_friend_rarity_color(str(profile["rarity"]))))
 		rarity.add_theme_font_size_override("font_size", 13)
-		primary.add_child(rarity)
+		identity.add_child(rarity)
 		var state := Label.new()
 		state.text = "Đang đi cùng" if party.has(job) else ("Đã kết bạn" if unlocked.has(job) else "Chưa kết bạn")
-		state.add_theme_font_size_override("font_size", 12)
+		state.add_theme_font_size_override("font_size", 13)
 		state.add_theme_color_override("font_color", Color("9dd7ff") if party.has(job) else (Color("9ef0c7") if unlocked.has(job) else Color("e4d4ad")))
 		state.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		content.add_child(state)
+		state.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		main_line.add_child(state)
 		friend_list.add_child(row)
 	if not available_ids.has(selected_class):
 		selected_class = available_ids[0] if not available_ids.is_empty() else ""
 	if selected_class.is_empty():
 		return
 	var profile: Dictionary = _friend_profile(selected_class)
+	if friend_portrait != null:
+		friend_portrait.texture = _portrait_texture(selected_class)
+		friend_portrait.visible = portrait_atlas != null and get_viewport().get_visible_rect().size.x > 470.0
 	var progress: Dictionary = _quest_progress(selected_class)
 	var rarity_tint: String = _friend_rarity_color(str(profile["rarity"]))
 	var description: String = "[font_size=22][color=#ffdc89][b]" + str(profile["name"]) + "[/b][/color][/font_size]"
@@ -407,7 +456,7 @@ func _refresh_friends() -> void:
 		friend_action.text = "Chưa mở khóa"
 		friend_action.disabled = true
 	elif bool(progress["started"]):
-		description += str(profile["quest"]) + "\nTiến độ: %d/%d quái · %d/%d lượt." % [
+		description += str(profile["quest"]) + "\n[color=#b3f3d0][b]Tiến độ:[/b][/color] %d/%d quái · %d/%d lượt." % [
 			int(progress["kills"]), int(profile["kills"]), int(progress["runs"]), int(profile["runs"])]
 		friend_action.text = "Thu nhận NPC" if bool(progress["ready"]) else "Đang làm nhiệm vụ"
 		friend_action.disabled = not bool(progress["ready"])
