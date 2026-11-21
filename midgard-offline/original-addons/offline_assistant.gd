@@ -6,7 +6,8 @@ var panel: PanelContainer
 var messages: RichTextLabel
 var entry: LineEdit
 var friend_list: VBoxContainer
-var friend_details: Label
+var detail_card: PanelContainer
+var friend_details: RichTextLabel
 var friend_action: Button
 var selected_class := "acolyte"
 # Authored local NPC friendship profiles; class IDs come from recovered GameData.
@@ -69,14 +70,15 @@ func _ready() -> void:
 	panel.offset_bottom = 275
 	panel.visible = false
 	var background := StyleBoxFlat.new()
-	background.bg_color = Color("172e26")
-	background.border_color = Color("d8bd84")
-	background.set_border_width_all(2)
-	background.set_content_margin_all(18)
+	background.bg_color = Color("10332b")
+	background.border_color = Color("f6ca68")
+	background.set_border_width_all(3)
+	background.set_corner_radius_all(14)
+	background.set_content_margin_all(16)
 	panel.add_theme_stylebox_override("panel", background)
 	add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", 12)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(scroll)
@@ -84,11 +86,16 @@ func _ready() -> void:
 	scroll.add_child(column)
 	var title := Label.new()
 	title.text = "Friends List · Bằng hữu Midgard"
-	title.add_theme_font_size_override("font_size", 23)
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color("fff8e8"))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
 	status = Label.new()
 	status.text = "Làm nhiệm vụ của NPC, kết bạn rồi mới có thể mời vào party (tối đa 3)."
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.add_theme_font_size_override("font_size", 14)
+	status.add_theme_color_override("font_color", Color("cbded8"))
 	column.add_child(status)
 	for key in GameData.CLASSES:
 		available_ids.append(str(key))
@@ -98,21 +105,38 @@ func _ready() -> void:
 		available_ids.insert(0, "acolyte")
 	elif not available_ids.is_empty():
 		selected_class = available_ids[0]
-	friend_details = Label.new()
+	detail_card = PanelContainer.new()
+	detail_card.add_theme_stylebox_override("panel", _friend_style("17473b", "508772", 2, 12))
+	column.add_child(detail_card)
+	friend_details = RichTextLabel.new()
+	friend_details.bbcode_enabled = true
+	friend_details.fit_content = true
+	friend_details.scroll_active = false
+	friend_details.selection_enabled = false
 	friend_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	friend_details.custom_minimum_size.y = 136
-	column.add_child(friend_details)
+	friend_details.add_theme_font_size_override("normal_font_size", 16)
+	friend_details.add_theme_color_override("default_color", Color("eff7f1"))
+	detail_card.add_child(friend_details)
 	friend_action = Button.new()
 	friend_action.text = "Nhận nhiệm vụ"
-	friend_action.custom_minimum_size.y = 42
+	friend_action.custom_minimum_size.y = 50
+	friend_action.add_theme_font_size_override("font_size", 19)
+	friend_action.add_theme_color_override("font_color", Color("472606"))
+	friend_action.add_theme_color_override("font_hover_color", Color("341902"))
+	friend_action.add_theme_stylebox_override("normal", _friend_style("ffce64", "fff0ad", 2, 10))
+	friend_action.add_theme_stylebox_override("hover", _friend_style("ffdf89", "ffffff", 2, 10))
+	friend_action.add_theme_stylebox_override("pressed", _friend_style("e9ae42", "fff0ad", 2, 10))
+	friend_action.add_theme_stylebox_override("disabled", _friend_style("435a4f", "6d8475", 1, 10))
 	friend_action.pressed.connect(_friend_action_pressed)
 	column.add_child(friend_action)
 	var roster_heading := Label.new()
 	roster_heading.text = "Cư dân Midgard · chọn NPC để xem nhiệm vụ"
 	roster_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	roster_heading.add_theme_font_size_override("font_size", 18)
+	roster_heading.add_theme_color_override("font_color", Color("b4f0cd"))
 	column.add_child(roster_heading)
 	friend_list = VBoxContainer.new()
-	friend_list.add_theme_constant_override("separation", 5)
+	friend_list.add_theme_constant_override("separation", 7)
 	column.add_child(friend_list)
 	_refresh_friends()
 	var explanation := Label.new()
@@ -157,12 +181,41 @@ func _ready() -> void:
 		elif "--offline-visual" in arguments:
 			get_tree().change_scene_to_file.call_deferred("res://addons/svv_offline/qa/offline_visual.tscn")
 
+# Visual styling only: independent of quest/save state and safe to refresh.
+func _friend_style(background_hex: String, border_hex: String, border_px: int, radius_px: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(background_hex)
+	style.border_color = Color(border_hex)
+	style.set_border_width_all(border_px)
+	style.set_corner_radius_all(radius_px)
+	style.set_content_margin_all(12)
+	return style
+
+
+func _friend_rarity_color(rarity: String) -> String:
+	match rarity:
+		"Ultra Rare":
+			return "cf9cfc"
+		"Rare":
+			return "85c8ff"
+		_:
+			return "cbd7e4"
+
+
+func _friend_status(unlocked: Array, party: Array[String], job: String) -> String:
+	if party.has(job):
+		return "[color=#9dd7ff]● Đang đi cùng[/color]"
+	if unlocked.has(job):
+		return "[color=#9ef0c7]● Đã kết bạn[/color]"
+	return "[color=#e4d4ad]⌛ Chưa kết bạn[/color]"
+
+
 func _fit() -> void:
 	var size := get_viewport().get_visible_rect().size
 	open_button.position = Vector2(maxf(12, (size.x - 168) / 2), 10)
 	support_hint.position = Vector2(maxf(12, (size.x - 220) / 2), 49)
-	var width := minf(520, size.x - 24)
-	var height := minf(550, size.y - 24)
+	var width := minf(710, size.x - 24)
+	var height := minf(700, size.y - 24)
 	panel.offset_left = -width / 2
 	panel.offset_right = width / 2
 	panel.offset_top = -height / 2
@@ -294,34 +347,63 @@ func _refresh_friends() -> void:
 		child.queue_free()
 	for job in available_ids:
 		var profile: Dictionary = _friend_profile(job)
+		var row := PanelContainer.new()
+		var is_selected: bool = job == selected_class
+		row.add_theme_stylebox_override("panel", _friend_style(
+			"295243" if is_selected else "183b31",
+			"f8cb68" if is_selected else "4b7768", 2 if is_selected else 1, 9))
+		var content := VBoxContainer.new()
+		content.add_theme_constant_override("separation", 4)
+		row.add_child(content)
+		var primary := HBoxContainer.new()
+		primary.add_theme_constant_override("separation", 8)
+		content.add_child(primary)
 		var button := Button.new()
-		var state := " · Đang đi cùng" if party.has(job) else (" · Bạn bè" if unlocked.has(job) else " · Chưa kết bạn")
-		button.text = str(profile["name"]) + " · " + _job_name(job) + " [" + str(profile["rarity"]) + "]" + state
+		button.text = str(profile["name"]) + " · " + _job_name(job)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.clip_text = true
-		button.custom_minimum_size.y = 36
+		button.flat = true
+		button.add_theme_font_size_override("font_size", 17)
+		button.add_theme_color_override("font_color", Color("ffdc89"))
+		button.add_theme_color_override("font_hover_color", Color("fff0b0"))
 		button.pressed.connect(_select_friend.bind(job))
-		friend_list.add_child(button)
+		primary.add_child(button)
+		var rarity := Label.new()
+		rarity.text = str(profile["rarity"])
+		rarity.add_theme_color_override("font_color", Color(_friend_rarity_color(str(profile["rarity"]))))
+		rarity.add_theme_font_size_override("font_size", 13)
+		primary.add_child(rarity)
+		var state := Label.new()
+		state.text = "Đang đi cùng" if party.has(job) else ("Đã kết bạn" if unlocked.has(job) else "Chưa kết bạn")
+		state.add_theme_font_size_override("font_size", 12)
+		state.add_theme_color_override("font_color", Color("9dd7ff") if party.has(job) else (Color("9ef0c7") if unlocked.has(job) else Color("e4d4ad")))
+		state.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		content.add_child(state)
+		friend_list.add_child(row)
 	if not available_ids.has(selected_class):
 		selected_class = available_ids[0] if not available_ids.is_empty() else ""
 	if selected_class.is_empty():
 		return
 	var profile: Dictionary = _friend_profile(selected_class)
 	var progress: Dictionary = _quest_progress(selected_class)
-	var description: String = str(profile["name"]) + " · " + _job_name(selected_class) + " · " + str(profile["rarity"]) + "\n"
+	var rarity_tint: String = _friend_rarity_color(str(profile["rarity"]))
+	var description: String = "[font_size=22][color=#ffdc89][b]" + str(profile["name"]) + "[/b][/color][/font_size]"
+	description += "  [color=#f0f5ee]" + _job_name(selected_class) + "[/color]"
+	description += "  [color=#" + rarity_tint + "][b]" + str(profile["rarity"]) + "[/b][/color]\n"
 	if profile.has("role"):
-		description += "Vai trò: " + str(profile["role"]) + "\n"
+		description += "[color=#b3f3d0][b]Vai trò:[/b][/color] " + str(profile["role"]) + "\n"
 	if profile.has("location"):
-		description += "Có thể gặp tại: " + str(profile["location"]) + "\n"
+		description += "[color=#b3f3d0][b]Khu vực:[/b][/color] " + str(profile["location"]) + "\n"
 	if profile.has("intro"):
-		description += str(profile["intro"]) + "\n"
-
+		description += "[color=#cedbd5][i]“" + str(profile["intro"]).trim_prefix(str(profile["name"]) + ": ") + "”[/i][/color]\n"
+	description += "\n[color=#b3f3d0][b]Nhiệm vụ kết bạn[/b][/color]\n"
 	if unlocked.has(selected_class):
-		description += "Đã kết bạn. Bạn có thể mời NPC này vào party trước khi bắt đầu phiêu lưu."
+		description += "[color=#a9ffcf][b]Đã kết bạn![/b][/color] Mời vào party trước khi phiêu lưu."
 		friend_action.text = "Rời party" if party.has(selected_class) else "Mời vào party"
 		friend_action.disabled = not party.has(selected_class) and party.size() >= 3
 	elif selected_class != "acolyte" and not unlocked.has("acolyte") and available_ids.has("acolyte"):
-		description += "Hãy hoàn thành nhiệm vụ của Mira (Acolyte) trước để mở hệ thống kết bạn."
+		description += str(profile["quest"]) + "\n[color=#f3d49e][b]Yêu cầu:[/b][/color] Hãy giúp Mira trước để mở khóa kết bạn."
 		friend_action.text = "Chưa mở khóa"
 		friend_action.disabled = true
 	elif bool(progress["started"]):
@@ -330,7 +412,7 @@ func _refresh_friends() -> void:
 		friend_action.text = "Thu nhận NPC" if bool(progress["ready"]) else "Đang làm nhiệm vụ"
 		friend_action.disabled = not bool(progress["ready"])
 	else:
-		description += str(profile["quest"]) + "\nHoàn thành nhiệm vụ mới có thể kết bạn."
+		description += str(profile["quest"]) + "\n[color=#f3d49e][b]Yêu cầu:[/b][/color] Hoàn thành nhiệm vụ mới có thể kết bạn."
 		friend_action.text = "Nhận nhiệm vụ"
 		friend_action.disabled = false
 	friend_details.text = description
