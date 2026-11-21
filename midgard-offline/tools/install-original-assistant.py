@@ -1,5 +1,6 @@
 """Install only the authored overlay into an already prepared private project."""
 import argparse
+import hashlib
 from pathlib import Path
 import shutil
 import sys
@@ -12,6 +13,14 @@ def install(project):
     destination = project / "addons/svv_offline/offline_assistant.gd"
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
+    # Authored, style-consistent 4x3 headshot atlas (11 party members + crest).
+    # Verify source asset bytes before including them in Windows/Web exports.
+    portraits = source.parent / "friend_portraits.jpg"
+    if not portraits.is_file() or portraits.stat().st_size != 231582:
+        raise ValueError("Friends List portrait atlas missing or unexpected size")
+    if hashlib.sha256(portraits.read_bytes()).hexdigest() != "a4f8dd78ccf12fcdb5cab274e6d9ebb1c50b4281aea72252061d9a994857ea6f":
+        raise ValueError("Friends List portrait atlas checksum mismatch")
+    shutil.copyfile(portraits, destination.parent / portraits.name)
     # Web optimization is a no-op on native platforms; ship one reproducible addon.
     web_perf_source = source.parent / "web_mobile_performance.gd"
     if not web_perf_source.is_file():
