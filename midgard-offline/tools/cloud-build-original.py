@@ -361,6 +361,15 @@ def build(target):
     translation = own_tool("localize_original").localize(project, ROOT / "patches/vi-ui.json", fonts / "NotoSans-Regular.ttf", fonts / "NotoSans-Bold.ttf")
     shutil.copyfile(fonts / "OFL.txt", project / "assets/ro/fonts/NotoSans-OFL.txt")
     own_tool("install-original-assistant").install(project)
+    # Enable temporary Cole/Haneul Town visuals only in an explicitly opted-in
+    # Web preview export. Never activate this for normal production builds.
+    if target == "web" and os.environ.get("SVV_WEB_NPC_QA") == "1":
+        preview_config = project / "project.godot"
+        old = preview_config.read_text(encoding="utf-8")
+        new = own_tool("prepare-original-offline").set_setting(
+            old, "application", "config/svv_web_npc_qa", "true")
+        preview_config.write_text(new, encoding="utf-8", newline="\n")
+        print("NPC_WEB_QA_PREVIEW enabled; rare NPCs non-recruitable")
     write_context(project, work, translation)
     run([sys.executable, TOOLS / "create-original-presets.py", project, templates])
     run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
