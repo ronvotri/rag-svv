@@ -1,0 +1,21 @@
+{
+  "Basic attack: +0.5 ranged reach per upgrade level; in melee, a little more reach and its wide swing reaches farther. At max: +3 ranged. Your summons and Homunculi also reach +0.5 farther per level.": "Đánh thường: mỗi cấp tăng 0,5 tầm đánh xa. Cận chiến cũng vươn xa hơn một chút và quét trúng mục tiêu ở xa hơn. Tối đa +3 tầm đánh xa. Triệu hồi và Homunculi cũng được +0,5 tầm đánh mỗi cấp.",
+  "An MVP for the whole community, open all week: every attempt takes life off everyone's bar and it's reborn stronger. Your build isn't spent.": "MVP chung của cộng đồng, mở suốt tuần. Mỗi lần thử sẽ trừ máu trên thanh chung; khi bị hạ, Boss hồi sinh mạnh hơn. Build đã lưu không bị tiêu hao.",
+  "World Boss Colosseum": "Đấu trường World Boss",
+  "The World Boss is fought alone. Leave the party to enter.": "World Boss bản gốc chỉ cho chơi một mình. Hãy rời Party trước khi vào.",
+  "I couldn't see the World Boss (no connection). Try again in a moment.": "Không kết nối được với World Boss. Hãy thử lại sau ít phút.",
+  "Solo only, with a saved build (never spent), %d s per attempt.": "Chỉ chơi Solo với build đã lưu (không bị tiêu hao); mỗi lượt kéo dài %d giây.",
+  "World Boss  ·  weekly rewards": "World Boss · Thưởng hằng tuần",
+  "World Boss  ·  your weekly chest": "World Boss · Rương thưởng tuần này",
+  "World Boss  ·  nearQ": "World Boss · nearQ",
+  "NEXT WORLD BOSS": "WORLD BOSS TIẾP THEO",
+  "Top 3: «World Boss Champion» title (+20% drop) for a week.": "Top 3 nhận danh hiệu «World Boss Champion» (+20% tỉ lệ rơi đồ) trong một tuần.",
+  "Top 3 of the World Boss last week. Renewed every Monday.": "Top 3 World Boss tuần trước. Làm mới mỗi thứ Hai.",
+  "World Boss Champion": "Nhà vô địch World Boss",
+  "«The world still holds... The first World Boss arrives in %s. Get your build ready: it isn't spent here.»": "«Midgard vẫn bình yên... World Boss đầu tiên sẽ đến sau %s. Chuẩn bị build nhé, vào đây không bị tiêu hao đâu.»",
+  "You have no saved builds: every run you finish at Lv 20 or more saves its own.": "Chưa có build nào được lưu. Hoàn thành một lượt từ Lv 20 trở lên để tự lưu build.",
+  "A saved build (Endless Tower, Emperium Festival) on a fresh hero of its class: its level, skills, stats and gear. It isn't spent.": "Đưa build đã lưu (Endless Tower, Emperium Festival) cho nhân vật mới cùng nghề, gồm cấp, kỹ năng, chỉ số và trang bị. Build không bị tiêu hao.",
+  "It neither moves nor attacks, but touching it burns. In the Emperium Festival it counts as a boss and an MVP for your bonuses.": "Emperium không di chuyển hay tấn công, nhưng chạm vào sẽ bị bỏng. Trong Emperium Festival, nó được tính là Boss và MVP để cộng thưởng.",
+  "World Boss %s is at 10%%! (hit by %s)": "World Boss %s chỉ còn 10%% máu! (đòn đánh của %s)",
+  "World Boss %s is at half its life (hit by %s)": "World Boss %s đã mất một nửa máu! (đòn đánh của %s)"
+}
