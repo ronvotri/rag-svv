@@ -236,7 +236,7 @@ func _begin() -> void:
 func _party_names() -> String:
 	if party_jobs.is_empty():
 		return "chỉ có bạn"
-	var names: Array[String] = []
+	var names := PackedStringArray()
 	for job in party_jobs:
 		names.append(str(SVVAssistant._friend_profile(job).get("name", job)))
 	return ", ".join(names)
@@ -290,7 +290,7 @@ func _render() -> void:
 			status.text = "Emperium: %s · %d giây · Bạn và Party: %d | Đối thủ máy: %d" % [progress, remaining, score, rival_score]
 		"world_boss":
 			status.text = "World Boss (chỉ trên máy này): %s · %d giây · Đội còn %d HP" % [progress, remaining, player_hp]
-	skill_button.disabled = skill_cd > 0.0
+	skill_button.disabled = not running or skill_cd > 0.0
 	skill_button.text = "Kỹ năng (%ds)" % ceili(skill_cd) if skill_cd > 0.0 else "Kỹ năng"
 
 
