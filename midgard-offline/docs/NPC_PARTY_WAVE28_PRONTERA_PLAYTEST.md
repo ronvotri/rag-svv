@@ -24,3 +24,16 @@ Download the **original-offline-windows-TEST** artifact for a successful Wave 28
 ## Explicitly unverified
 
 At commit creation: **Godot build and in-game interactive QA still pending**. Python unit-test PASS by itself is not a playable client or valid art/animation signoff. Screenshots from CI, when available, are evidence, not acceptance. These NPCs remain unapproved for production, and this branch must remain Draft, unmerged and undeployed.
+
+## Web test site (separate from production)
+
+Wave 28 Web QA uses a build-time setting `application/config/svv_web_npc_qa=true`, set exclusively in the `Original client - Web package QA` workflow for `feature/offline-friends-wave12-prontera-playtest`. This shows composed Cole/Haneul in Prontera on browser QA, without requiring Windows CLI flags. Normal non-preview builds do not enable them; they remain non-recruitable.
+
+To publish **only if you have rights to publicly redistribute the original game assets**:
+
+1. Wait until the Wave 28 `Original client - Web package QA` workflow is **SUCCESS**.
+2. In its **Artifacts**, download `npc-party-wave28-pages-ready` and extract the ZIP. The extracted folder root must contain `index.html`, `game.html`, `godot-split-sw.js`, and split WASM/PCK parts.
+3. Go to your own Cloudflare dashboard, Workers & Pages, create a **new Direct Upload Pages project for this QA only** (do not overwrite `rag-svv-web` production), and upload the extracted static folder. The dashboard returns a real `*.pages.dev` URL after successful deployment.
+4. Open the new URL in a browser; test Prontera, click Cole/Haneul, and report any missing hair, incorrect depth or tap-target issues. Protect testers' saves; no gameplay acceptance is implied by package validation.
+
+The build workflow **does not upload original assets publicly automatically**; no public URL exists merely because CI succeeded. If rights are not confirmed, keep the archive for local testing only.
