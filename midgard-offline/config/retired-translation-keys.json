@@ -1,7 +1,7 @@
 {
-  "upstream_version": "0.2.5",
-  "publisher_patch_sha256": "c60e6c9a93d25b5fe5ba1180b17d76699b6db24d6aacdd100fd8c77c7d8bb84c",
-  "notice": "Historical translations retained. These source keys were changed/removed by upstream; never apply old balance descriptions to new text. New prose remains in the translation worklist.",
+  "upstream_version": "0.2.7",
+  "publisher_patch_sha256": "4fa81dcae4b62e0f9894286405378dad4c745d89cf7952bce7632e65ce6ce57b",
+  "notice": "Carry forward the previously audited retired keys from 0.2.5 to 0.2.7. Do not presume they fully cover 0.2.7. Runtime diff must surface any newly missing historical translation keys; review before production deployment.",
   "retired_source_keys": [
     "%s  ·  Q to refine",
     "+1 life, +15% EXP and an aura that heals you for the rest of the run",
