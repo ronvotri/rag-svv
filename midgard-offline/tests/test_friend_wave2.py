@@ -20,7 +20,9 @@ class FriendWave2Tests(unittest.TestCase):
                 self.assertIn('"role": ', line)
                 self.assertIn('"quest": ', line)
         self.assertIn('if profile.has("intro"):', self.script)
-        self.assertIn('description += str(profile["intro"])', self.script)
+        self.assertIn('str(profile["intro"]).trim_prefix(', self.script)
+        self.assertIn('friend_details.bbcode_enabled = true', self.script)
+        self.assertIn('description += "\\n[color=#b3f3d0][b]Nhiệm vụ kết bạn', self.script)
 
     def test_recruitment_gate_save_and_full_party_remain_unchanged(self):
         self.assertIn('Save.setting("svv_offline_friends", [])', self.script)
