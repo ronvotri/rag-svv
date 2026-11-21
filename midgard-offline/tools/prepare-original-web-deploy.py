@@ -8,6 +8,7 @@ No assets or third-party game data are committed to this public repository.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import re
@@ -121,7 +122,7 @@ def stage(source: Path, output: Path, version: str,
                 # finishes initializing. Fallback: original splash stays.
                 splash_script = ('<script>document.addEventListener("DOMContentLoaded", function(){'
                     'var img=document.getElementById("status-splash");'
-                    'if(img)img.src="./ragnarok-loading.jpg";'
+                    'if(img){img.onerror=function(){img.onerror=null;img.src="./ragnarok-loading.jpg";};img.src="./ragnarok-loading.avif";}'
                     '},{once:true});</script>')
                 html = re.sub(r"</body>", splash_script + "\n</body>", html,
                               count=1, flags=re.IGNORECASE)
@@ -162,6 +163,22 @@ def stage(source: Path, output: Path, version: str,
         "sha256": sha256(public / "ragnarok-loading.jpg"),
     })
 
+    # New authored key art: portable text bytes are decoded when Pages is staged.
+    # A pinned digest guarantees the exact reviewed image, keeping JPEG fallback.
+    splash_encoded = ROOT / "original-addons/svv_loading_keyart.avif.b64"
+    expected_splash_sha256 = "2fde8e202e337f8c1d2badfe834197cf08fdfca00835ef7f9292f794908bf232"
+    raw = splash_encoded.read_text(encoding="ascii").strip()
+    image_bytes = base64.b64decode(raw, validate=True)
+    if (len(image_bytes) >= 3_000_000 or len(image_bytes) < 10_000
+            or image_bytes[4:12] != b"ftypavif"
+            or hashlib.sha256(image_bytes).hexdigest() != expected_splash_sha256):
+        raise ValueError("Approved key art missing or checksum mismatch")
+    avif = public / "ragnarok-loading.avif"
+    avif.write_bytes(image_bytes)
+    manifest["static_assets"].append({
+        "name": avif.name, "size": avif.stat().st_size, "sha256": sha256(avif)
+    })
+
     asset_map = {
         "schema": 1, "version": version,
         "large_assets": manifest["large_assets"],
@@ -181,6 +198,7 @@ def stage(source: Path, output: Path, version: str,
     (public / "_headers").write_text(
         "/index.html\n  Cache-Control: no-cache\n"
         "/ragnarok-loading.jpg\n  Cache-Control: no-cache\n"
+        "/ragnarok-loading.avif\\n  Cache-Control: no-cache\\n"
         "/game.html\n  Cache-Control: no-cache\n"
         "/game-entry-guard.js\n  Cache-Control: no-cache\n"
         "/fullscreen-toggle.js\n  Cache-Control: no-cache\n"
