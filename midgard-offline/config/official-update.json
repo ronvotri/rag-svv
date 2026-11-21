@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "base_version": "0.2.0",
+  "version": "0.2.5",
+  "url": "https://updates.midgardsurvivors.com/patches/patch_0.2.5.bin",
+  "size": 12809900,
+  "sha256": "c60e6c9a93d25b5fe5ba1180b17d76699b6db24d6aacdd100fd8c77c7d8bb84c",
+  "manifest": "https://raw.githubusercontent.com/Gon-Analista/midgard-survivors-updates/main/manifest.json",
+  "verified_date": "2026-11-21",
+  "notice": "Cumulative pack for base 0.2.0, applied before authored offline patches. Runtime updater remains disabled. Original downloads stay in ignored work/."
+}

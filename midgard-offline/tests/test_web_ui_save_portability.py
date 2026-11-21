@@ -29,7 +29,7 @@ class TestOfflineWebSaveAndUI(unittest.TestCase):
             'new Blob([b],{type:\'application/json\'})',
             '"Ragnarok-Quai-Vat-Troi-Day-"',
             'if _sha256(bytes) != str(container.get("sha256", "")).to_lower():',
-            'if not SVVSaveGuardian._write_atomically(BEFORE_IMPORT, old_data):',
+            'if not SVVSaveGuardian._write_atomically(_before_import_path(), old_data):',
             'SVVSaveGuardian.adopt_imported_profile(bytes)',
             'SVVSaveGuardian._write_atomically(_save_path(), old_data)',
         ):
@@ -38,7 +38,10 @@ class TestOfflineWebSaveAndUI(unittest.TestCase):
         self.assertIn("picker.accept='.json,.svvsave'", src)
         self.assertIn("JSON.parse_string(encoded)", src)
         self.assertIn("MAX_SAVE_BYTES", src)
-        self.assertIn('window.location.replace', src)
+        self.assertIn('window.location.reload', src)
+        self.assertIn('FS.syncfs(false', src)
+        self.assertIn('func _validated_profile', src)
+        self.assertIn('Save._read(VALIDATION_PATH)', src)
         self.assertNotIn("fetch(", src)
         self.assertNotIn("XMLHttpRequest", src)
 

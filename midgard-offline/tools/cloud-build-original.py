@@ -234,14 +234,23 @@ def write_context(project, work, translation):
         entries = json.loads(file.read_text(encoding="utf-8"))
         new_sources.update(entries)
     not_found = sorted(new_sources - source_strings)
+    retired_config = json.loads((ROOT / "config/retired-translation-keys.json").read_text(encoding="utf-8"))
+    update_config = json.loads((ROOT / "config/official-update.json").read_text(encoding="utf-8"))
+    if (retired_config["upstream_version"] != update_config["version"] or
+            retired_config["publisher_patch_sha256"] != update_config["sha256"]):
+        raise ValueError("Review historical translation keys for the new upstream patch")
+    retired = set(retired_config["retired_source_keys"])
+    unexpected_missing = sorted(set(not_found) - retired)
     missing_translation = sorted(key for key in new_sources if key not in dictionary)
     recent_audit = {
         "batch_range": "021-061",
         "new_unique_strings": len(new_sources),
         "found_in_catalog": len(new_sources) - len(not_found),
         "unmatched_source_keys": not_found,
+        "retired_upstream_source_keys": sorted(set(not_found) & retired),
+        "unexpected_missing_source_keys": unexpected_missing,
         "missing_translation_keys": missing_translation,
-        "passed": not not_found and not missing_translation,
+        "passed": not unexpected_missing and not missing_translation,
     }
     (context / "recent-localization-qa.json").write_text(
         json.dumps(recent_audit, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -327,6 +336,9 @@ def build(target):
         extract_safe(path, tool_dir / name)
     godot = executable(tool_dir / "godot_linux", "godot")
     gdre = executable(tool_dir / "gdre_linux", "gdre")
+    run([sys.executable, "-m", "unittest", "discover", "-s", ROOT / "tests",
+         "-p", "test_original_save_runtime.py", "-v"],
+        env={**os.environ, "SVV_GODOT": str(godot)})
     # Portable editor settings stay inside this workspace.
     (godot.parent / "_sc_").touch()
     templates_archive = download(config["templates"], archives / "templates.tpz")
@@ -346,8 +358,16 @@ def build(target):
     project = work / "prepared"
     if recovered.exists() or project.exists():
         raise ValueError("Use a fresh runner/work directory; refusing to overwrite a recovered project")
-    run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
+    base_recovered = work / "base-recovered"
+    run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(base_recovered), "--exclude=res://eos/credentials.cfg"])
+    updated = own_tool("update-original-client").apply_update(godot, client, base_recovered, work / "publisher-update")
+    run([gdre, "--headless", "--recover=" + str(updated), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
     own_tool("prepare-original-offline").prepare(recovered, project)
+    upstream = json.loads((ROOT / "config/official-update.json").read_text(encoding="utf-8"))
+    project_config = project / "project.godot"
+    project_config.write_text(own_tool("prepare-original-offline").set_setting(
+        project_config.read_text(encoding="utf-8"), "application", "config/version",
+        json.dumps(upstream["version"] + "-offline-test")), encoding="utf-8")
     # User-authored title art replaces the old character-selection wallpaper
     # after the original menu builds. It does not change the game scene or save.
     own_tool("install-start-background").install(project)
@@ -537,7 +557,8 @@ def build(target):
         run([java / "bin/keytool", "-genkeypair", "-keystore", keystore, "-storepass", "android", "-alias", "androiddebugkey", "-keypass", "android", "-dname", "CN=Android Debug,O=Android,C=US", "-keyalg", "RSA", "-keysize", "2048", "-validity", "3650"])
         run([sys.executable, TOOLS / "create-original-android-preset.py", project, "--templates", templates, "--debug-keystore", keystore])
         run([sys.executable, TOOLS / "export-original-android.py", "--godot", godot, "--project", project, "--java-home", java, "--android-sdk", sdk, "--debug-keystore", keystore, "--output", output / "MidgardSVV-Original-Offline-Android-DEBUG-TEST.apk"])
-    report = {"target": target, "base_pck_sha256": digest(client), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False, "prontera_visual_qa": visual_qa, "rare_job_visual_qa": rare_visual_qa, "rare_job_motion_qa": rare_motion_qa, "rare_job_composition_qa": rare_composed_qa}
+    upstream = json.loads((ROOT / "config/official-update.json").read_text(encoding="utf-8"))
+    report = {"target": target, "base_pck_sha256": digest(client), "upstream_version": upstream["version"], "publisher_patch_sha256": upstream["sha256"], "updated_pck_sha256": digest(updated), "godot": config["godot_version"], "gdre": config["gdre_version"], "translation": translation, "source_runtime_qa": "passed", "full_feature_acceptance": False, "native_llm": False, "prontera_visual_qa": visual_qa, "rare_job_visual_qa": rare_visual_qa, "rare_job_motion_qa": rare_motion_qa, "rare_job_composition_qa": rare_composed_qa}
     (output / "BUILD_STATUS.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     sums = [digest(path) + "  " + path.name for path in output.iterdir() if path.is_file()]
     (output / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")

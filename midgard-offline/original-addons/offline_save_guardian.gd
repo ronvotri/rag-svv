@@ -38,7 +38,11 @@ static func _write_atomically(path: String, data: PackedByteArray) -> bool:
 		return false
 	writer.store_buffer(data)
 	writer.flush()
+	var written_ok := writer.get_error() == OK
 	writer.close()
+	if not written_ok or _read_bytes(temp) != data:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(temp))
+		return false
 	var result := DirAccess.rename_absolute(ProjectSettings.globalize_path(temp), ProjectSettings.globalize_path(path))
 	if result != OK:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(temp))
@@ -69,6 +73,28 @@ func _notification(what: int) -> void:
 		if Save != null:
 			Save.flush()
 			snapshot()
+
+func capture_import_state() -> Dictionary:
+	# Capture exact metadata as well as bytes: a failed import must not reset
+	# monotonic counters or rotate the old safety snapshots.
+	var state := {}
+	for slot in ["latest", "previous"]:
+		for suffix in ["", ".json"]:
+			var path: String = _path(str(Save._name), str(slot)) + str(suffix)
+			state[path] = _read_bytes(path) if FileAccess.file_exists(path) else null
+	return state
+
+
+func restore_import_state(state: Dictionary) -> bool:
+	var success := true
+	for path in state:
+		if state[path] == null:
+			if FileAccess.file_exists(path):
+				success = DirAccess.remove_absolute(ProjectSettings.globalize_path(path)) == OK and success
+		else:
+			success = _write_atomically(path, state[path]) and success
+	return success
+
 
 func adopt_imported_profile(content: PackedByteArray) -> bool:
 	# An explicit user import creates a new save lineage. Preserve the prior
