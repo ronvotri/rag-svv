@@ -165,10 +165,10 @@ def stage(source: Path, output: Path, version: str,
 
     # New authored key art: portable text bytes are decoded when Pages is staged.
     # A pinned digest guarantees the exact reviewed image, keeping JPEG fallback.
-    splash_encoded = ROOT / "original-addons/svv_loading_keyart.avif.b64"
-    expected_splash_sha256 = "2fde8e202e337f8c1d2badfe834197cf08fdfca00835ef7f9292f794908bf232"
-    if splash_encoded.is_file():
-        raw = splash_encoded.read_text(encoding="ascii").strip()
+    splash_parts = [ROOT / ("original-addons/svv_loading_keyart.avif.b64.part%d" % i) for i in range(3)]
+    expected_splash_sha256 = "3935ad9df65f558e6dda8d1129dfe40fbc78538bc884cb05bb701dfb76daaaae"
+    if all(part.is_file() for part in splash_parts):
+        raw = "".join(part.read_text(encoding="ascii").strip() for part in splash_parts)
         image_bytes = base64.b64decode(raw, validate=True)
         if (len(image_bytes) >= 3_000_000 or len(image_bytes) < 10_000
                 or image_bytes[4:12] != b"ftypavif"
@@ -180,9 +180,7 @@ def stage(source: Path, output: Path, version: str,
             "name": avif.name, "size": avif.stat().st_size, "sha256": sha256(avif)
         })
     else:
-        # Missing approved image is allowed in fixture/unit tests only. The
-        # publish workflow checks for the AVIF asset before deployment.
-        pass
+        raise ValueError("Approved key art source parts missing")
 
     asset_map = {
         "schema": 1, "version": version,
