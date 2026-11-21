@@ -102,7 +102,8 @@ jobs:
           {
             echo "## Ragnarok Web: Pages-only deployment submitted"
             echo "Project: rag-svv-web"
-            echo "Original client commit: ${{ steps.pack.outputs.sha }}\n            echo "Preview: Wave 28 Cole/Haneul visual-only Town QA.""
+            echo "Original client commit: ${{ steps.pack.outputs.sha }}"
+            echo "Preview: Wave 28 Cole/Haneul visual-only Town QA."
             echo "HTTPS site: https://rag-svv-web.pages.dev"
             echo "No R2, database or backend gameplay server."
             echo "Browser/device QA and player-save QA are still required."
