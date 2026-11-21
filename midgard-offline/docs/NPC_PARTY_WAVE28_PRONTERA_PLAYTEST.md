@@ -25,15 +25,15 @@ Download the **original-offline-windows-TEST** artifact for a successful Wave 28
 
 At commit creation: **Godot build and in-game interactive QA still pending**. Python unit-test PASS by itself is not a playable client or valid art/animation signoff. Screenshots from CI, when available, are evidence, not acceptance. These NPCs remain unapproved for production, and this branch must remain Draft, unmerged and undeployed.
 
-## Web test site (separate from production)
+## Web publishing to the existing Pages URL (explicit manual action)
 
-Wave 28 Web QA uses a build-time setting `application/config/svv_web_npc_qa=true`, set exclusively in the `Original client - Web package QA` workflow for `feature/offline-friends-wave12-prontera-playtest`. This shows composed Cole/Haneul in Prontera on browser QA, without requiring Windows CLI flags. Normal non-preview builds do not enable them; they remain non-recruitable.
+The user prefers to reuse their existing Cloudflare Pages project: **`rag-svv-web`**, at **https://rag-svv-web.pages.dev**. Do not create a separate project, URL or route.
 
-To publish **only if you have rights to publicly redistribute the original game assets**:
+- The Wave 28 Web package is built with `SVV_WEB_NPC_QA=1` in the dedicated branch and uses `application/config/svv_web_npc_qa=true` to show Cole/Haneul for visual QA. They remain **non-recruitable**; regular Windows/default builds stay gated.
+- First verify **Original client - Web package QA** reaches SUCCESS. It publishes private Actions artifacts only, no site changes.
+- The manual **Ragnarok SVV - publish original Web (Pages Free)** workflow has been customized **on the Wave 28 branch only** to rebuild that branch and deploy to the **existing** Pages project and its detected production branch. The main/default publish workflow still builds `feature/original-offline` and must not be used for Wave 28 testing.
+- Publishing original game assets requires permission to publicly redistribute them. The publish workflow explicitly requires `redistribution_rights_confirmed=true`; the user must review and tick this only if authorized.
+- In GitHub Actions: select **Ragnarok SVV - publish original Web (Pages Free)**, choose **Run workflow**, select branch `feature/offline-friends-wave12-prontera-playtest`, tick the rights confirmation if true, run it, and verify the green publish job and Cloudflare deployment. It uses the existing secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`, not R2.
+- Then test **https://rag-svv-web.pages.dev**; refresh stale Godot/PWA assets if necessary. Note that this overwrites the live site and could affect testers even though it does not merge `main`. Back up saves before QA.
 
-1. Wait until the Wave 28 `Original client - Web package QA` workflow is **SUCCESS**.
-2. In its **Artifacts**, download `npc-party-wave28-pages-ready` and extract the ZIP. The extracted folder root must contain `index.html`, `game.html`, `godot-split-sw.js`, and split WASM/PCK parts.
-3. Go to your own Cloudflare dashboard, Workers & Pages, create a **new Direct Upload Pages project for this QA only** (do not overwrite `rag-svv-web` production), and upload the extracted static folder. The dashboard returns a real `*.pages.dev` URL after successful deployment.
-4. Open the new URL in a browser; test Prontera, click Cole/Haneul, and report any missing hair, incorrect depth or tap-target issues. Protect testers' saves; no gameplay acceptance is implied by package validation.
-
-The build workflow **does not upload original assets publicly automatically**; no public URL exists merely because CI succeeded. If rights are not confirmed, keep the archive for local testing only.
+Do not claim published or playable until both build and publish jobs complete and the browser is tested. If rights cannot be confirmed, do not publicly deploy; use a local Web package or Windows QA build instead.
