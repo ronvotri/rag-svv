@@ -48,6 +48,15 @@ func _run() -> void:
 				" approved_for_town=", motion_report.get("approved_for_town", true))
 		else:
 			push_warning("RARE_NPC_MOTION missing optional original motion probe")
+		# Source character factory composes gendered body + head/hair. QA only.
+		var composed_script: Script = load("res://addons/svv_offline/qa/rare_job_composed.gd")
+		if composed_script != null:
+			var composed_helper = composed_script.new()
+			var composed_report: Dictionary = await composed_helper.capture(folder)
+			print("RARE_NPC_COMPOSED_CHECK entries=", composed_report.get("entries", []).size(),
+				" approved_for_town=", composed_report.get("approved_for_town", true))
+		else:
+			push_warning("RARE_NPC_COMPOSED missing full-character QA probe")
 		get_tree().quit()
 		return
 	Save.set_setting("privacy_seen", true)
