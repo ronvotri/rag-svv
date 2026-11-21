@@ -2,7 +2,7 @@ name: Original client - Web package QA
 on:
   workflow_dispatch:
   push:
-    branches: [feature/original-offline, feature/offline-friends-wave12-prontera-playtest, upgrade/upstream-0.2.5-save-portability, upgrade/upstream-0.2.7-web , feature/friends-ui-loading-art-wave29]
+    branches: [feature/original-offline, feature/offline-friends-wave12-prontera-playtest, upgrade/upstream-0.2.5-save-portability, upgrade/upstream-0.2.7-web , feature/friends-ui-loading-art-wave29, feature/offline-destinations-friends-portraits-wave31]
     paths:
       - '.github/workflows/original-web-qa.yml'
       - 'midgard-offline/tools/cloud-build-original.py'
