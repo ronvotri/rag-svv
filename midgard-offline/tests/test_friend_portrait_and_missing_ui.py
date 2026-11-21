@@ -17,7 +17,7 @@ class FriendPortraitAndTextTests(unittest.TestCase):
         self.assertEqual(len(contents), 231582)
         self.assertEqual(hashlib.sha256(contents).hexdigest(),
                          "a4f8dd78ccf12fcdb5cab274e6d9ebb1c50b4281aea72252061d9a994857ea6f")
-        self.assertEqual(contents[:3], b"\\xff\\xd8\\xff")
+        self.assertEqual(contents[:3], bytes([0xff, 0xd8, 0xff]))
 
     def test_all_eleven_jobs_have_portraits_and_preserve_save_paths(self):
         script = GD.read_text("utf-8")
