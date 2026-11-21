@@ -2,7 +2,7 @@ name: Original client - Web package QA
 on:
   workflow_dispatch:
   push:
-    branches: [feature/original-offline]
+    branches: [feature/original-offline, feature/offline-friends-wave12-prontera-playtest]
     paths:
       - '.github/workflows/original-web-qa.yml'
       - 'midgard-offline/tools/cloud-build-original.py'
@@ -30,7 +30,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: original-web-qa
+  group: original-web-qa-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   web:
@@ -50,6 +50,8 @@ jobs:
           python -m unittest discover -s midgard-offline/tests -p 'test_*.py'
           python -m py_compile midgard-offline/tools/*.py
       - name: Reconstruct and export the ORIGINAL Godot Web client
+        env:
+          SVV_WEB_NPC_QA: ${{ github.ref == 'refs/heads/feature/offline-friends-wave12-prontera-playtest' && '1' || '0' }}
         run: python midgard-offline/tools/cloud-build-original.py --target web
       - name: Verify exported Web package structure
         run: |
@@ -98,6 +100,17 @@ jobs:
           print("PAGES FREE QA PASS:", len(assets), "files,", len(manifest["large_assets"]), "split assets")
           print("Note: no public upload; browser-level QA remains.")
           PY
+      # Private Actions artifact. A user must separately confirm redistribution
+      # rights and upload it to a distinct Cloudflare Pages testing project.
+      # No public deployment is performed in CI.
+      - name: Upload Pages-ready NPC Party preview static site
+        if: github.ref == 'refs/heads/feature/offline-friends-wave12-prontera-playtest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npc-party-wave28-pages-ready
+          path: midgard-offline/work/cloud/cloudflare-deploy/public/
+          if-no-files-found: error
+          retention-days: 3
       - name: Upload original Godot Web client TEST artifact
         uses: actions/upload-artifact@v4
         with:

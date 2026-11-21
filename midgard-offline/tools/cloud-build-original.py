@@ -361,6 +361,15 @@ def build(target):
     translation = own_tool("localize_original").localize(project, ROOT / "patches/vi-ui.json", fonts / "NotoSans-Regular.ttf", fonts / "NotoSans-Bold.ttf")
     shutil.copyfile(fonts / "OFL.txt", project / "assets/ro/fonts/NotoSans-OFL.txt")
     own_tool("install-original-assistant").install(project)
+    # Enable temporary Cole/Haneul Town visuals only in an explicitly opted-in
+    # Web preview export. Never activate this for normal production builds.
+    if target == "web" and os.environ.get("SVV_WEB_NPC_QA") == "1":
+        preview_config = project / "project.godot"
+        old = preview_config.read_text(encoding="utf-8")
+        new = own_tool("prepare-original-offline").set_setting(
+            old, "application", "config/svv_web_npc_qa", "true")
+        preview_config.write_text(new, encoding="utf-8", newline="\n")
+        print("NPC_WEB_QA_PREVIEW enabled; rare NPCs non-recruitable")
     write_context(project, work, translation)
     run([sys.executable, TOOLS / "create-original-presets.py", project, templates])
     run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
@@ -498,7 +507,20 @@ def build(target):
         folder = output / "MidgardSVV-Original-Offline-Windows-TEST"
         folder.mkdir(exist_ok=True)
         run([godot, "--headless", "--path", project, "--export-debug", "Windows Offline", folder / "MidgardSVVOffline.exe"])
-        (folder / "READ-ME.txt").write_text(notice, encoding="utf-8")
+        # Dedicated Windows launcher opts into the isolated QA profile.
+        # Normal EXE startup never enables unreleased Cole/Haneul placement.
+        launcher = folder / "TEST-PRONTERA-NPC-QA.cmd"
+        launcher.write_text(
+            '@echo off\r\ncd /d "%~dp0"\r\n"MidgardSVVOffline.exe" -- --offline-test --rare-town-qa\r\n',
+            encoding="utf-8")
+        playtest_notice = (
+            notice
+            + "\nWave 28: double-click TEST-PRONTERA-NPC-QA.cmd to open an isolated QA profile.\n"
+            + "Mira/Alden/Eira/Elowen/Riku/Mino have quest-based recruitment on this staging branch.\n"
+            + "Cole/Haneul are visible for visual/dialog QA only; they cannot be recruited yet.\n"
+            + "Never confuse a CI PASS with gameplay or art acceptance.\n"
+        )
+        (folder / "READ-ME.txt").write_text(playtest_notice, encoding="utf-8")
         archive_folder(folder, output / (folder.name + ".zip"))
     elif target == "web":
         folder = output / "MidgardSVV-Original-Offline-Web-TEST"

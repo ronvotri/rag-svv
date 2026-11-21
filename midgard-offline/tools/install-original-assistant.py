@@ -43,6 +43,11 @@ def install(project):
     if not companions_source.is_file():
         raise ValueError("Authored companion town NPC addon missing")
     shutil.copyfile(companions_source, destination.parent / companions_source.name)
+    # Gated on --offline-test AND --rare-town-qa; production ignores it.
+    rare_town = source.parent / "rare_town_qa.gd"
+    if not rare_town.is_file():
+        raise ValueError("Wave 28 rare Town QA addon missing")
+    shutil.copyfile(rare_town, destination.parent / rare_town.name)
     guardian_source = source.parent / "offline_save_guardian.gd"
     if not guardian_source.is_file():
         raise ValueError("Authored offline save guardian missing")
@@ -91,6 +96,7 @@ def install(project):
         'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
         'SVVMiraTown="*res://addons/svv_offline/mira_town.gd"',
         'SVVCompanionTown="*res://addons/svv_offline/companions_town.gd"',
+        'SVVRareTownQA="*res://addons/svv_offline/rare_town_qa.gd"',
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
         'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
         'SVVWebMapSafeFit="*res://addons/svv_offline/web_map_safe_fit.gd"',
