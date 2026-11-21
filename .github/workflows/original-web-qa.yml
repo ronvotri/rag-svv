@@ -2,7 +2,7 @@ name: Original client - Web package QA
 on:
   workflow_dispatch:
   push:
-    branches: [feature/original-offline]
+    branches: [feature/original-offline, feature/offline-friends-wave12-prontera-playtest]
     paths:
       - '.github/workflows/original-web-qa.yml'
       - 'midgard-offline/tools/cloud-build-original.py'
@@ -30,7 +30,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: original-web-qa
+  group: original-web-qa-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   web:
