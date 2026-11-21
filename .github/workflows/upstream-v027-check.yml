@@ -1,0 +1,59 @@
+name: Upstream 0.2.7 - verify cumulative publisher patch
+
+on:
+  push:
+    branches: [upgrade/upstream-0.2.7-web]
+    paths:
+      - 'midgard-offline/config/official-update.json'
+      - '.github/workflows/upstream-v027-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compare pinned version/size/SHA with publisher manifest and verify the downloaded binary
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import urllib.request
+          from urllib.parse import urlsplit
+
+          config = json.loads(Path("midgard-offline/config/official-update.json").read_text("utf-8"))
+          assert config["version"] == "0.2.7"
+          assert config["base_version"] == "0.2.0"
+          assert urlsplit(config["url"]).hostname == "updates.midgardsurvivors.com"
+          req = urllib.request.Request(config["manifest"], headers={"User-Agent": "RAG-SVV-upstream-qa/1.0"})
+          with urllib.request.urlopen(req, timeout=45) as response:
+              manifest = json.load(response)
+          patch = manifest["patch"]
+          assert manifest["base"] == config["base_version"]
+          assert patch["version"] == config["version"]
+          assert patch["size"] == config["size"]
+          assert patch["sha256"] == config["sha256"]
+          assert config["url"] == "https://updates.midgardsurvivors.com/" + patch["file"]
+          req = urllib.request.Request(config["url"], headers={"User-Agent": "RAG-SVV-upstream-qa/1.0"})
+          digest = hashlib.sha256()
+          total = 0
+          with urllib.request.urlopen(req, timeout=120) as response:
+              assert response.status == 200
+              while chunk := response.read(1 << 20):
+                  total += len(chunk)
+                  assert total <= config["size"], "Publisher patch exceeded pinned size"
+                  digest.update(chunk)
+          assert total == config["size"], "Publisher patch size mismatch"
+          assert digest.hexdigest() == config["sha256"], "Publisher patch SHA-256 mismatch"
+          print("UPSTREAM 0.2.7 PATCH PIN VERIFIED: %d bytes, SHA-256 %s" % (total, digest.hexdigest()))
+          print("No original client recovered, no patch persisted, no public deployment.")
+          PY
