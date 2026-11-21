@@ -9,7 +9,7 @@ on:
         options: [windows, web, android]
   push:
     # The 0.2.7 Web staging branch has its own package QA; avoid duplicate upstream downloads.
-    branches-ignore: [upgrade/upstream-0.2.7-web]
+    branches-ignore: [upgrade/upstream-0.2.7-web, release/ragnarok-web]
     paths:
       - 'midgard-offline/original-addons/**'
       - 'midgard-offline/patches/**'
