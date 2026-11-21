@@ -1,5 +1,13 @@
 name: Ragnarok SVV - publish original Web (Pages Free)
 on:
+  # Auto-release only when this dedicated release branch changes.
+  # Public redistribution still requires a one-time repository opt-in:
+  # RAGNAROK_AUTO_DEPLOY_WEB=true (set only if game asset rights are confirmed).
+  push:
+    branches: [release/ragnarok-web]
+    paths:
+      - '.github/workflows/original-web-publish.yml'
+      - 'midgard-offline/**'
   workflow_dispatch:
     inputs:
       redistribution_rights_confirmed:
@@ -14,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    if: ${{ inputs.redistribution_rights_confirmed == true }}
+    if: ${{ (github.event_name == 'push' && vars.RAGNAROK_AUTO_DEPLOY_WEB == 'true') || (github.event_name == 'workflow_dispatch' && inputs.redistribution_rights_confirmed == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     environment: web-production
@@ -25,8 +33,8 @@ jobs:
       - name: Checkout the original client tooling (no game assets in Git)
         uses: actions/checkout@v4
         with:
-          # Publish the exact upstream-0.2.5 commit whose Web QA already passed.
-          ref: c8fae0e1017013aef2c222e4d34cc626e1d7cb3f
+          # Always use the exact release commit, never an unrelated development head.
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -34,10 +42,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Ensure this is the intended 0.2.5 production deployment
+      - name: Ensure this is the dedicated production release branch
         run: |
-          test "$GITHUB_REF_NAME" = "upgrade/upstream-0.2.5-save-portability"
-          test "$(git rev-parse HEAD)" = "c8fae0e1017013aef2c222e4d34cc626e1d7cb3f"
+          test "$GITHUB_REF_NAME" = "release/ragnarok-web"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Verify Pages credentials (R2 credentials are NOT required)
         run: |
           test -n "$CLOUDFLARE_ACCOUNT_ID"
@@ -103,7 +111,7 @@ jobs:
             echo "## Ragnarok Web: Pages-only deployment submitted"
             echo "Project: rag-svv-web"
             echo "Original client commit: ${{ steps.pack.outputs.sha }}"
-            echo "Release: Original offline client 0.2.5 with existing Vietnamese/addon patches and save portability fixes."
+            echo "Release branch: release/ragnarok-web (pinned to commit ${{ github.sha }})."
             echo "HTTPS site: https://rag-svv-web.pages.dev"
             echo "No R2, database or backend gameplay server."
             echo "Browser/device QA and player-save QA are still required."
