@@ -17,8 +17,41 @@ var callback_sync: JavaScriptObject
 var import_in_progress := false
 var import_old_bytes := PackedByteArray()
 var import_guardian_state: Dictionary = {}
+var import_run_captured := false
+var import_run_existed := false
+var import_run_path := ""
+var import_run_bytes := PackedByteArray()
 var import_was_paused := false
 const VALIDATION_PATH := "user://svv-import-validation.tmp"
+# Newer original clients rescue a closed tab from localStorage by save_seq.
+# An explicit import must replace that rescue too, even when its sequence is
+# lower. Keep the prior rescue in memory until the IndexedDB transaction ends.
+const RESCUE_IMPORT_JS := """
+(function (key, payload) {
+    if (window._svvRescueBeforeImport) return false;
+    try {
+        const previous = localStorage.getItem(key);
+        window._svvRescueBeforeImport = {key: key, value: previous};
+        localStorage.setItem(key, payload);
+        return localStorage.getItem(key) === payload;
+    } catch (error) { return false; }
+})
+"""
+const RESCUE_ROLLBACK_JS := """
+(function () {
+    const prior = window._svvRescueBeforeImport;
+    if (!prior) return true;
+    try {
+        if (localStorage.getItem(prior.key) !== prior.value) {
+            if (prior.value === null) localStorage.removeItem(prior.key);
+            else localStorage.setItem(prior.key, prior.value);
+        }
+        if (localStorage.getItem(prior.key) !== prior.value) return false;
+        delete window._svvRescueBeforeImport;
+        return true;
+    } catch (error) { return false; }
+})()
+"""
 # JavaScriptBridge.eval's local context is the pinned Godot runtime. Wait for
 # its in-flight sync, then commit IDBFS and reload ONLY after the callback.
 const IMPORT_SYNC_JS := """
@@ -172,6 +205,8 @@ func _before_import_path() -> String:
 
 func _current_save_bytes() -> PackedByteArray:
 	Save.flush()
+	if Save._dirty:
+		return PackedByteArray()
 	var path := _save_path()
 	if not FileAccess.file_exists(path):
 		return PackedByteArray()
@@ -299,7 +334,7 @@ func _validated_profile(bytes: PackedByteArray) -> bool:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(VALIDATION_PATH))
 	if not parsed.get("version") is float and not parsed.get("version") is int:
 		return false
-	if int(parsed.get("version", 0)) != int(Save.VERSION):
+	if float(parsed.get("version", 0)) != float(Save.VERSION):
 		return false
 	for field in ["settings", "stats", "classes", "cards", "upgrades", "stages"]:
 		if not parsed.get(field) is Dictionary:
@@ -307,6 +342,33 @@ func _validated_profile(bytes: PackedByteArray) -> bool:
 	if not parsed.get("zeny") is float and not parsed.get("zeny") is int:
 		return false
 	return is_finite(float(parsed.zeny)) and float(parsed.zeny) >= 0.0
+
+
+func _web_rescue_key() -> String:
+	# Read only the publisher's rescue prefix, never duplicate format constants
+	# or assume that an older base client has this newer rescue mechanism.
+	var constants: Dictionary = Save.get_script().get_script_constant_map()
+	var prefix: String = str(constants.get("WEB_RESCUE", ""))
+	return "" if prefix.is_empty() else prefix + str(Save._name)
+
+
+func _begin_web_rescue_import(bytes: PackedByteArray) -> bool:
+	if not OS.has_feature("web"):
+		return true
+	var key := _web_rescue_key()
+	if key.is_empty():
+		return true
+	var js := "(%s)(%s,%s)" % [RESCUE_IMPORT_JS, JSON.stringify(key), JSON.stringify(Marshalls.raw_to_base64(bytes))]
+	if JavaScriptBridge.eval(js) == true:
+		return true
+	_rollback_web_rescue()
+	return false
+
+
+func _rollback_web_rescue() -> bool:
+	if not OS.has_feature("web"):
+		return true
+	return JavaScriptBridge.eval(RESCUE_ROLLBACK_JS) == true
 
 
 func _apply_import(bytes: PackedByteArray) -> void:
@@ -324,19 +386,27 @@ func _apply_import(bytes: PackedByteArray) -> void:
 		return
 	# Preserve the old encrypted profile before any replacement.
 	var old_data := _current_save_bytes()
+	if Save._dirty:
+		_alert("Chưa ghi được tiến trình hiện tại. Đã hủy nhập; hãy kiểm tra dung lượng lưu và thử lại.")
+		return
 	if old_data.size() >= 32:
 		if not SVVSaveGuardian._write_atomically(_before_import_path(), old_data):
 			_alert("Không tạo được bản dự phòng. Đã hủy nhập để tránh mất save.")
 			return
 		SVVSaveGuardian.backup_now()
 	var guard_state: Dictionary = SVVSaveGuardian.capture_import_state()
+	if not _begin_web_rescue_import(bytes):
+		_alert("Không đọc/ghi được bản cứu hộ của trình duyệt. Chưa thay profile; hãy kiểm tra quyền lưu và dung lượng trang web.")
+		return
 	if not SVVSaveGuardian._write_atomically(_save_path(), bytes):
+		_rollback_web_rescue()
 		_alert("Không ghi được save mới. Bản cũ đã được giữ để khôi phục.")
 		return
 	if not SVVSaveGuardian.adopt_imported_profile(bytes):
 		if old_data.size() >= 32:
 			SVVSaveGuardian._write_atomically(_save_path(), old_data)
 		SVVSaveGuardian.restore_import_state(guard_state)
+		_rollback_web_rescue()
 		_alert("Không xác nhận được bản bảo hiểm save nhập. Đã thử phục hồi save cũ.")
 		return
 	import_in_progress = true
@@ -350,6 +420,9 @@ func _apply_import(bytes: PackedByteArray) -> void:
 	Save.set_process(false)
 	SVVSaveGuardian.set_process(false)
 	if OS.has_feature("web"):
+		if not _stage_import_run():
+			_import_synced(["RUN_CLEAR_ERROR"])
+			return
 		if callback_sync == null:
 			callback_sync = JavaScriptBridge.create_callback(_import_synced)
 		var browser: JavaScriptObject = JavaScriptBridge.get_interface("window")
@@ -358,6 +431,39 @@ func _apply_import(bytes: PackedByteArray) -> void:
 			_import_synced(["UNAVAILABLE"])
 	else:
 		_finish_native_import()
+
+
+func _stage_import_run() -> bool:
+	# Profile replacement and removal of the previous character's run must
+	# reach IndexedDB in the SAME sync. Keep its exact bytes for rollback.
+	import_run_captured = false
+	import_run_path = RunSave.path()
+	import_run_existed = FileAccess.file_exists(import_run_path)
+	import_run_bytes = PackedByteArray()
+	if import_run_existed:
+		var reader := FileAccess.open(import_run_path, FileAccess.READ)
+		if reader == null:
+			return false
+		var expected_size := reader.get_length()
+		import_run_bytes = reader.get_buffer(expected_size)
+		reader.close()
+		if import_run_bytes.size() != expected_size:
+			return false
+	import_run_captured = true
+	RunSave.clear()
+	return not FileAccess.file_exists(import_run_path)
+
+
+func _rollback_import_run() -> bool:
+	if not import_run_captured:
+		return true
+	if import_run_existed:
+		if FileAccess.file_exists(import_run_path) and FileAccess.get_file_as_bytes(import_run_path) == import_run_bytes:
+			return true
+		return SVVSaveGuardian._write_atomically(import_run_path, import_run_bytes)
+	if FileAccess.file_exists(import_run_path):
+		return DirAccess.remove_absolute(ProjectSettings.globalize_path(import_run_path)) == OK
+	return true
 
 
 func _import_synced(arguments: Array) -> void:
@@ -369,18 +475,24 @@ func _import_synced(arguments: Array) -> void:
 		else:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(_save_path()))
 		SVVSaveGuardian.restore_import_state(import_guardian_state)
-		JavaScriptBridge.force_fs_sync()
+		var rescue_restored := _rollback_web_rescue()
+		var run_restored := _rollback_import_run()
+		if OS.has_feature("web"):
+			JavaScriptBridge.force_fs_sync()
 		import_in_progress = false
 		Save.set_process(true)
 		SVVSaveGuardian.set_process(true)
 		get_tree().paused = import_was_paused
-		_alert("Không lưu được save nhập vào trình duyệt. Đã giữ save cũ; hãy kiểm tra dung lượng và quyền lưu của trang.")
+		if not run_restored:
+			_alert("Lỗi ghi trình duyệt; profile cũ đã được giữ nhưng chưa phục hồi được snapshot lượt chơi. Hãy giữ game mở và sao lưu trước khi thử lại.")
+		elif rescue_restored:
+			_alert("Không lưu được save nhập vào trình duyệt. Đã giữ save cũ; hãy kiểm tra dung lượng và quyền lưu của trang.")
+		else:
+			_alert("Lỗi ghi trình duyệt; không phục hồi được bản cứu hộ localStorage. Bản profile cũ vẫn ở tệp trước-lần-nhập. Hãy xuất một bản sao trước khi đóng game.")
 		return
-	# Profile imports are between runs. A run belonging to the replaced profile
-	# must never resume into an unrelated imported character.
-	RunSave.clear()
-	# The profile is already durable; persist removal of the stale run too.
-	if JavaScriptBridge.eval("(function(){FS.syncfs(false,function(error){if(error){window.alert('Save đã nhập nhưng chưa lưu được trạng thái kết thúc lượt. Hãy giữ game mở và thử lại.');return;}window.location.reload();});return true;})()") != true:
+	# Profile, Guardian files and stale-run removal are already durable in a
+	# single completed sync. Never start a second transaction before reload.
+	if JavaScriptBridge.eval("window.location.reload(); true") != true:
 		_alert("Save đã nhập. Hãy đóng rồi mở lại game.")
 
 

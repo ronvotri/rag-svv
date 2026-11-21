@@ -56,8 +56,10 @@ def merge_packs(packs, output):
         offset += entry["size"]
         offset += -offset % 16
     output.parent.mkdir(parents=True, exist_ok=True)
+    created = False
     try:
         with output.open("xb") as dst:
+            created = True
             dst.write(b"GDPC" + struct.pack("<I3IIQ", 2, *map(int, engine.split(".")), 0, 0))
             dst.write(b"\0" * 64 + struct.pack("<I", len(records)))
             for name, _, entry, position in records:
@@ -82,7 +84,8 @@ def merge_packs(packs, output):
                     raise ValueError("Resource checksum mismatch")
         inventory(output)
     except Exception:
-        output.unlink(missing_ok=True)
+        if created:
+            output.unlink(missing_ok=True)
         raise
     return output
 

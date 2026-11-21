@@ -16,6 +16,8 @@ File xuất là **tiến trình giữa các lượt**, không chuyển trận đ
 - Giao diện cũ gọi `get_vbox()` trên `AcceptDialog`, API không tồn tại trong Godot 4.7.2; nút mở save có thể báo lỗi trước khi hiện các thao tác. Nay tạo `VBoxContainer` thực và lồng hộp xác nhận vào đúng cửa sổ.
 - Web từng tải lại ngay sau khi ghi bộ nhớ ảo, trước khi IndexedDB lưu xong. Nay chờ callback ghi bền vững, dừng autosave cũ trong lúc nhập và phục hồi profile cùng metadata Guardian nếu ghi thất bại.
 - File có checksum đúng nhưng nội dung sai từng được nhận. Nay dùng staging để giải mã/kiểm tra trước khi thay save thật.
+- Bản gốc 0.2.5 có bản cứu hộ localStorage theo số lần lưu. Khi nhập JSON, thay cả bản cứu hộ cùng giao dịch để nó không ghi đè save vừa nhập; lỗi ghi phục hồi cả hai.
+- CSP của Web cho phép cơ chế JavaScriptBridge của Godot hoạt động. Kết nối mạng vẫn giới hạn cùng địa chỉ trang.
 - Windows trước đây không có giao diện xuất/nhập; nay dùng hộp chọn file của hệ điều hành.
 
 Save vẫn lưu trên thiết bị, không tự đồng bộ qua mạng. Giữ nguyên địa chỉ Web để tiếp tục dùng kho lưu của trình duyệt; đổi domain hoặc xóa dữ liệu trang cần nhập lại JSON. Cần tự giữ một bản JSON ngoài ứng dụng trước khi xóa cache, gỡ app hay chuyển máy.

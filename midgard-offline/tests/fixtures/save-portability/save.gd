@@ -1,5 +1,6 @@
 extends Node
 const VERSION = 1
+const WEB_RESCUE = "isolated_rescue_"
 var _name = "profile_offline_test"
 var PATH = "user://profile_offline_test.json"
 var data: Dictionary = {}

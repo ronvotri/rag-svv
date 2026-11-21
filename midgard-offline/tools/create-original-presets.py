@@ -41,7 +41,7 @@ vram_texture_compression/for_desktop=true
 vram_texture_compression/for_mobile=true
 html/export_icon=true
 html/custom_html_shell=""
-html/head_include="<meta http-equiv=\\"Content-Security-Policy\\" content=\\"default-src 'self' data: blob:; connect-src 'self' blob:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';\\">"
+html/head_include="<meta http-equiv=\\"Content-Security-Policy\\" content=\\"default-src 'self' data: blob:; connect-src 'self' blob:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self' 'unsafe-inline';\\">"
 html/canvas_resize_policy=2
 html/focus_canvas_on_start=true
 html/experimental_virtual_keyboard=false

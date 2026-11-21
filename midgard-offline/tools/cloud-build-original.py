@@ -359,7 +359,10 @@ def build(target):
     if recovered.exists() or project.exists():
         raise ValueError("Use a fresh runner/work directory; refusing to overwrite a recovered project")
     base_recovered = work / "base-recovered"
-    run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(base_recovered), "--exclude=res://eos/credentials.cfg"])
+    # Only the publisher updater is needed from the base. Avoid a second full
+    # asset recovery exhausting the ephemeral runner's disk before export.
+    run([gdre, "--headless", "--recover=" + str(client), "--output=" + str(base_recovered),
+         "--include=res://scripts/autoload/updater.gdc"])
     updated = own_tool("update-original-client").apply_update(godot, client, base_recovered, work / "publisher-update")
     run([gdre, "--headless", "--recover=" + str(updated), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
     own_tool("prepare-original-offline").prepare(recovered, project)

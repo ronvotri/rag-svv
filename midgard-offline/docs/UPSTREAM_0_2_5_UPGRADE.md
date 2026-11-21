@@ -46,6 +46,12 @@ tất cả checksum khớp. Khôi phục được 172 script; một chuyển đ�
 không có thư viện native, addon EOS được bỏ khỏi client offline như trước.
 CI dùng trực tiếp ZIP nền 0.2.0 đã ghim, không phụ thuộc ổ E:.
 
+QA cục bộ trên project 0.2.5 tích hợp: Godot import thoát 0, không lỗi parse;
+179 kiểm tra runtime đạt, `OFFLINE_QA COMPLETE failures=0`. Bao gồm Town,
+sprite/NPC, quest, vào trận thực, bot hỗ trợ và save/resume/settlement. Có cảnh
+báo UID khi chạy trước lần import đầu và cảnh báo dọn tài nguyên headless lúc
+thoát; không coi đây là nghiệm thu hình ảnh hoặc hiệu năng thiết bị.
+
 Build/QA đạt không thay cho chơi toàn bộ nội dung mới, thử IndexedDB trên
 trình duyệt thật hoặc chuyển save trên điện thoại. Chưa công bố Android hay
 triển khai đè trang Web đang chơi chỉ dựa vào test cấu trúc.
