@@ -25,7 +25,8 @@ jobs:
       - name: Checkout the original client tooling (no game assets in Git)
         uses: actions/checkout@v4
         with:
-          ref: feature/original-offline
+          # Wave 28 only: keep release isolated from default source branch.
+          ref: feature/offline-friends-wave12-prontera-playtest
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -33,6 +34,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Ensure this run targets the Wave 28 branch only
+        run: |
+          test "$GITHUB_REF_NAME" = "feature/offline-friends-wave12-prontera-playtest"
+          test "$(git branch --show-current)" = "feature/offline-friends-wave12-prontera-playtest"
       - name: Verify Pages credentials (R2 credentials are NOT required)
         run: |
           test -n "$CLOUDFLARE_ACCOUNT_ID"
@@ -43,6 +48,8 @@ jobs:
           python -m unittest discover -s midgard-offline/tests -p 'test_*.py'
           python -m py_compile midgard-offline/tools/*.py
       - name: Rebuild original Godot Web client and run offline gameplay smoke tests
+        env:
+          SVV_WEB_NPC_QA: "1"
         run: python midgard-offline/tools/cloud-build-original.py --target web
       - name: Stage only static Cloudflare Pages assets
         id: pack
@@ -95,7 +102,7 @@ jobs:
           {
             echo "## Ragnarok Web: Pages-only deployment submitted"
             echo "Project: rag-svv-web"
-            echo "Original client commit: ${{ steps.pack.outputs.sha }}"
+            echo "Original client commit: ${{ steps.pack.outputs.sha }}\n            echo "Preview: Wave 28 Cole/Haneul visual-only Town QA.""
             echo "HTTPS site: https://rag-svv-web.pages.dev"
             echo "No R2, database or backend gameplay server."
             echo "Browser/device QA and player-save QA are still required."
