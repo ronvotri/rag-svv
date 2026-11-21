@@ -52,6 +52,12 @@ def install(project):
     if not companions_source.is_file():
         raise ValueError("Authored companion town NPC addon missing")
     shutil.copyfile(companions_source, destination.parent / companions_source.name)
+    # Explicitly separate local practice/party simulation from publisher online
+    # World Boss health, Festival standings and any official reward paths.
+    event_source = source.parent / "offline_events.gd"
+    if not event_source.is_file():
+        raise ValueError("Local-only event simulator missing")
+    shutil.copyfile(event_source, destination.parent / event_source.name)
     # Gated on --offline-test AND --rare-town-qa; production ignores it.
     rare_town = source.parent / "rare_town_qa.gd"
     if not rare_town.is_file():
@@ -105,6 +111,7 @@ def install(project):
         'SVVAssistant="*res://addons/svv_offline/offline_assistant.gd"',
         'SVVMiraTown="*res://addons/svv_offline/mira_town.gd"',
         'SVVCompanionTown="*res://addons/svv_offline/companions_town.gd"',
+        'SVVOfflineEvents="*res://addons/svv_offline/offline_events.gd"',
         'SVVRareTownQA="*res://addons/svv_offline/rare_town_qa.gd"',
         'SVVSaveGuardian="*res://addons/svv_offline/offline_save_guardian.gd"',
         'SVVWebMobilePerformance="*res://addons/svv_offline/web_mobile_performance.gd"',
