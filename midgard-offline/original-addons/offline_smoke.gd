@@ -24,6 +24,21 @@ func _run() -> void:
 	check(SVVMiraTown.npc_button.text == "✚ Mira · Acolyte", "Mira has a town interaction fallback")
 	check(RoAssets.has_sprite("acolyte_f"), "original Acolyte female sprite is present")
 	check(get_tree().root.get_node_or_null("SVVCompanionTown") != null, "Alden/Eira town encounters autoloaded")
+	# Front-end icon rendering is part of recovered Godot runtime, not only
+	# static screenshot tests. All three offline destinations need real icons.
+	check(get_tree().root.get_node_or_null("SVVOfflineEvents") != null, "local event UI autoloaded")
+	for mode in ["training", "festival", "world_boss"]:
+		var option: Button = SVVOfflineEvents.mode_buttons.get(mode)
+		check(option != null and option.icon != null,
+			"offline mode " + mode + " has a rendered icon")
+	# Five stable Prontera character looks must not reuse the same hair.
+	var seen_looks: Dictionary = {}
+	for job in SVVCompanionTown.JOBS:
+		var style: Dictionary = SVVCompanionTown.NPC_LOOK.get(job, {})
+		var signature := str(style.get("hair", -1)) + ":" + str(style.get("hair_color", -1))
+		check(not seen_looks.has(signature), "unique town hair " + job)
+		seen_looks[signature] = true
+
 	for job in ["swordsman", "mage", "archer", "thief", "merchant", "novice"]:
 		var original_id: String = SVVCompanionTown._first_original_sprite(job)
 		if job == "novice":
