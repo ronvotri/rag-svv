@@ -23,6 +23,20 @@ class OfflineEventTests(unittest.TestCase):
             self.assertIn('"' + mode + '"', self.code)
         self.assertNotIn('option.custom_minimum_size.y = 40', self.code)
 
+    def test_offline_launcher_does_not_overlap_friends_and_save(self):
+        self.assertIn('var friends_x: float = maxf(8.0, screen.x - 12.0 - friend_width - 8.0 - save_width)', self.code)
+        self.assertIn('var offline_x: float = friends_x - offline_width - 8.0', self.code)
+        self.assertIn('if offline_x >= 8.0:', self.code)
+        self.assertIn('Vector2(8.0, bar_y + 44.0)', self.code)
+        self.assertIn('_style_launcher_button(open_button)', self.code)
+        # Desktop: the illustrated simulation launcher must end before Friends.
+        width = 1280
+        friend_width, save_width, offline_width = 132, 188, 164
+        friends_x = width - 12 - friend_width - 8 - save_width
+        offline_x = friends_x - offline_width - 8
+        self.assertGreaterEqual(offline_x, 8)
+        self.assertLessEqual(offline_x + offline_width + 8, friends_x)
+
     def test_training_festival_world_boss_are_local_only(self):
         for mode in ("training", "festival", "world_boss"):
             with self.subTest(mode=mode):
