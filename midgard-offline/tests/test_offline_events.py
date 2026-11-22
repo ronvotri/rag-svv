@@ -13,6 +13,16 @@ class OfflineEventTests(unittest.TestCase):
         cls.code = EVENTS.read_text("utf-8")
         cls.installer = INSTALLER.read_text("utf-8")
 
+    def test_offline_modes_have_original_style_illustrated_cards(self):
+        for marker in ('func _mode_icon(mode: String)', 'ImageTexture.create_from_image(pixels)',
+                       'option.icon = _mode_icon(str(key))', 'mode_buttons[str(key)] = option',
+                       'func _style_mode_button(button: Button, active: bool)',
+                       'for key in mode_buttons:', 'meter.hide()', 'meter.show()'):
+            self.assertIn(marker, self.code)
+        for mode in ('training', 'festival', 'world_boss'):
+            self.assertIn('"' + mode + '"', self.code)
+        self.assertNotIn('option.custom_minimum_size.y = 40', self.code)
+
     def test_training_festival_world_boss_are_local_only(self):
         for mode in ("training", "festival", "world_boss"):
             with self.subTest(mode=mode):
