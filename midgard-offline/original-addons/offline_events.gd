@@ -8,12 +8,19 @@ const MODE_LABELS := {
 	"festival": "Emperium Festival · Luyện Solo",
 	"world_boss": "World Boss · Thử thách riêng",
 }
+const MODE_CARD_TAGLINES := {
+	"training": "Hình nộm · Thử sát thương cùng Party",
+	"festival": "Luyện Solo · 60 giây đấu với máy",
+	"world_boss": "Boss riêng · Kỷ lục trên thiết bị",
+}
 const MODE_HINTS := {
 	"training": "Hình nộm tập luyện cùng đồng đội; không tốn trang bị.",
 	"festival": "60 giây phá Emperium. So điểm với đối thủ do máy điều khiển, không tính bảng xếp hạng online.",
 	"world_boss": "Đánh Boss bằng đội hình offline. Máu và kỷ lục được lưu riêng trên thiết bị này, không dùng máu chung cộng đồng.",
 }
 
+var mode_buttons: Dictionary = {}
+var mode_icons: Dictionary = {}
 var open_button: Button
 var veil: ColorRect
 var panel: PanelContainer
@@ -85,12 +92,22 @@ func _ready() -> void:
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.add_theme_color_override("font_color", Color("ccebd7"))
 	col.add_child(help)
-	for key in MODE_LABELS:
+	# The previous three bare text buttons removed the destination imagery.
+	# Replace them with illustrated cards and a clearly selected mode, while
+	# keeping simulated offline modes distinct from the official destinations.
+	for key in ["training", "festival", "world_boss"]:
 		var option := Button.new()
-		option.text = MODE_LABELS[key]
-		option.custom_minimum_size.y = 40
+		option.text = str(MODE_LABELS[key]) + "\n" + str(MODE_CARD_TAGLINES[key])
+		option.tooltip_text = str(MODE_HINTS[key])
+		option.custom_minimum_size.y = 84
+		option.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		option.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		option.expand_icon = false
+		option.add_theme_font_size_override("font_size", 16)
+		option.icon = _mode_icon(str(key))
 		option.pressed.connect(_choose_mode.bind(str(key)))
 		col.add_child(option)
+		mode_buttons[str(key)] = option
 	status = Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_color_override("font_color", Color("fff0c5"))
@@ -108,6 +125,9 @@ func _ready() -> void:
 	col.add_child(actions)
 	start_button = Button.new()
 	start_button.text = "Bắt đầu mô phỏng"
+	start_button.add_theme_font_size_override("font_size", 18)
+	_style_start_button(start_button)
+	start_button.custom_minimum_size.y = 48
 	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	start_button.pressed.connect(_begin)
 	actions.add_child(start_button)
@@ -134,6 +154,86 @@ func _ready() -> void:
 	_choose_mode("training")
 
 
+# Small crisp vector-style thumbnails drawn at runtime: no missing
+# font glyphs, no network assets, no player/online icons represented as live.
+func _mode_icon(mode: String) -> Texture2D:
+	if mode_icons.has(mode):
+		return mode_icons[mode]
+	var pixels := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	pixels.fill(Color.TRANSPARENT)
+	var base: Color = Color("244e42")
+	var accent: Color = Color("ffe3a4")
+	if mode == "festival":
+		base = Color("353963")
+		accent = Color("f6cb7a")
+	elif mode == "world_boss":
+		base = Color("623242")
+		accent = Color("f7d5aa")
+	for y in 64:
+		for x in 64:
+			var dx := float(x) - 31.5
+			var dy := float(y) - 31.5
+			var radius := sqrt(dx * dx + dy * dy)
+			if radius < 29.0:
+				pixels.set_pixel(x, y, base)
+			if absf(radius - 27.0) < 1.6:
+				pixels.set_pixel(x, y, accent)
+			if mode == "training":
+				if absf(radius - 20.0) < 2.5 or absf(radius - 11.0) < 2.7 or radius < 4.4:
+					pixels.set_pixel(x, y, accent)
+			elif mode == "festival":
+				# Castle / Emperium marker.
+				if (x >= 17 and x <= 47 and y >= 31 and y <= 48) or (x >= 13 and x <= 19 and y >= 24 and y <= 46) or (x >= 45 and x <= 51 and y >= 24 and y <= 46):
+					pixels.set_pixel(x, y, accent)
+				if y >= 20 and y <= 28 and ((x >= 14 and x <= 19) or (x >= 27 and x <= 37) or (x >= 45 and x <= 50)):
+					pixels.set_pixel(x, y, accent)
+				if x >= 27 and x <= 37 and y >= 37 and y <= 48:
+					pixels.set_pixel(x, y, base)
+			else:
+				# Horned boss silhouette with luminous eyes.
+				var face_dx := dx / 16.0
+				var face_dy := (dy - 6.0) / 17.0
+				if face_dx * face_dx + face_dy * face_dy <= 1.0:
+					pixels.set_pixel(x, y, accent)
+				if (x >= 12 and x <= 23 and y >= 14 and y <= 31 and x + y <= 45) or (x >= 41 and x <= 52 and y >= 14 and y <= 31 and y - x <= -24):
+					pixels.set_pixel(x, y, accent)
+				if (y >= 35 and y <= 39 and x >= 20 and x <= 26) or (y >= 35 and y <= 39 and x >= 38 and x <= 44):
+					pixels.set_pixel(x, y, Color("942b42"))
+	var icon: Texture2D = ImageTexture.create_from_image(pixels)
+	mode_icons[mode] = icon
+	return icon
+
+
+func _style_mode_button(button: Button, active: bool) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("2d5548") if active else Color("1c3e35")
+	normal.border_color = Color("f3c56a") if active else Color("66877a")
+	normal.set_border_width_all(3 if active else 1)
+	normal.set_corner_radius_all(10)
+	normal.set_content_margin_all(10)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("3b6758")
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_color_override("font_color", Color("ffe6a2") if active else Color("f0f7ed"))
+	button.add_theme_color_override("font_hover_color", Color("ffffff"))
+
+
+func _style_start_button(button: Button) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("e8b657")
+	normal.border_color = Color("ffe6a2")
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(10)
+	normal.set_content_margin_all(8)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("ffd27b")
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_color_override("font_color", Color("38240b"))
+	button.add_theme_color_override("font_hover_color", Color("38240b"))
+
+
 func _in_town() -> bool:
 	return SVVCompanionTown._town() != null
 
@@ -142,7 +242,7 @@ func _fit() -> void:
 	var screen: Vector2 = get_viewport().get_visible_rect().size
 	open_button.position = Vector2(maxf(8.0, screen.x - 176.0), 12.0 if screen.x > 560.0 else 102.0)
 	var width := minf(560.0, screen.x - 20.0)
-	var height := minf(615.0, screen.y - 20.0)
+	var height := minf(730.0, screen.y - 20.0)
 	panel.offset_left = -width * 0.5
 	panel.offset_right = width * 0.5
 	panel.offset_top = -height * 0.5
@@ -181,13 +281,16 @@ func _choose_mode(next_mode: String) -> void:
 	if running or not MODE_LABELS.has(next_mode):
 		return
 	selected_mode = next_mode
+	for key in mode_buttons:
+		_style_mode_button(mode_buttons[key], str(key) == selected_mode)
 	help.text = MODE_HINTS[selected_mode]
 	start_button.disabled = false
 	attack_button.disabled = true
 	skill_button.disabled = true
+	meter.hide()
 	meter.max_value = 100
 	meter.value = 100
-	status.text = "Chọn chế độ rồi nhấn Bắt đầu. Có thể dùng Party đã kết bạn."
+	status.text = "Chế độ đã chọn: " + str(MODE_LABELS[selected_mode]) + ". Có thể dùng Party đã kết bạn."
 	result.text = ""
 
 
@@ -226,6 +329,7 @@ func _begin() -> void:
 	target_hp = target_max
 	duration = 45.0 if selected_mode == "training" else (60.0 if selected_mode == "festival" else 120.0)
 	running = true
+	meter.show()
 	start_button.disabled = true
 	attack_button.disabled = false
 	skill_button.disabled = false
