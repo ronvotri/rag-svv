@@ -19,12 +19,16 @@ class NativeCompanionTownTests(unittest.TestCase):
 
     def test_new_characters_use_original_sprites_not_placeholder_art(self):
         for string in ('"swordsman_m"', '"swordsman_f"', '"mage_f"', '"mage_m"',
-                       "RoAssets.has_sprite(sprite_id)", "RoAssets.sprite([sprite_id])",
+                       "RoAssets.has_sprite(sprite_id)", "RoAssets.styled_character(",
                        "RoVisual.new()", "parent.add_child(visual)"):
             self.assertIn(string, self.npcs)
         self.assertNotIn("Emoji", self.npcs)
         self.assertNotIn("SpriteFrames.new()", self.npcs)
         self.assertNotIn("Image.create(", self.npcs)
+        self.assertNotIn("RoAssets.sprite([sprite_id])", self.npcs)
+        self.assertIn('if composed == null:', self.npcs)
+        self.assertIn('missing_sprites[job] = true', self.npcs)
+        self.assertIn('nameplate.position = Vector3(0.0, 1.65, 0.0)', self.npcs)
 
     def test_companions_live_only_in_actual_town_not_lobby_or_battle(self):
         self.assertIn('world.running', self.npcs)

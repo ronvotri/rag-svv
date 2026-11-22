@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Five recruitable offline town NPCs using ORIGINAL Ragnarok job sprites.
+## Five recruitable offline town NPCs using the ORIGINAL Ragnarok composed character factory.
 ## No simulated human accounts, replacement artwork or new map assets.
 ## Placement is confined to the one town currently verified by runtime QA:
 ## Prontera. Move NPCs to actual other towns only after those scenes are found.
@@ -208,7 +208,9 @@ func _spawn_in_town(parent: Node3D) -> void:
 				push_warning("SVV Town companion: no original sprite for %s; not creating substitute art" % job)
 			missing_sprites[job] = true
 			continue
-		var original_sprite = RoAssets.sprite([sprite_id])
+		# A single job sprite is BODY-ONLY. Use the publisher's full
+		# body/head/hair composition (same API verified by rare-job QA).
+		var original_sprite: RoSprite = _composed_original_sprite(job, sprite_id)
 		if original_sprite == null:
 			if not missing_sprites.has(job):
 				push_warning("SVV Town companion: sprite asset unavailable for " + job)
@@ -219,16 +221,35 @@ func _spawn_in_town(parent: Node3D) -> void:
 		parent.add_child(visual)
 		visual.name = "SVV" + job.capitalize() + "FriendNPC"
 		visual.setup(original_sprite, Color(0.8, 0.8, 0.9), 40)
+		if not (visual.sprite is Sprite3D) or visual.sprite.texture == null:
+			# A half-built sprite must NOT appear in town as a headless NPC.
+			visual.queue_free()
+			missing_sprites[job] = true
+			continue
 		visual.global_position = kafra.global_position + POSITIONS[job]
 		var nameplate := Label3D.new()
 		nameplate.text = "%s · %s" % [NPC_NAMES[job], SVVAssistant._job_name(job)]
 		nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		nameplate.font_size = 38
-		nameplate.pixel_size = 0.006
-		nameplate.position = Vector3(0.0, 1.3, 0.0)
+		nameplate.font_size = 32
+		nameplate.pixel_size = 0.005
+		nameplate.position = Vector3(0.0, 1.65, 0.0)
 		visual.add_child(nameplate)
 		_set_idle(visual)
 		npc_visuals[job] = visual
+
+
+# No body-only fallback: that was the source of the severed head.
+# Parameter order is pinned by Build #342's original-client composed QA.
+func _composed_original_sprite(job: String, sprite_id: String) -> RoSprite:
+	if not RoAssets.has_sprite(sprite_id):
+		return null
+	var gender: String = "f" if sprite_id.ends_with("_f") else "m"
+	var look := {"gender": gender, "hair": 2, "hair_color": 0, "cloth": 0}
+	var composed: RoSprite = RoAssets.styled_character(
+		job, "", "", [RoVisual.PC_ATTACK], "", look)
+	if composed == null:
+		push_warning("SVV: full head/hair/body sprite unavailable for " + job)
+	return composed
 
 
 func _first_original_sprite(job: String) -> String:

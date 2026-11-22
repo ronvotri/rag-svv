@@ -60,9 +60,9 @@ func _ready() -> void:
 		push_warning("SVV: friend portrait atlas unavailable; retain text-only fallback")
 	open_button = Button.new()
 	open_button.text = "Bạn bè"
-	open_button.position = Vector2(12, 56)
-	open_button.custom_minimum_size = Vector2(168, 36)
+	open_button.custom_minimum_size = Vector2(132, 38)
 	open_button.pressed.connect(_open)
+	_style_toolbar_button(open_button)
 	add_child(open_button)
 	support_hint = Label.new()
 	support_hint.text = ""
@@ -224,6 +224,28 @@ func _portrait_view(job: String, side_px: int) -> TextureRect:
 	return icon
 
 
+# Match the game's native pale-blue top tabs. Keep a solid surface;
+# a transparent CanvasLayer Button becomes unreadable on the town fountain.
+func _style_toolbar_button(button: Button) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("eef4ff")
+	normal.border_color = Color("a3b9e6")
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(10)
+	normal.set_content_margin_all(5)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("dce9ff")
+	button.add_theme_stylebox_override("hover", hover)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color("c9dcfd")
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_color_override("font_color", Color("253d74"))
+	button.add_theme_color_override("font_hover_color", Color("1d356c"))
+	button.add_theme_color_override("font_pressed_color", Color("1d356c"))
+	button.add_theme_font_size_override("font_size", 16)
+
+
 func _friend_style(background_hex: String, border_hex: String, border_px: int, radius_px: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(background_hex)
@@ -254,8 +276,17 @@ func _friend_status(unlocked: Array, party: Array[String], job: String) -> Strin
 
 func _fit() -> void:
 	var size := get_viewport().get_visible_rect().size
-	open_button.position = Vector2(maxf(12, (size.x - 168) / 2), 10)
-	support_hint.position = Vector2(maxf(12, (size.x - 220) / 2), 49)
+	# Pair Friends + Save in one right-aligned top strip. On narrow
+	# screens move the two buttons together below the game's native tabs
+	# rather than overlapping the menu/character/channel controls.
+	var narrow: bool = size.x < 1200.0
+	var friend_width: float = 98.0 if size.x < 680.0 else (112.0 if narrow else 132.0)
+	var save_width: float = 114.0 if size.x < 680.0 else (154.0 if narrow else 188.0)
+	var start_x: float = maxf(8.0, size.x - 12.0 - friend_width - 8.0 - save_width)
+	var toolbar_y: float = 56.0 if narrow else 10.0
+	open_button.custom_minimum_size = Vector2(friend_width, 38.0)
+	open_button.position = Vector2(start_x, toolbar_y)
+	support_hint.position = Vector2(start_x, toolbar_y + 43.0)
 	var width := minf(710, size.x - 24)
 	var height := minf(700, size.y - 24)
 	panel.offset_left = -width / 2
