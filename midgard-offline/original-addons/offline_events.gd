@@ -53,9 +53,9 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 117
 	open_button = Button.new()
-	open_button.text = "Hoạt động offline"
+	open_button.text = "Luyện offline"
 	open_button.custom_minimum_size = Vector2(164, 38)
-	open_button.tooltip_text = "Các trận luyện mô phỏng, không cần máy chủ và không tính hạng trực tuyến"
+	open_button.tooltip_text = "Mini-game mô phỏng cùng Party, không thay thế Điểm đến gốc"
 	open_button.pressed.connect(_open)
 	add_child(open_button)
 	veil = ColorRect.new()
@@ -83,11 +83,18 @@ func _ready() -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(col)
 	title = Label.new()
-	title.text = "Hoạt động offline · Luyện với đồng đội"
+	title.text = "Phòng luyện offline · Mini-game Party"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 23)
 	title.add_theme_color_override("font_color", Color("ffe39b"))
 	col.add_child(title)
+	var notice := Label.new()
+	notice.text = "Mô phỏng trong menu, không thay thế Điểm đến / nearQ của game gốc."
+	notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notice.add_theme_font_size_override("font_size", 12)
+	notice.add_theme_color_override("font_color", Color("a4c9bb"))
+	col.add_child(notice)
 	help = Label.new()
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.add_theme_color_override("font_color", Color("ccebd7"))
