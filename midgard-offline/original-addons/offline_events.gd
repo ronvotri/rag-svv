@@ -57,6 +57,7 @@ func _ready() -> void:
 	open_button.custom_minimum_size = Vector2(164, 38)
 	open_button.tooltip_text = "Mini-game mô phỏng cùng Party, không thay thế Điểm đến gốc"
 	open_button.pressed.connect(_open)
+	_style_launcher_button(open_button)
 	add_child(open_button)
 	veil = ColorRect.new()
 	veil.color = Color(0.01, 0.05, 0.04, 0.8)
@@ -226,6 +227,23 @@ func _style_mode_button(button: Button, active: bool) -> void:
 	button.add_theme_color_override("font_hover_color", Color("ffffff"))
 
 
+# Match the existing native-style Friends/Save toolbar, not a dark gray box.
+func _style_launcher_button(button: Button) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("eef4ff")
+	normal.border_color = Color("a3b9e6")
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(10)
+	normal.set_content_margin_all(5)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("dce9ff")
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_color_override("font_color", Color("253d74"))
+	button.add_theme_color_override("font_hover_color", Color("1d356c"))
+	button.add_theme_font_size_override("font_size", 16)
+
+
 func _style_start_button(button: Button) -> void:
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color("e8b657")
@@ -247,7 +265,22 @@ func _in_town() -> bool:
 
 func _fit() -> void:
 	var screen: Vector2 = get_viewport().get_visible_rect().size
-	open_button.position = Vector2(maxf(8.0, screen.x - 176.0), 12.0 if screen.x > 560.0 else 102.0)
+	# Reserve the Friends/Save pair that already owns the right edge.
+	# On desktop the launcher sits immediately to their left; on mobile
+	# we use the second or third toolbar row instead of overlapping Save.
+	var narrow: bool = screen.x < 1200.0
+	var compact: bool = screen.x < 680.0
+	var friend_width: float = 98.0 if compact else (112.0 if narrow else 132.0)
+	var save_width: float = 114.0 if compact else (154.0 if narrow else 188.0)
+	var friends_x: float = maxf(8.0, screen.x - 12.0 - friend_width - 8.0 - save_width)
+	var bar_y: float = 56.0 if narrow else 10.0
+	var offline_width: float = 164.0
+	var offline_x: float = friends_x - offline_width - 8.0
+	if offline_x >= 8.0:
+		open_button.position = Vector2(offline_x, bar_y)
+	else:
+		open_button.position = Vector2(8.0, bar_y + 44.0)
+	open_button.custom_minimum_size = Vector2(minf(offline_width, screen.x - 16.0), 38.0)
 	var width := minf(560.0, screen.x - 20.0)
 	var height := minf(730.0, screen.y - 20.0)
 	panel.offset_left = -width * 0.5
