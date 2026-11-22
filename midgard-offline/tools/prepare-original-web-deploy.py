@@ -8,7 +8,6 @@ No assets or third-party game data are committed to this public repository.
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 import re
@@ -122,7 +121,7 @@ def stage(source: Path, output: Path, version: str,
                 # finishes initializing. Fallback: original splash stays.
                 splash_script = ('<script>document.addEventListener("DOMContentLoaded", function(){'
                     'var img=document.getElementById("status-splash");'
-                    'if(img){img.onerror=function(){img.onerror=null;img.src="./ragnarok-loading.jpg";};img.src="./ragnarok-loading.avif";}'
+                    'if(img){img.src="./ragnarok-loading.jpg";img.style.imageRendering="auto";}'
                     '},{once:true});</script>')
                 html = re.sub(r"</body>", splash_script + "\n</body>", html,
                               count=1, flags=re.IGNORECASE)
@@ -149,11 +148,13 @@ def stage(source: Path, output: Path, version: str,
                 "sha256": sha256(destination),
             })
 
+    # Use the existing high-fidelity JPEG; the prior 8.5-KB AVIF looked blurred
+    # when stretched to desktop 16:9. Never silently ship that thumbnail.
     # The authored Ragnarok image is the WEB LOADING SPLASH, not the
     # character-selection menu or an in-game overlay.
     cover = ROOT / "original-addons/svv_home_background.jpg"
-    if not cover.is_file() or cover.stat().st_size > 3_000_000:
-        raise ValueError("Web startup cover missing or larger than 3MB")
+    if not cover.is_file() or not (250_000 <= cover.stat().st_size <= 3_000_000):
+        raise ValueError("Full-quality Web startup cover missing, too small or larger than 3MB")
     if cover.read_bytes()[:3] != b"\xff\xd8\xff":
         raise ValueError("Web startup cover must be JPEG")
     shutil.copyfile(cover, public / "ragnarok-loading.jpg")
@@ -162,25 +163,6 @@ def stage(source: Path, output: Path, version: str,
         "size": (public / "ragnarok-loading.jpg").stat().st_size,
         "sha256": sha256(public / "ragnarok-loading.jpg"),
     })
-
-    # New authored key art: portable text bytes are decoded when Pages is staged.
-    # A pinned digest guarantees the exact reviewed image, keeping JPEG fallback.
-    splash_parts = [ROOT / ("original-addons/svv_loading_keyart.avif.b64.part%d" % i) for i in range(3)]
-    expected_splash_sha256 = "3935ad9df65f558e6dda8d1129dfe40fbc78538bc884cb05bb701dfb76daaaae"
-    if all(part.is_file() for part in splash_parts):
-        raw = "".join(part.read_text(encoding="ascii").strip() for part in splash_parts)
-        image_bytes = base64.b64decode(raw, validate=True)
-        if (len(image_bytes) >= 3_000_000 or len(image_bytes) < 1_000
-                or image_bytes[4:12] != b"ftypavif"
-                or hashlib.sha256(image_bytes).hexdigest() != expected_splash_sha256):
-            raise ValueError("Approved key art missing or checksum mismatch")
-        avif = public / "ragnarok-loading.avif"
-        avif.write_bytes(image_bytes)
-        manifest["static_assets"].append({
-            "name": avif.name, "size": avif.stat().st_size, "sha256": sha256(avif)
-        })
-    else:
-        raise ValueError("Approved key art source parts missing")
 
     asset_map = {
         "schema": 1, "version": version,
@@ -201,7 +183,6 @@ def stage(source: Path, output: Path, version: str,
     (public / "_headers").write_text(
         "/index.html\n  Cache-Control: no-cache\n"
         "/ragnarok-loading.jpg\n  Cache-Control: no-cache\n"
-        "/ragnarok-loading.avif\\n  Cache-Control: no-cache\\n"
         "/game.html\n  Cache-Control: no-cache\n"
         "/game-entry-guard.js\n  Cache-Control: no-cache\n"
         "/fullscreen-toggle.js\n  Cache-Control: no-cache\n"
