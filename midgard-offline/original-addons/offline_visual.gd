@@ -69,6 +69,15 @@ func _run() -> void:
 	world.enter_town("swordsman")
 	await get_tree().create_timer(1.0).timeout
 	await snap("original-town")
+	# Capture the REAL offline mode cards with their rendered thumbnails;
+	# a successful headless unit test alone cannot prove readable game UI.
+	SVVOfflineEvents._open()
+	if SVVOfflineEvents.panel.visible:
+		await get_tree().create_timer(0.25).timeout
+		await snap("town-offline-cards")
+		SVVOfflineEvents._close()
+	else:
+		push_warning("VISUAL_QA offline mode cards not available in Prontera")
 	# Wave 6: capture the original town and real job sprites in phone-sized
 	# viewports, not substitute textures or an off-map mockup. These are
 	# inspection evidence only, not proof of walkability or collision-free lanes.
