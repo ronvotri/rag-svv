@@ -85,9 +85,10 @@ func _ready() -> void:
 	open_button.name = "SVVSaveImportExport"
 	open_button.text = "Sao lưu / Nạp save"
 	open_button.tooltip_text = "Tải save về máy hoặc nạp save từ máy khác"
-	open_button.custom_minimum_size = Vector2(184, 42)
+	open_button.custom_minimum_size = Vector2(188, 38)
 	open_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	open_button.pressed.connect(open_manager)
+	_style_toolbar_button(open_button)
 	open_layer.add_child(open_button)
 	get_viewport().size_changed.connect(_fit_button)
 	call_deferred("_fit_button")
@@ -102,20 +103,43 @@ func _process(_delta: float) -> void:
 	open_button.visible = not in_battle and not (dialog != null and dialog.visible)
 
 
+# Shared visual language with the native top tabs / Friends overlay.
+func _style_toolbar_button(button: Button) -> void:
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("eef4ff")
+	normal.border_color = Color("a3b9e6")
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(10)
+	normal.set_content_margin_all(5)
+	button.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("dce9ff")
+	button.add_theme_stylebox_override("hover", hover)
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color("c9dcfd")
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_color_override("font_color", Color("253d74"))
+	button.add_theme_color_override("font_hover_color", Color("1d356c"))
+	button.add_theme_color_override("font_pressed_color", Color("1d356c"))
+	button.add_theme_font_size_override("font_size", 16)
+
+
 func _fit_button() -> void:
 	if not is_instance_valid(open_button):
 		return
 	var size := get_viewport().get_visible_rect().size
-	# Companion "Tìm party" stays centered; place save beside it without
-	# covering the map, screen edges or mobile touch controls.
-	var compact: bool = size.x < 720.0
+	# Identical breakpoints and geometry to SVVAssistant._fit().
+	# Both buttons belong to the same visual strip; never sit on top of
+	# the underlying native menu or each other.
+	var narrow: bool = size.x < 1200.0
+	var compact: bool = size.x < 680.0
+	var friend_width: float = 98.0 if compact else (112.0 if narrow else 132.0)
+	var save_width: float = 114.0 if compact else (154.0 if narrow else 188.0)
+	var start_x: float = maxf(8.0, size.x - 12.0 - friend_width - 8.0 - save_width)
+	var toolbar_y: float = 56.0 if narrow else 10.0
 	open_button.text = "Sao lưu" if compact else "Sao lưu / Nạp save"
-	open_button.custom_minimum_size = Vector2(116, 40) if compact else Vector2(184, 42)
-	var width: float = open_button.custom_minimum_size.x
-	open_button.position = Vector2(
-		clampf(size.x * 0.5 + 96.0, 8.0, maxf(8.0, size.x - width - 8.0)),
-		maxf(8.0, minf(12.0, size.y * 0.02))
-	)
+	open_button.custom_minimum_size = Vector2(save_width, 38.0)
+	open_button.position = Vector2(start_x + friend_width + 8.0, toolbar_y)
 
 
 func _popup_size(width: int, height: int) -> Vector2i:
