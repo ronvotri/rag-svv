@@ -27,6 +27,18 @@ const NPC_NAMES := {
 	"merchant": "Mino",
 	"novice": "Nao",
 }
+# Stable individual appearances in Prontera: the previous implementation used
+# hair=2/hair_color=0 for all five jobs, making everyone look cloned.
+# These deliberately conservative values use the original styled_character
+# factory; no replacement texture or fake sprite is created.
+const NPC_LOOK := {
+	"swordsman": {"hair": 1, "hair_color": 3},
+	"mage": {"hair": 5, "hair_color": 6},
+	"archer": {"hair": 3, "hair_color": 2},
+	"thief": {"hair": 4, "hair_color": 0},
+	"merchant": {"hair": 2, "hair_color": 5},
+}
+
 const NPC_GREETINGS := {
 	"swordsman": "Alden: Đứng sau tôi. Quái đông thế nào cũng phải có người giữ tuyến đầu chứ!",
 	"mage": "Eira: Đừng chạm vào cuốn sách đó! Lần trước có người chạm, cả phòng thơm mùi khét ba ngày.",
@@ -244,7 +256,13 @@ func _composed_original_sprite(job: String, sprite_id: String) -> RoSprite:
 	if not RoAssets.has_sprite(sprite_id):
 		return null
 	var gender: String = "f" if sprite_id.ends_with("_f") else "m"
-	var look := {"gender": gender, "hair": 2, "hair_color": 0, "cloth": 0}
+	var style: Dictionary = NPC_LOOK.get(job, {"hair": 2, "hair_color": 0})
+	var look := {
+		"gender": gender,
+		"hair": int(style.get("hair", 2)),
+		"hair_color": int(style.get("hair_color", 0)),
+		"cloth": 0,
+	}
 	var composed: RoSprite = RoAssets.styled_character(
 		job, "", "", [RoVisual.PC_ATTACK], "", look)
 	if composed == null:
@@ -262,12 +280,18 @@ func _first_original_sprite(job: String) -> String:
 
 
 func _set_idle(visual: RoVisual) -> void:
+	# These NPCs are STATIONARY town contacts, not roaming players.
+	# Face one stable direction and render one Idle pose. Playing looping
+	# PC_IDLE on a layered head/hair composite caused a distracting bob/jitter.
+	visual.face(Vector3(0.0, 0.0, 1.0))
 	var script: Script = visual.get_script()
-	if script == null:
-		return
-	var action_id: int = int(script.get_script_constant_map().get("PC_IDLE", -1))
-	if action_id >= 0:
-		visual.play(action_id, true, true)
+	if script != null:
+		var action_id: int = int(script.get_script_constant_map().get("PC_IDLE", -1))
+		if action_id >= 0:
+			visual.play(action_id, true, true)
+	# Freeze frame advancement for stationary NPCs; remain visible and clickable.
+	visual.set_process(false)
+	visual.set_physics_process(false)
 
 
 func _clear_world() -> void:
