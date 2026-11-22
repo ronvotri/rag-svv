@@ -17,6 +17,18 @@ class NativeCompanionTownTests(unittest.TestCase):
         cls.assistant = (ROOT / "original-addons/offline_assistant.gd").read_text(encoding="utf-8")
         cls.smoke = (ROOT / "original-addons/offline_smoke.gd").read_text(encoding="utf-8")
 
+    def test_original_npc_looks_are_distinct_and_town_idle_is_stable(self):
+        self.assertIn('const NPC_LOOK := {', self.npcs)
+        for job in ('swordsman', 'mage', 'archer', 'thief', 'merchant'):
+            self.assertIn('"' + job + '": {"hair":', self.npcs)
+        self.assertIn('var style: Dictionary = NPC_LOOK.get(job', self.npcs)
+        self.assertIn('"hair": int(style.get("hair", 2))', self.npcs)
+        self.assertIn('"hair_color": int(style.get("hair_color", 0))', self.npcs)
+        self.assertIn('visual.face(Vector3(0.0, 0.0, 1.0))', self.npcs)
+        self.assertIn('visual.set_process(false)', self.npcs)
+        self.assertIn('visual.set_physics_process(false)', self.npcs)
+        self.assertNotIn('var look := {"gender": gender, "hair": 2, "hair_color": 0, "cloth": 0}', self.npcs)
+
     def test_new_characters_use_original_sprites_not_placeholder_art(self):
         for string in ('"swordsman_m"', '"swordsman_f"', '"mage_f"', '"mage_m"',
                        "RoAssets.has_sprite(sprite_id)", "RoAssets.styled_character(",
