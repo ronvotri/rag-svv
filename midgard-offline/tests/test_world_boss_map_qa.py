@@ -19,6 +19,9 @@ class WorldBossMapTests(unittest.TestCase):
             "world.heroes.size() == 4", "HeroInput.BotHero",
             'world.set_stage("prontera")', "res://scenes/main.tscn",
             "WORLD_BOSS_MAP_QA RESULT", "boss-start.png",
+            "native_boss_hp_readable", "boss_loses_hp_without_forced_damage",
+            "original_ai_moves_during_encounter", "COMBAT_MECHANICS_VERIFIED",
+            "_native_number",
         ):
             self.assertIn(expected, code)
         active = "\n".join(
@@ -36,7 +39,8 @@ class WorldBossMapTests(unittest.TestCase):
             "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
             "SVV_WORLD_BOSS_QA_SANDBOX", "runtime_boss_playable_approved",
             '"status": "not_run"', "world-boss-runtime-qa.json",
-            "native_node_wiring_pass", '"official_rewards_approved": False',
+            "native_combat_observed", "visual_change_verified",
+            "combat_telemetry", '"official_rewards_approved": False',
         ):
             self.assertIn(expected, code)
         installer = INSTALLER.read_text(encoding="utf-8")
@@ -44,6 +48,20 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIn('"world_boss_map_qa"', installer)
         self.assertIn("run-world-boss-map-qa.py", builder)
         self.assertIn('os.environ.get("SVV_WORLD_BOSS_MAP_QA") == "1"', builder)
+
+    def test_combat_probe_never_injects_damage_or_activates_reward_route(self):
+        code = SCRIPT.read_text(encoding="utf-8")
+        active = "\\n".join(line for line in code.splitlines()
+                           if not line.lstrip().startswith("#"))
+        for prohibited in (
+            "spawned.hurt(", "world.damage_enemy(", "Enemy.hurt(",
+            "Save.add_zeny(", "Save.add_item(", "start_world_boss(",
+        ):
+            self.assertNotIn(prohibited, active)
+        self.assertIn('boss_hp_after', code)
+        self.assertIn('ai_start_positions', code)
+        self.assertIn('boss-after-120frames.png', code)
+        self.assertIn('runtime_boss_playable_approved', RUNNER.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
