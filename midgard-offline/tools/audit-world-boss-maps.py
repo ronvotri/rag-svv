@@ -152,8 +152,7 @@ FLOW_RISK_PROBES = {
 # Mask strings first, then strip comments. Only code is checked; e.g. a help
 # string containing 'Save.flush()' must never produce a false save cue.
 GD_LITERAL = re.compile(
-    r'''(?s)\"\"\".*?\"\"\"|'''+ "\"'''"+r'''(?:.*?)'''+"'''"+r'''|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*' '''
-    .strip()
+    r"(?s)\"\"\".*?\"\"\"|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'"
 )
 
 

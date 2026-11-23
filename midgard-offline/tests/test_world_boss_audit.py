@@ -62,6 +62,16 @@ func _finish() -> void:
         self.assertNotIn("network_reference", result["_finish"]["review_signals"])
         self.assertNotIn("SECRET_PROFILE", str(result))
 
+    def test_flow_hints_ignore_multiline_help_strings(self):
+        source = (
+            "func _finish() -> void:\n"
+            '    var help = """Save.flush()\nNetSync.send("private")"""\n'
+            '    print("Done")\n'
+        )
+        hints = audit.method_flow_hints(source, ("_finish",))
+        self.assertEqual(hints["_finish"]["call_cues"], [])
+        self.assertEqual(hints["_finish"]["review_signals"], [])
+
     def test_native_flow_never_approves_gameplay_from_static_recon(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
