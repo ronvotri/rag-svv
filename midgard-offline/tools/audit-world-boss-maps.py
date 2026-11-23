@@ -22,7 +22,8 @@ MAX_FILE_SIZE = 2_000_000
 NATIVE_ENTRYPOINTS = {
     "scripts/core/main.gd": (
         "_load_map", "start_run", "start_world_boss", "start_festival",
-        "enter_town", "leave_town",
+        "enter_town", "leave_town", "spawn_enemy", "damage_enemy",
+        "clear_battlefield",
     ),
     "scripts/core/world_boss.gd": (
         "_init", "_ready", "on_boss", "on_hit", "_finish", "time_left",
@@ -35,6 +36,7 @@ NATIVE_ENTRYPOINTS = {
         "_spawn_boss", "start_route", "leave", "reset",
     ),
     "scripts/core/boss_brain.gd": ("_init", "tick", "_start_attack"),
+    "scripts/core/enemy.gd": ("_init", "setup", "_show_look", "hurt", "die"),
     "scripts/ro/ro_map.gd": ("load_map", "spawn_point", "_build_meadow"),
     "scripts/core/festival_run.gd": ("_init", "begin"),
     "scripts/core/raid_trials.gd": ("start", "owns", "pins_boss"),
@@ -46,7 +48,9 @@ ENTRYPOINT_RE = re.compile(r"(?m)^[ \t]*(?:static[ \t]+)?func[ \t]+([A-Za-z_][A-
 def api_signatures(source: str, wanted: tuple[str, ...]) -> dict:
     """Return only function parameter *declarations*, never bodies/defaults."""
     result = {}
-    for match in ENTRYPOINT_RE.finditer(source):
+    # Mask prose before finding headers, so a multiline help string cannot
+    # masquerade as an API declaration. Offsets remain stable after masking.
+    for match in ENTRYPOINT_RE.finditer(_masked_gd_code(source)):
         name = match.group(1)
         if name not in wanted or name in result:
             continue
@@ -113,8 +117,10 @@ def native_contract(root: Path) -> dict:
 # Read-only, allowlisted call-flow hints for the recovered native client.
 # These are discovery signals, not evidence that local rewards/save are safe.
 FLOW_TARGETS = {
-    "scripts/core/main.gd": ("start_world_boss", "start_run", "_load_map"),
-    "scripts/core/world_boss.gd": ("_init", "on_boss", "_finish"),
+    "scripts/core/main.gd": ("start_world_boss", "start_run", "_load_map",
+                             "spawn_enemy", "damage_enemy", "clear_battlefield"),
+    "scripts/core/world_boss.gd": ("_init", "on_boss", "on_hit", "_finish"),
+    "scripts/core/enemy.gd": ("setup", "hurt", "die"),
     "scripts/core/wb_portal.gd": ("_show_boss",),
     "scripts/core/mvp_raid.gd": (
         "start_route", "_enter", "_build_arena", "_spawn_boss", "on_boss_killed",
@@ -126,6 +132,10 @@ FLOW_TARGETS = {
 # argument, literal, recovered source line or file body is ever exported.
 FLOW_CALL_PROBES = {
     "world_boss_constructor": r"\bWorldBoss\s*\.\s*new\s*\(",
+    "enemy_constructor": r"\bEnemy\s*\.\s*new\s*\(",
+    "boss_brain_constructor": r"\bBossBrain\s*\.\s*new\s*\(",
+    "spawn_enemy": r"\bspawn_enemy\s*\(",
+    "damage_enemy": r"\bdamage_enemy\s*\(",
     "mvp_raid_constructor": r"\bMvpRaid\s*\.\s*new\s*\(",
     "start_world_boss": r"\bstart_world_boss\s*\(",
     "start_run": r"\bstart_run\s*\(",
@@ -141,6 +151,8 @@ FLOW_CALL_PROBES = {
     "wb_chest_items": r"\bwb_chest_items\s*\(",
     "save_setting_write": r"\bSave\s*\.\s*set_setting\s*\(",
     "save_flush": r"\bSave\s*\.\s*flush\s*\(",
+    "run_save_write": r"\bRunSave\s*\.\s*save\s*\(",
+    "official_zeny_write": r"\b(?:Save\s*\.\s*add_zeny|add_zeny)\s*\(",
 }
 FLOW_RISK_PROBES = {
     "save_reference": r"\b(?:Save|RunSave)\s*\.",
@@ -160,12 +172,13 @@ def _masked_gd_code(source: str) -> str:
     literals_masked = GD_LITERAL.sub(
         lambda m: "".join("\n" if c == "\n" else " " for c in m.group()), source
     )
-    return re.sub(r"#[^\n]*", "", literals_masked)
+    return re.sub(r"#[^\n]*", lambda m: " " * len(m.group()), literals_masked)
 
 
 def method_flow_hints(source: str, wanted: tuple[str, ...]) -> dict:
     """Summarize allowlisted symbols inside method bodies only."""
-    headers = list(ENTRYPOINT_RE.finditer(source))
+    # Header detection must use masked text; preserve its original offsets.
+    headers = list(ENTRYPOINT_RE.finditer(_masked_gd_code(source)))
     found = {}
     for index, entry in enumerate(headers):
         name = entry.group(1)
@@ -209,6 +222,8 @@ def native_flow_metadata(root: Path) -> dict:
         "gates": {
             "native_runtime_boss_playtested": False,
             "offline_party_spawn_playtested": False,
+            "world_boss_rendered_in_map": False,
+            "native_spawn_api_runtime_verified": False,
             "offline_save_and_reward_isolation_verified": False,
             "safe_to_enable": False,
         },
@@ -290,9 +305,17 @@ def main() -> None:
     flow = report["native_world_boss_flow"]
     main_flow = flow["methods"].get("scripts/core/main.gd", {}).get("methods", {})
     boss_flow = flow["methods"].get("scripts/core/world_boss.gd", {}).get("methods", {})
+    mvp_flow = flow["methods"].get("scripts/core/mvp_raid.gd", {}).get("methods", {})
+    native = report["native_world_boss_contract"]
+    world_methods = native.get("scripts/core/main.gd", {}).get("methods", {})
+    enemy_methods = native.get("scripts/core/enemy.gd", {}).get("methods", {})
     print("WORLD_BOSS_FLOW_AUDIT " + json.dumps({
         "start_world_boss_calls": main_flow.get("start_world_boss", {}).get("call_cues", []),
         "native_boss_finish_review": boss_flow.get("_finish", {}).get("review_signals", []),
+        "world_boss_init_calls": boss_flow.get("_init", {}).get("call_cues", []),
+        "mvp_route_calls": mvp_flow.get("start_route", {}).get("call_cues", []),
+        "spawn_enemy_contract_present": "spawn_enemy" in world_methods,
+        "enemy_setup_contract_present": "setup" in enemy_methods,
         "safe_to_enable": flow["gates"]["safe_to_enable"],
     }), flush=True)
     print("WORLD_BOSS_MAP_AUDIT " + json.dumps({
