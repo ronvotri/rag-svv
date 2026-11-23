@@ -421,6 +421,12 @@ def build(target):
         raise subprocess.CalledProcessError(qa_process.returncode, qa_command)
     if not rare_report["runtime_probe_completed"]:
         raise RuntimeError("Rare NPC QA marker missing/invalid: " + rare_report["reason"])
+    # Wave34: an opt-in, private user:// sandbox probes original in-map boss
+    # spawning alongside three original AI players. Never promotes a feature:
+    # the JSON gate remains false even if node-level QA succeeds.
+    if target == "windows" and os.environ.get("SVV_WORLD_BOSS_MAP_QA") == "1":
+        run([sys.executable, TOOLS / "run-world-boss-map-qa.py",
+             "--godot", godot, "--project", project, "--work", work])
     # Optional proof for the staging Windows build: real Godot viewport PNGs
     # from the recovered town and its ORIGINAL sprite assets. Never label the
     # ordinary headless test as an approval of prop collisions or mobile UI.
