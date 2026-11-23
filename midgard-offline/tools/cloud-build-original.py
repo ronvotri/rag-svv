@@ -365,6 +365,9 @@ def build(target):
          "--include=res://scripts/autoload/updater.gdc"])
     updated = own_tool("update-original-client").apply_update(godot, client, base_recovered, work / "publisher-update")
     run([gdre, "--headless", "--recover=" + str(updated), "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
+    # Inventory original map/MVP scene identifiers; do not export publisher assets.
+    run([sys.executable, TOOLS / "audit-world-boss-maps.py", str(recovered),
+         "--output", str(work / "world-boss-map-audit.json")])
     own_tool("prepare-original-offline").prepare(recovered, project)
     upstream = json.loads((ROOT / "config/official-update.json").read_text(encoding="utf-8"))
     project_config = project / "project.godot"
