@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 60
     env:
       TARGET: ${{ inputs.target || 'windows' }}
+      SVV_WORLD_BOSS_MAP_QA: ${{ github.ref == 'refs/heads/feature/offline-cards-unique-npc-wave34' && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -62,6 +63,17 @@ jobs:
             midgard-offline/work/cloud/artifacts/*.txt
           if-no-files-found: error
           retention-days: 1
+      # A private experiment, never a public World Boss gameplay toggle.
+      - name: Upload isolated native World Boss map QA separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-boss-native-map-QA
+          path: |
+            midgard-offline/work/cloud/artifacts/WORLD_BOSS_MAP_QA.json
+            midgard-offline/work/cloud/artifacts/World-Boss-Map-QA.zip
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload rare NPC source-frame visual QA separately
         if: always()
         uses: actions/upload-artifact@v4
