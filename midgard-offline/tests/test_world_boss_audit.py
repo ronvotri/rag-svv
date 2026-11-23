@@ -93,21 +93,21 @@ func spawn_enemy(mob: String, point: Vector2) -> void:
     def test_in_world_spawn_contract_is_inventory_only(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "project.godot").write_text("[application]\\n", encoding="utf-8")
+            (root / "project.godot").write_text("[application]\n", encoding="utf-8")
             main = root / "scripts/core/main.gd"
             enemy = root / "scripts/core/enemy.gd"
             main.parent.mkdir(parents=True)
             main.write_text(
-                "func start_world_boss(index: int, state: Dictionary) -> void:\\n"
-                "    spawn_enemy(\\\"poring\\\", Vector2.ZERO)\\n"
-                "func spawn_enemy(mob: String, point: Vector2) -> void:\\n"
-                "    var new_enemy = Enemy.new()\\n",
+                "func start_world_boss(index: int, state: Dictionary) -> void:\n"
+                "    spawn_enemy(\"poring\", Vector2.ZERO)\n"
+                "func spawn_enemy(mob: String, point: Vector2) -> void:\n"
+                "    var new_enemy = Enemy.new()\n",
                 encoding="utf-8")
             enemy.write_text(
-                "func setup(mob: String) -> void:\\n"
-                "    pass\\n"
-                "func die() -> void:\\n"
-                "    Save.flush()\\n",
+                "func setup(mob: String) -> void:\n"
+                "    pass\n"
+                "func die() -> void:\n"
+                "    Save.flush()\n",
                 encoding="utf-8")
             report = audit.inventory(root)
             self.assertIn("spawn_enemy", report["native_world_boss_contract"]["scripts/core/main.gd"]["methods"])
