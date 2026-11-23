@@ -49,6 +49,17 @@ func _snapshot(filename: String) -> void:
 	if image.is_empty() or image.save_png(screenshot_folder.path_join(filename)) != OK:
 		errors.append("native_viewport_screenshot_missing")
 
+# Read native runtime values only; do not call Enemy.hurt() or force damage.
+func _native_number(obj: Object, name: String) -> Variant:
+	if obj == null or not is_instance_valid(obj):
+		return null
+	for property in obj.get_property_list():
+		if str(property.get("name", "")) == name:
+			var value: Variant = obj.get(name)
+			if value is float or value is int:
+				return float(value)
+	return null
+
 func _run() -> void:
 	await get_tree().process_frame
 	var args: PackedStringArray = OS.get_cmdline_user_args()
@@ -138,6 +149,11 @@ func _run() -> void:
 		return
 	var rendered: Variant = spawned.get("visual")
 	_check(rendered is Node and is_instance_valid(rendered), "original_boss_render_node")
+	var boss_hp_before: Variant = _native_number(spawned, "hp")
+	var player_hp_before: float = world.player.hp
+	var ai_start_positions: Array[Vector3] = []
+	for index in range(1, world.heroes.size()):
+		ai_start_positions.append(world.heroes[index].position)
 	await _snapshot("boss-start.png")
 	for frame in 120:
 		await get_tree().process_frame
@@ -145,10 +161,22 @@ func _run() -> void:
 	_check(is_instance_valid(spawned), "boss_survives_observation")
 	if is_instance_valid(spawned):
 		_check(spawned.position.is_finite(), "boss_has_valid_map_position")
+	var ai_moved: int = 0
 	for index in range(1, world.heroes.size()):
 		var friend: Player = world.heroes[index]
 		_check(is_instance_valid(friend) and friend.position.is_finite(), "ai_position_%d" % index)
+		if is_instance_valid(friend) and friend.position.distance_to(ai_start_positions[index - 1]) > 0.5:
+			ai_moved += 1
+	var boss_hp_after: Variant = _native_number(spawned, "hp") if is_instance_valid(spawned) else null
+	print("WORLD_BOSS_MAP_QA COMBAT boss_hp_before=", boss_hp_before,
+		" boss_hp_after=", boss_hp_after, " ai_moved=", ai_moved,
+		" player_hp_before=", player_hp_before,
+		" player_hp_after=", world.player.hp)
+	_check(boss_hp_before != null and boss_hp_after != null, "native_boss_hp_readable")
+	if boss_hp_before != null and boss_hp_after != null:
+		_check(float(boss_hp_after) < float(boss_hp_before), "boss_loses_hp_without_forced_damage")
+	_check(ai_moved > 0, "original_ai_moves_during_encounter")
 	await _snapshot("boss-after-120frames.png")
-	# Node-level evidence is NOT proof of complete attacks, animation or rewards.
-	_finish("NODE_LEVEL_WIRING_VERIFIED" if errors.is_empty() else "FAIL",
+	# Gameplay mechanics observed; not proof of a full raid, AI attribution, safe loot, or rewards.
+	_finish("COMBAT_MECHANICS_VERIFIED" if errors.is_empty() else "FAIL",
 		0 if errors.is_empty() else 1)
