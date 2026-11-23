@@ -397,6 +397,10 @@ def build(target):
         preview_config.write_text(new, encoding="utf-8", newline="\n")
         print("NPC_WEB_QA_PREVIEW enabled; rare NPCs non-recruitable")
     write_context(project, work, translation)
+    # This is a small, read-only resource inventory, not copied game assets.
+    # Include it in the existing context artifact so QA can inspect map hints.
+    shutil.copyfile(work / "world-boss-map-audit.json",
+                    work / "context" / "world-boss-map-audit.json")
     run([sys.executable, TOOLS / "create-original-presets.py", project, templates])
     run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
     # Capture authentic recovered-client QA stdout for machine-readable
