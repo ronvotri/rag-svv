@@ -2,6 +2,7 @@
 """Optional isolated Godot boss-map QA; no live encounter activation."""
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,8 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         "official_rewards_approved": False,
         "runtime_boss_playable_approved": False,
         "status": "not_run",
+        "visual_change_verified": False,
+        "combat_telemetry": [],
         "evidence": [],
         "screenshots": [],
     }
@@ -64,16 +67,25 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                 if "WORLD_BOSS_MAP_QA " in line
             ]
             report["evidence"] = markers[:60]
+            report["combat_telemetry"] = [
+                row for row in markers if row.startswith("COMBAT ")
+            ][:4]
             report["status"] = (
-                "native_node_wiring_pass"
+                "native_combat_observed"
                 if completed.returncode == 0
-                and any("RESULT NODE_LEVEL_WIRING_VERIFIED" in row for row in markers)
+                and any("RESULT COMBAT_MECHANICS_VERIFIED" in row for row in markers)
                 else "blocked_or_failed_runtime_probe"
             )
         except subprocess.TimeoutExpired:
             report["status"] = "blocked_runtime_timeout"
     images = sorted(qa_dir.glob("boss-*.png"))
     report["screenshots"] = [p.name for p in images]
+    if {p.name for p in images} == {"boss-start.png", "boss-after-120frames.png"}:
+        report["visual_change_verified"] = len({
+            hashlib.sha256(p.read_bytes()).digest() for p in images
+        }) == 2
+    if report["status"] == "native_combat_observed" and not report["visual_change_verified"]:
+        report["status"] = "blocked_no_visual_change"
     if images:
         with ZipFile(work / "artifacts" / "World-Boss-Map-QA.zip", "w", ZIP_DEFLATED) as archive:
             for item in images:
