@@ -17,6 +17,98 @@ FUNC = re.compile(r"(?m)^\s*(?:static\s+)?func\s+([A-Za-z_][A-Za-z_0-9]*)\s*\(")
 INTERESTING_SCRIPT_NAMES = ("world_select", "ro_map", "mvp_raid", "boss_brain", "raid_alerts", "game_data")
 MAX_FILE_SIZE = 2_000_000
 
+# Inspect only selected native gameplay API *signatures*. These identify how
+# World Boss is entered without shipping the publisher's game code/assets.
+NATIVE_ENTRYPOINTS = {
+    "scripts/core/main.gd": (
+        "_load_map", "start_run", "start_world_boss", "start_festival",
+        "enter_town", "leave_town",
+    ),
+    "scripts/core/world_boss.gd": (
+        "_init", "_ready", "on_boss", "on_hit", "_finish", "time_left",
+    ),
+    "scripts/core/wb_portal.gd": (
+        "_init", "_ask", "_show_boss", "_window_open",
+    ),
+    "scripts/core/mvp_raid.gd": (
+        "supports", "in_arena", "open_portal", "_enter", "_build_arena",
+        "_spawn_boss", "start_route", "leave", "reset",
+    ),
+    "scripts/core/boss_brain.gd": ("_init", "tick", "_start_attack"),
+    "scripts/ro/ro_map.gd": ("load_map", "spawn_point", "_build_meadow"),
+    "scripts/core/festival_run.gd": ("_init", "begin"),
+    "scripts/core/raid_trials.gd": ("start", "owns", "pins_boss"),
+    "scripts/autoload/game_data.gd": ("wb_locked", "wb_chest_items"),
+}
+ENTRYPOINT_RE = re.compile(r"(?m)^[ \\t]*(?:static[ \\t]+)?func[ \\t]+([A-Za-z_][A-Za-z_0-9]*)[ \\t]*\\(")
+
+
+def api_signatures(source: str, wanted: tuple[str, ...]) -> dict:
+    """Return only function parameter *declarations*, never bodies/defaults."""
+    result = {}
+    for match in ENTRYPOINT_RE.finditer(source):
+        name = match.group(1)
+        if name not in wanted or name in result:
+            continue
+        # GDScript permits nested parentheses in default arguments. Bound the
+        # scan so malformed recovered text cannot cause an unbounded read.
+        depth, raw, complete = 1, [], False
+        for ch in source[match.end():match.end() + 2400]:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    complete = True
+                    break
+            raw.append(ch)
+        if not complete:
+            continue
+        parts, current, inner = [], [], 0
+        for ch in raw:
+            if ch == "(":
+                inner += 1
+            elif ch == ")":
+                inner -= 1
+            if ch == "," and inner == 0:
+                parts.append("".join(current))
+                current = []
+            else:
+                current.append(ch)
+        parts.append("".join(current))
+        params = []
+        required = 0
+        for arg in parts:
+            arg = arg.strip()
+            if not arg:
+                continue
+            has_default = "=" in arg
+            declaration = " ".join(arg.split("=", 1)[0].split())
+            # Exclude literal default values and any unexpected syntax.
+            if not re.fullmatch(r"[A-Za-z_]\\w*(?:\\s*:\\s*[A-Za-z_]\\w*(?:\\[[A-Za-z_0-9, \\t]+\\])?)?", declaration):
+                declaration = "<complex_parameter>"
+            params.append(declaration)
+            if not has_default:
+                required += 1
+        result[name] = {"parameters": params, "required": required, "total": len(params)}
+    return result
+
+
+def native_contract(root: Path) -> dict:
+    found = {}
+    for relative, wanted in NATIVE_ENTRYPOINTS.items():
+        path = root / relative
+        if not path.is_file() or path.stat().st_size > MAX_FILE_SIZE:
+            found[relative] = {"missing_file": True}
+            continue
+        signatures = api_signatures(path.read_text(encoding="utf-8", errors="replace"), wanted)
+        found[relative] = {
+            "methods": signatures,
+            "missing_methods": sorted(set(wanted) - signatures.keys()),
+        }
+    return found
+
+
 
 def inventory(root: Path) -> dict:
     if not (root / "project.godot").is_file():
@@ -65,12 +157,15 @@ def inventory(root: Path) -> dict:
         "resource_extension_counts": resource_counts,
         "scene_candidate_count": len(scene_paths),
         "script_apis": scripts,
+        "native_world_boss_contract": native_contract(root),
         "verified_playable_world_boss_map": False,
         "notes": [
             "No filename match does not mean zero maps: map rendering may be data-driven.",
             "Filename candidates do not prove a map is playable.",
             "Do not publish recovered scenes or source scripts.",
             "Verify map scene loading, player/AI spawn and boss AI before enabling gameplay.",
+            "Native method signatures are metadata only; they are not proof offline World Boss is playable.",
+            "Do not bypass official network checks or use publisher-only rewards.",
         ],
     }
 
