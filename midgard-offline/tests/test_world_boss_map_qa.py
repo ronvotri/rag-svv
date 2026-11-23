@@ -1,0 +1,50 @@
+"""Fail-closed guardrails for the private boss-on-map QA experiment."""
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "original-addons/world_boss_map_qa.gd"
+INSTALLER = ROOT / "tools/install-original-assistant.py"
+BUILDER = ROOT / "tools/cloud-build-original.py"
+RUNNER = ROOT / "tools/run-world-boss-map-qa.py"
+
+
+class WorldBossMapTests(unittest.TestCase):
+    def test_qa_scene_stays_off_menu_and_uses_native_world(self):
+        code = SCRIPT.read_text(encoding="utf-8")
+        for expected in (
+            "--offline-test", "--offline-boss-map-qa",
+            "SVV_WORLD_BOSS_QA_SANDBOX", "profile_offline_test",
+            "RunSave.path()", "world.spawn_enemy(boss_id, point, true)",
+            "world.heroes.size() == 4", "HeroInput.BotHero",
+            'world.set_stage("prontera")', "res://scenes/main.tscn",
+            "WORLD_BOSS_MAP_QA RESULT", "boss-start.png",
+        ):
+            self.assertIn(expected, code)
+        active = "\n".join(
+            line for line in code.splitlines() if not line.lstrip().startswith("#")
+        )
+        for prohibited in (
+            "WorldBoss.new(", "start_world_boss(", "MvpRaid.start_route(",
+            "Save.add_zeny(", "Save.add_item(", "Leaderboard.submit(",
+        ):
+            self.assertNotIn(prohibited, active)
+
+    def test_runner_isolated_and_does_not_approve_playability(self):
+        code = RUNNER.read_text(encoding="utf-8")
+        for expected in (
+            "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
+            "SVV_WORLD_BOSS_QA_SANDBOX", "runtime_boss_playable_approved",
+            '"status": "not_run"', "world-boss-runtime-qa.json",
+            "native_node_wiring_pass", '"official_rewards_approved": False',
+        ):
+            self.assertIn(expected, code)
+        installer = INSTALLER.read_text(encoding="utf-8")
+        builder = BUILDER.read_text(encoding="utf-8")
+        self.assertIn('"world_boss_map_qa"', installer)
+        self.assertIn("run-world-boss-map-qa.py", builder)
+        self.assertIn('os.environ.get("SVV_WORLD_BOSS_MAP_QA") == "1"', builder)
+
+
+if __name__ == "__main__":
+    unittest.main()
