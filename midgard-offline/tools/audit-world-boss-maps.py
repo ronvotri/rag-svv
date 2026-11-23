@@ -21,14 +21,28 @@ MAX_FILE_SIZE = 2_000_000
 def inventory(root: Path) -> dict:
     if not (root / "project.godot").is_file():
         raise ValueError("Expected a recovered Godot project with project.godot")
-    scene_paths = sorted(
-        p.relative_to(root).as_posix()
-        for folder in ("scenes", "assets")
+    # Map content in this client may be data-driven instead of named scenes.
+    # Inventory the full scene/resource counts as well as filename candidates.
+    resources = [
+        p for folder in ("scenes", "assets")
         if (root / folder).exists()
         for p in (root / folder).rglob("*")
         if p.is_file() and p.suffix.lower() in (".tscn", ".scn", ".tres", ".res")
-        and any(word in p.stem.lower() for word in RELEVANT)
+    ]
+    scene_paths = sorted(
+        p.relative_to(root).as_posix() for p in resources
+        if any(word in p.stem.lower() for word in RELEVANT)
     )
+    resource_counts = {
+        suffix: sum(p.suffix.lower() == suffix for p in resources)
+        for suffix in (".tscn", ".scn", ".tres", ".res")
+    }
+    # Bounded path hints help identify generic game scene names without
+    # exporting scene contents or making assumptions about playability.
+    scene_hints = sorted(
+        p.relative_to(root).as_posix() for p in resources
+        if p.suffix.lower() in (".tscn", ".scn")
+    )[:150]
     scripts = {}
     for name in INTERESTING_SCRIPT_NAMES:
         matches = list((root / "scripts").rglob(name + ".gd")) if (root / "scripts").exists() else []
@@ -47,10 +61,13 @@ def inventory(root: Path) -> dict:
         "schema": 1,
         "source": "recovered_client_inventory_only",
         "scene_candidates": scene_paths,
+        "scene_hints": scene_hints,
+        "resource_extension_counts": resource_counts,
         "scene_candidate_count": len(scene_paths),
         "script_apis": scripts,
         "verified_playable_world_boss_map": False,
         "notes": [
+            "No filename match does not mean zero maps: map rendering may be data-driven.",
             "Filename candidates do not prove a map is playable.",
             "Do not publish recovered scenes or source scripts.",
             "Verify map scene loading, player/AI spawn and boss AI before enabling gameplay.",
