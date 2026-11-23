@@ -38,10 +38,10 @@ func _load_map(
     def test_inventory_marks_available_contract_without_claiming_playability(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "project.godot").write_text("[application]\\n", encoding="utf-8")
+            (root / "project.godot").write_text("[application]\n", encoding="utf-8")
             main = root / "scripts/core/main.gd"
             main.parent.mkdir(parents=True)
-            main.write_text("func start_world_boss(which: String) -> void:\\n    pass\\n", encoding="utf-8")
+            main.write_text("func start_world_boss(which: String) -> void:\n    pass\n", encoding="utf-8")
             report = audit.inventory(root)
             native = report["native_world_boss_contract"]
             self.assertEqual(native["scripts/core/main.gd"]["methods"]["start_world_boss"]["parameters"], ["which: String"])
