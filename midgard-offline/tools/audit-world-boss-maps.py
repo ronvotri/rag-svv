@@ -110,6 +110,112 @@ def native_contract(root: Path) -> dict:
 
 
 
+# Read-only, allowlisted call-flow hints for the recovered native client.
+# These are discovery signals, not evidence that local rewards/save are safe.
+FLOW_TARGETS = {
+    "scripts/core/main.gd": ("start_world_boss", "start_run", "_load_map"),
+    "scripts/core/world_boss.gd": ("_init", "on_boss", "_finish"),
+    "scripts/core/wb_portal.gd": ("_show_boss",),
+    "scripts/core/mvp_raid.gd": (
+        "start_route", "_enter", "_build_arena", "_spawn_boss", "on_boss_killed",
+    ),
+    "scripts/ro/ro_map.gd": ("load_map", "spawn_point"),
+    "scripts/autoload/game_data.gd": ("wb_locked", "wb_chest_items"),
+}
+# Only static, preapproved labels can enter an artifact. No discovered token,
+# argument, literal, recovered source line or file body is ever exported.
+FLOW_CALL_PROBES = {
+    "world_boss_constructor": r"\bWorldBoss\s*\.\s*new\s*\(",
+    "mvp_raid_constructor": r"\bMvpRaid\s*\.\s*new\s*\(",
+    "start_world_boss": r"\bstart_world_boss\s*\(",
+    "start_run": r"\bstart_run\s*\(",
+    "load_map": r"\b(?:_load_map|load_map)\s*\(",
+    "spawn_point": r"\bspawn_point\s*\(",
+    "start_route": r"\bstart_route\s*\(",
+    "open_portal": r"\bopen_portal\s*\(",
+    "build_arena": r"\b_build_arena\s*\(",
+    "spawn_boss": r"\b_spawn_boss\s*\(",
+    "boss_killed": r"\bon_boss_killed\s*\(",
+    "world_boss_finish": r"\b_finish\s*\(",
+    "wb_locked": r"\bwb_locked\s*\(",
+    "wb_chest_items": r"\bwb_chest_items\s*\(",
+    "save_setting_write": r"\bSave\s*\.\s*set_setting\s*\(",
+    "save_flush": r"\bSave\s*\.\s*flush\s*\(",
+}
+FLOW_RISK_PROBES = {
+    "save_reference": r"\b(?:Save|RunSave)\s*\.",
+    "network_reference": r"\b(?:NetSync|Net|RelayNet|EosNet|WorldChat)\s*\.",
+    "reward_reference": r"\b(?:reward|rewards|loot|chest|claim|zeny|exp|xp)\w*\b",
+    "ranking_reference": r"\b(?:ranking|leaderboard|rankings)\w*\b",
+    "profile_reference": r"\b(?:profile|account|cloud_save)\w*\b",
+}
+# Mask strings first, then strip comments. Only code is checked; e.g. a help
+# string containing 'Save.flush()' must never produce a false save cue.
+GD_LITERAL = re.compile(
+    r'''(?s)\"\"\".*?\"\"\"|'''+ "\"'''"+r'''(?:.*?)'''+"'''"+r'''|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*' '''
+    .strip()
+)
+
+
+def _masked_gd_code(source: str) -> str:
+    literals_masked = GD_LITERAL.sub(
+        lambda m: "".join("\n" if c == "\n" else " " for c in m.group()), source
+    )
+    return re.sub(r"#[^\n]*", "", literals_masked)
+
+
+def method_flow_hints(source: str, wanted: tuple[str, ...]) -> dict:
+    """Summarize allowlisted symbols inside method bodies only."""
+    headers = list(ENTRYPOINT_RE.finditer(source))
+    found = {}
+    for index, entry in enumerate(headers):
+        name = entry.group(1)
+        if name not in wanted or name in found:
+            continue
+        end = headers[index + 1].start() if index + 1 < len(headers) else len(source)
+        first_newline = source.find("\n", entry.start(), end)
+        if first_newline < 0:
+            continue
+        body = _masked_gd_code(source[first_newline + 1:end])
+        found[name] = {
+            "call_cues": sorted(
+                label for label, pattern in FLOW_CALL_PROBES.items()
+                if re.search(pattern, body)
+            ),
+            "review_signals": sorted(
+                label for label, pattern in FLOW_RISK_PROBES.items()
+                if re.search(pattern, body, re.IGNORECASE)
+            ),
+        }
+    return found
+
+
+def native_flow_metadata(root: Path) -> dict:
+    targets = {}
+    for relative, wanted in FLOW_TARGETS.items():
+        path = root / relative
+        if not path.is_file() or path.stat().st_size > MAX_FILE_SIZE:
+            targets[relative] = {"missing_file": True}
+            continue
+        observed = method_flow_hints(
+            path.read_text(encoding="utf-8", errors="replace"), wanted
+        )
+        targets[relative] = {
+            "methods": observed,
+            "missing_methods": sorted(set(wanted) - observed.keys()),
+        }
+    return {
+        "metadata_only": True,
+        "methods": targets,
+        "gates": {
+            "native_runtime_boss_playtested": False,
+            "offline_party_spawn_playtested": False,
+            "offline_save_and_reward_isolation_verified": False,
+            "safe_to_enable": False,
+        },
+    }
+
+
 def inventory(root: Path) -> dict:
     if not (root / "project.godot").is_file():
         raise ValueError("Expected a recovered Godot project with project.godot")
@@ -158,6 +264,7 @@ def inventory(root: Path) -> dict:
         "scene_candidate_count": len(scene_paths),
         "script_apis": scripts,
         "native_world_boss_contract": native_contract(root),
+        "native_world_boss_flow": native_flow_metadata(root),
         "verified_playable_world_boss_map": False,
         "notes": [
             "No filename match does not mean zero maps: map rendering may be data-driven.",
@@ -165,6 +272,7 @@ def inventory(root: Path) -> dict:
             "Do not publish recovered scenes or source scripts.",
             "Verify map scene loading, player/AI spawn and boss AI before enabling gameplay.",
             "Native method signatures are metadata only; they are not proof offline World Boss is playable.",
+            "Call cues and review signals are a conservative static scan, not an assurance of safe writes.",
             "Do not bypass official network checks or use publisher-only rewards.",
         ],
     }
@@ -180,6 +288,14 @@ def main() -> None:
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(rendered, encoding="utf-8")
+    flow = report["native_world_boss_flow"]
+    main_flow = flow["methods"].get("scripts/core/main.gd", {}).get("methods", {})
+    boss_flow = flow["methods"].get("scripts/core/world_boss.gd", {}).get("methods", {})
+    print("WORLD_BOSS_FLOW_AUDIT " + json.dumps({
+        "start_world_boss_calls": main_flow.get("start_world_boss", {}).get("call_cues", []),
+        "native_boss_finish_review": boss_flow.get("_finish", {}).get("review_signals", []),
+        "safe_to_enable": flow["gates"]["safe_to_enable"],
+    }), flush=True)
     print("WORLD_BOSS_MAP_AUDIT " + json.dumps({
         "scene_candidates": report["scene_candidate_count"],
         "relevant_scripts": len(report["script_apis"]),
