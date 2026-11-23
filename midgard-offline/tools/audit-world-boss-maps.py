@@ -40,7 +40,7 @@ NATIVE_ENTRYPOINTS = {
     "scripts/core/raid_trials.gd": ("start", "owns", "pins_boss"),
     "scripts/autoload/game_data.gd": ("wb_locked", "wb_chest_items"),
 }
-ENTRYPOINT_RE = re.compile(r"(?m)^[ \\t]*(?:static[ \\t]+)?func[ \\t]+([A-Za-z_][A-Za-z_0-9]*)[ \\t]*\\(")
+ENTRYPOINT_RE = re.compile(r"(?m)^[ \t]*(?:static[ \t]+)?func[ \t]+([A-Za-z_][A-Za-z_0-9]*)[ \t]*\(")
 
 
 def api_signatures(source: str, wanted: tuple[str, ...]) -> dict:
@@ -85,7 +85,7 @@ def api_signatures(source: str, wanted: tuple[str, ...]) -> dict:
             has_default = "=" in arg
             declaration = " ".join(arg.split("=", 1)[0].split())
             # Exclude literal default values and any unexpected syntax.
-            if not re.fullmatch(r"[A-Za-z_]\\w*(?:\\s*:\\s*[A-Za-z_]\\w*(?:\\[[A-Za-z_0-9, \\t]+\\])?)?", declaration):
+            if not re.fullmatch(r"[A-Za-z_]\w*(?:\s*:\s*[A-Za-z_]\w*(?:\[[A-Za-z_0-9, \t]+\])?)?", declaration):
                 declaration = "<complex_parameter>"
             params.append(declaration)
             if not has_default:
