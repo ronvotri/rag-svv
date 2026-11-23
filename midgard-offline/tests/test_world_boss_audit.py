@@ -72,6 +72,53 @@ func _finish() -> void:
         self.assertEqual(hints["_finish"]["call_cues"], [])
         self.assertEqual(hints["_finish"]["review_signals"], [])
 
+    def test_masked_fake_functions_cannot_invent_boss_hooks(self):
+        source = '''func start_world_boss(index: int, state: Dictionary) -> void:
+    var help = """
+func spawn_enemy(cheat: String) -> void:
+    Save.flush()
+    """
+    var enemy = Enemy.new()
+func spawn_enemy(mob: String, point: Vector2) -> void:
+    pass
+'''
+        contracts = audit.api_signatures(source, ("start_world_boss", "spawn_enemy"))
+        self.assertEqual(contracts["spawn_enemy"]["parameters"], ["mob: String", "point: Vector2"])
+        self.assertEqual(contracts["spawn_enemy"]["total"], 2)
+        flow = audit.method_flow_hints(source, ("start_world_boss", "spawn_enemy"))
+        self.assertEqual(flow["start_world_boss"]["call_cues"], ["enemy_constructor"])
+        self.assertNotIn("save_reference", flow["start_world_boss"]["review_signals"])
+        self.assertIn("spawn_enemy", flow)
+
+    def test_in_world_spawn_contract_is_inventory_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "project.godot").write_text("[application]\\n", encoding="utf-8")
+            main = root / "scripts/core/main.gd"
+            enemy = root / "scripts/core/enemy.gd"
+            main.parent.mkdir(parents=True)
+            main.write_text(
+                "func start_world_boss(index: int, state: Dictionary) -> void:\\n"
+                "    spawn_enemy(\\\"poring\\\", Vector2.ZERO)\\n"
+                "func spawn_enemy(mob: String, point: Vector2) -> void:\\n"
+                "    var new_enemy = Enemy.new()\\n",
+                encoding="utf-8")
+            enemy.write_text(
+                "func setup(mob: String) -> void:\\n"
+                "    pass\\n"
+                "func die() -> void:\\n"
+                "    Save.flush()\\n",
+                encoding="utf-8")
+            report = audit.inventory(root)
+            self.assertIn("spawn_enemy", report["native_world_boss_contract"]["scripts/core/main.gd"]["methods"])
+            self.assertIn("setup", report["native_world_boss_contract"]["scripts/core/enemy.gd"]["methods"])
+            flow = report["native_world_boss_flow"]
+            self.assertIn("spawn_enemy", flow["methods"]["scripts/core/main.gd"]["methods"]["start_world_boss"]["call_cues"])
+            self.assertIn("save_reference", flow["methods"]["scripts/core/enemy.gd"]["methods"]["die"]["review_signals"])
+            self.assertFalse(flow["gates"]["world_boss_rendered_in_map"])
+            self.assertFalse(flow["gates"]["native_spawn_api_runtime_verified"])
+            self.assertFalse(flow["gates"]["safe_to_enable"])
+
     def test_native_flow_never_approves_gameplay_from_static_recon(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
