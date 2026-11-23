@@ -1,0 +1,33 @@
+name: World Boss - source-only audit QA
+
+on:
+  push:
+    branches:
+      - feature/offline-cards-unique-npc-wave34
+    paths:
+      - midgard-offline/tools/audit-world-boss-maps.py
+      - midgard-offline/tests/test_world_boss_audit.py
+      - .github/workflows/world-boss-audit-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: World Boss metadata scanner unit QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile scanner
+        run: python -m py_compile midgard-offline/tools/audit-world-boss-maps.py
+      - name: Run audit regression tests without downloading original client
+        run: python -m unittest discover -s midgard-offline/tests -p 'test_world_boss_audit.py' -v
+      - name: Declare scope
+        run: |
+          echo "Source-only QA finished. No original game download was requested."
+          echo "This does not verify runtime boss spawning, map animation, AI combat or save isolation."
