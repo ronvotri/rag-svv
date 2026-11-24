@@ -77,6 +77,11 @@ def damage_hook_diagnostics(source: str) -> dict:
         "header_matched": True,
         "enemy_parameters": len(enemy),
         "player_parameters": len(players),
+        "untyped_nullable_parameters": len(re.findall(
+            r"(?:^|,)\s*(\w+)\s*(?::=|=)\s*null\s*(?=,|$)", args)),
+        "standalone_hurt_call_lines": len(re.findall(
+            r"(?m)^[ \t]+(?:(?:var\s+\w+(?:\s*:\s*\w+)?\s*[:=]=?\s*|\w+\s*=\s*))?"
+            + re.escape(enemy[0]) + r"\.hurt\([^\n]*\)[ \t]*(?:#[^\n]*)?$", body)) if len(enemy) == 1 else 0,
         "enemy_hurt_references": len(re.findall(r"\b" + re.escape(enemy[0]) + r"\.hurt\s*\(", body)) if len(enemy) == 1 else 0,
     }
 
@@ -115,6 +120,7 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         "hook_diagnostics": {},
         "mvp_candidates": {},
         "alternate_boss": {"status": "not_run"},
+        "additional_bosses": {},
         "terminal_observation": [],
         "native_death_verified": False,
         "local_rewards_verified": False,
@@ -192,12 +198,17 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         if report["status"] == "native_combat_observed":
             first = next((row.split(" ", 1)[1] for row in report["evidence"]
                           if row.startswith("NATIVE_BOSS ")), "")
-            alternate = next((boss for boss, supported in report["mvp_candidates"].items()
-                              if supported and boss != first), "")
-            if alternate:
-                alt_dir = qa_dir / "alternate"
+            # Bounded allowlist; never treat unrecognized output as a path or boss ID.
+            allowed = ("baphomet", "osiris", "eddga", "mistress", "maya", "dark_lord",
+                       "phreeoni", "moonlight_flower", "golden_thief_bug")
+            alternatives = [boss for boss in allowed
+                            if report["mvp_candidates"].get(boss) is True and boss != first]
+            if not alternatives:
+                report["alternate_boss"] = {"status": "no_other_supported_candidate"}
+            for alternate in alternatives:
+                alt_dir = qa_dir / "bosses" / alternate
                 alt_dir.mkdir(parents=True, exist_ok=True)
-                alt_data = work / "boss-alternate-profile-sandbox"
+                alt_data = work / "boss-alternate-profile-sandbox" / alternate
                 for part in ("data", "config", "cache"):
                     (alt_data / part).mkdir(parents=True, exist_ok=True)
                 alt_env = {**env, "XDG_DATA_HOME": str(alt_data / "data"),
@@ -221,7 +232,7 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                     observed = (alt_run.returncode == 0 and visual_ok
                                 and "NATIVE_BOSS " + alternate in alt_markers
                                 and "RESULT COMBAT_MECHANICS_VERIFIED errors=0" in alt_markers)
-                    report["alternate_boss"] = {
+                    report["additional_bosses"][alternate] = {
                         "id": alternate,
                         "status": "native_combat_observed" if observed else "blocked_or_failed_runtime_probe",
                         "visual_change_verified": visual_ok,
@@ -230,9 +241,9 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                         "terminal_observation": [row for row in alt_markers if row.startswith("TERMINAL ")][:1],
                     }
                 except subprocess.TimeoutExpired:
-                    report["alternate_boss"] = {"id": alternate, "status": "blocked_runtime_timeout"}
-            else:
-                report["alternate_boss"] = {"status": "no_other_supported_candidate"}
+                    report["additional_bosses"][alternate] = {"id": alternate, "status": "blocked_runtime_timeout"}
+                if alternate == alternatives[0]:
+                    report["alternate_boss"] = report["additional_bosses"][alternate]
     images = sorted(qa_dir.glob("boss-*.png"))
     report["screenshots"] = [p.name for p in images]
     if {p.name for p in images} == {"boss-start.png", "boss-after-120frames.png"}:
@@ -245,12 +256,16 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         with ZipFile(work / "artifacts" / "World-Boss-Map-QA.zip", "w", ZIP_DEFLATED) as archive:
             for item in images:
                 archive.write(item, item.name)
-            for item in sorted((qa_dir / "alternate").glob("boss-*.png")):
-                archive.write(item, "alternate/" + item.name)
-            for folder, prefix in ((qa_dir, ""), (qa_dir / "alternate", "alternate/")):
+            terminal = qa_dir / "terminal-observation.png"
+            if terminal.is_file():
+                archive.write(terminal, terminal.name)
+            for boss in report["additional_bosses"]:
+                folder = qa_dir / "bosses" / boss
+                for item in sorted(folder.glob("boss-*.png")):
+                    archive.write(item, "bosses/" + boss + "/" + item.name)
                 terminal = folder / "terminal-observation.png"
                 if terminal.is_file():
-                    archive.write(terminal, prefix + terminal.name)
+                    archive.write(terminal, "bosses/" + boss + "/" + terminal.name)
     # Never grant release approval automatically, even if node wiring passes.
     payload = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
     (context / "world-boss-runtime-qa.json").write_text(payload, encoding="utf-8")

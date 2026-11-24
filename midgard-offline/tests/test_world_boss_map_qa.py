@@ -73,6 +73,15 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIn("boss-alternate-profile-sandbox", source)
         self.assertIn("env=alt_env", source)
         self.assertIn('report["alternate_boss"]', source)
+        self.assertIn('for alternate in alternatives:', source)
+        self.assertIn('report["additional_bosses"][alternate]', source)
+        self.assertIn('qa_dir / "bosses" / alternate', source)
+        self.assertIn('work / "boss-alternate-profile-sandbox" / alternate', source)
+        self.assertIn('report["mvp_candidates"].get(boss) is True', source)
+        diag = runner["damage_hook_diagnostics"](
+            "func damage_enemy(e: Enemy, base: float, src = null) -> void:\n\te.hurt(base)\n")
+        self.assertEqual(diag["untyped_nullable_parameters"], 1)
+        self.assertEqual(diag["standalone_hurt_call_lines"], 1)
 
     def test_terminal_observation_does_not_assert_victory_or_rewards(self):
         code = SCRIPT.read_text(encoding="utf-8")
