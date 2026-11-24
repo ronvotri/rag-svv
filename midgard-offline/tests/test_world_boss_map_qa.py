@@ -1,6 +1,7 @@
 """Fail-closed guardrails for the private boss-on-map QA experiment."""
 from pathlib import Path
 import unittest
+import runpy
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "original-addons/world_boss_map_qa.gd"
@@ -32,6 +33,23 @@ class WorldBossMapTests(unittest.TestCase):
             "Save.add_zeny(", "Save.add_item(", "Leaderboard.submit(",
         ):
             self.assertNotIn(prohibited, active)
+
+    def test_native_damage_hook_fails_closed_and_preserves_call(self):
+        instrument = runpy.run_path(str(RUNNER))["instrument_native_damage"]
+        source = ('func damage_enemy(e: Enemy, base: float, src: Player = null) -> void:\n'
+                  '\tvar amount: float = base\n'
+                  '\te.hurt(amount, Vector3.ZERO)\n'
+                  'func other():\n\tpass\n')
+        result = instrument(source)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.count("e.hurt(amount, Vector3.ZERO)"), 1)
+        self.assertIn('svv_qa_before - e.hp', result)
+        self.assertIn('src.get_instance_id()', result)
+        self.assertTrue(result.endswith('func other():\n\tpass\n'))
+        self.assertIsNone(instrument(source.replace("src: Player", "src: Object")))
+        self.assertIsNone(instrument(source.replace("\te.hurt", "\te.hurt(amount, Vector3.ZERO)\n\te.hurt")))
+        self.assertIsNone(instrument(result))
+        self.assertIn('native.write_bytes(original)', RUNNER.read_text(encoding="utf-8"))
 
     def test_runner_isolated_and_does_not_approve_playability(self):
         code = RUNNER.read_text(encoding="utf-8")

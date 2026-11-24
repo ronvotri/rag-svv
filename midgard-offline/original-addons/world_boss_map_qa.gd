@@ -151,6 +151,10 @@ func _run() -> void:
 	_check(rendered is Node and is_instance_valid(rendered), "original_boss_render_node")
 	var boss_hp_before: Variant = _native_number(spawned, "hp")
 	var player_hp_before: float = world.player.hp
+	var hero_ids: Array[String] = []
+	for member in world.heroes:
+		hero_ids.append(str(member.get_instance_id()))
+	spawned.set_meta("svv_qa_boss_hits", {})
 	var ai_start_positions: Array[Vector3] = []
 	for index in range(1, world.heroes.size()):
 		ai_start_positions.append(world.heroes[index].position)
@@ -176,6 +180,26 @@ func _run() -> void:
 	if boss_hp_before != null and boss_hp_after != null:
 		_check(float(boss_hp_after) < float(boss_hp_before), "boss_loses_hp_without_forced_damage")
 	_check(ai_moved > 0, "original_ai_moves_during_encounter")
+	if is_instance_valid(spawned) and boss_hp_before != null and boss_hp_after != null:
+		var hits: Dictionary = spawned.get_meta("svv_qa_boss_hits", {})
+		var total: float = 0.0
+		var party_total: float = 0.0
+		var ai_hitters: int = 0
+		for index in range(hero_ids.size()):
+			var row: Dictionary = hits.get(hero_ids[index], {})
+			var damage: float = float(row.get("damage", 0.0))
+			var count: int = int(row.get("hits", 0))
+			party_total += damage
+			if index > 0 and damage > 0.0 and count > 0:
+				ai_hitters += 1
+			print("WORLD_BOSS_MAP_QA ATTRIBUTION slot=", index, " damage=", damage, " hits=", count)
+		for key in hits:
+			total += float(hits[key].get("damage", 0.0))
+		var hp_loss: float = float(boss_hp_before) - float(boss_hp_after)
+		var reconciled: bool = hp_loss > 0.0 and absf(total - hp_loss) < 0.1 and absf(total - party_total) < 0.1
+		print("WORLD_BOSS_MAP_QA ATTRIBUTION_SUMMARY ai_hitters=", ai_hitters,
+			" hp_loss=", hp_loss, " recorded=", total, " unknown=", total - party_total,
+			" reconciled=", reconciled)
 	await _snapshot("boss-after-120frames.png")
 	# Gameplay mechanics observed; not proof of a full raid, AI attribution, safe loot, or rewards.
 	_finish("COMBAT_MECHANICS_VERIFIED" if errors.is_empty() else "FAIL",
