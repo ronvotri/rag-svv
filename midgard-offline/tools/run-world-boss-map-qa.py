@@ -98,6 +98,9 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         "hook_diagnostics": {},
         "mvp_candidates": {},
         "alternate_boss": {"status": "not_run"},
+        "terminal_observation": [],
+        "native_death_verified": False,
+        "local_rewards_verified": False,
         "evidence": [],
         "screenshots": [],
     }
@@ -143,6 +146,7 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
             ]
             report["evidence"] = markers[:60]
             report["mvp_candidates"] = parse_candidates(markers)
+            report["terminal_observation"] = [row for row in markers if row.startswith("TERMINAL ")][:1]
             report["combat_telemetry"] = [
                 row for row in markers if row.startswith("COMBAT ")
             ][:4]
@@ -206,6 +210,7 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                         "visual_change_verified": visual_ok,
                         "evidence": alt_markers[:60],
                         "combat_telemetry": [row for row in alt_markers if row.startswith("COMBAT ")],
+                        "terminal_observation": [row for row in alt_markers if row.startswith("TERMINAL ")][:1],
                     }
                 except subprocess.TimeoutExpired:
                     report["alternate_boss"] = {"id": alternate, "status": "blocked_runtime_timeout"}
@@ -225,6 +230,10 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                 archive.write(item, item.name)
             for item in sorted((qa_dir / "alternate").glob("boss-*.png")):
                 archive.write(item, "alternate/" + item.name)
+            for folder, prefix in ((qa_dir, ""), (qa_dir / "alternate", "alternate/")):
+                terminal = folder / "terminal-observation.png"
+                if terminal.is_file():
+                    archive.write(terminal, prefix + terminal.name)
     # Never grant release approval automatically, even if node wiring passes.
     payload = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
     (context / "world-boss-runtime-qa.json").write_text(payload, encoding="utf-8")

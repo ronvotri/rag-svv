@@ -68,6 +68,19 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIn("env=alt_env", source)
         self.assertIn('report["alternate_boss"]', source)
 
+    def test_terminal_observation_does_not_assert_victory_or_rewards(self):
+        code = SCRIPT.read_text(encoding="utf-8")
+        for label in ("player_zero_hp_observed", "boss_zero_hp_observed",
+                      "simultaneous_zero_hp", "node_or_hp_missing_unverified",
+                      "world_stopped_unverified", "observation_limit"):
+            self.assertIn(label, code)
+        self.assertIn("Time.get_ticks_msec() + 20000", code)
+        self.assertIn("terminal-observation.png", code)
+        source = RUNNER.read_text(encoding="utf-8")
+        self.assertIn('"native_death_verified": False', source)
+        self.assertIn('"local_rewards_verified": False', source)
+        self.assertIn('row.startswith("TERMINAL ")', source)
+
     def test_runner_isolated_and_does_not_approve_playability(self):
         code = RUNNER.read_text(encoding="utf-8")
         for expected in (

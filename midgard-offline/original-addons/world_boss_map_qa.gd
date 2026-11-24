@@ -61,6 +61,41 @@ func _native_number(obj: Object, name: String) -> Variant:
 				return float(value)
 	return null
 
+# Observation only: a disappearing node is not proof of a boss kill.
+# The real death callback and reward settlement require separate verification.
+func _observe_terminal(boss: Enemy, human: Player) -> void:
+	var deadline: int = Time.get_ticks_msec() + 20000
+	var start_time: float = world.time
+	var outcome := "observation_limit"
+	var boss_hp: Variant = null
+	var human_hp: Variant = null
+	for frame in 1800:
+		boss_hp = _native_number(boss, "hp") if is_instance_valid(boss) else null
+		human_hp = _native_number(human, "hp") if is_instance_valid(human) else null
+		if boss_hp != null and human_hp != null and float(boss_hp) <= 0.0 and float(human_hp) <= 0.0:
+			outcome = "simultaneous_zero_hp"
+			break
+		if human_hp != null and float(human_hp) <= 0.0:
+			outcome = "player_zero_hp_observed"
+			break
+		if boss_hp != null and float(boss_hp) <= 0.0:
+			outcome = "boss_zero_hp_observed"
+			break
+		if boss_hp == null or human_hp == null:
+			outcome = "node_or_hp_missing_unverified"
+			break
+		if not world.running:
+			outcome = "world_stopped_unverified"
+			break
+		if Time.get_ticks_msec() >= deadline or world.time - start_time >= 30.0:
+			break
+		await get_tree().process_frame
+	print("WORLD_BOSS_MAP_QA TERMINAL outcome=", outcome,
+		" boss_hp=", boss_hp, " player_hp=", human_hp,
+		" elapsed_world=", world.time - start_time)
+	# Separate name: the original two-image combat acceptance gate is unchanged.
+	await _snapshot("terminal-observation.png")
+
 func _run() -> void:
 	await get_tree().process_frame
 	var args: PackedStringArray = OS.get_cmdline_user_args()
@@ -206,6 +241,8 @@ func _run() -> void:
 			" hp_loss=", hp_loss, " recorded=", total, " unknown=", total - party_total,
 			" reconciled=", reconciled)
 	await _snapshot("boss-after-120frames.png")
+	if errors.is_empty():
+		await _observe_terminal(spawned, world.player)
 	# Gameplay mechanics observed; not proof of a full raid, AI attribution, safe loot, or rewards.
 	_finish("COMBAT_MECHANICS_VERIFIED" if errors.is_empty() else "FAIL",
 		0 if errors.is_empty() else 1)
