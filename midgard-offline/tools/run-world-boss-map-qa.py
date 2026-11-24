@@ -21,9 +21,25 @@ def instrument_native_damage(source: str) -> str | None:
     args, body = method.groups()
     enemy = re.findall(r"\b(\w+)\s*:\s*Enemy\b", args)
     players = re.findall(r"\b(\w+)\s*:\s*Player\b", args)
-    if len(enemy) != 1 or len(players) != 1 or "svv_qa_before" in body:
+    if len(enemy) != 1 or len(players) > 1 or "svv_qa_before" in body:
         return None
-    e, src = enemy[0], players[0]
+    e = enemy[0]
+    # Recovered scripts may omit type annotations for a nullable source.
+    # Restrict fallback to simple untyped null defaults, never arbitrary expressions.
+    candidates = players or re.findall(
+        r"(?:^|,)\s*(\w+)\s*(?::=|=)\s*null\s*(?=,|$)", args)
+    if not candidates:
+        return None
+    source_lines = [
+        "var svv_qa_source_ids: Array[String] = []",
+    ]
+    for candidate in candidates:
+        source_lines.extend([
+            f"if {candidate} is Player and is_instance_valid({candidate}):",
+            f"\tvar svv_qa_candidate_id: String = str({candidate}.get_instance_id())",
+            "\tif not svv_qa_source_ids.has(svv_qa_candidate_id):",
+            "\t\tsvv_qa_source_ids.append(svv_qa_candidate_id)",
+        ])
     call = re.compile(r"(?m)^([ \t]+)(?:(?:var\s+\w+(?:\s*:\s*\w+)?\s*[:=]=?\s*|\w+\s*=\s*))?" + re.escape(e) + r"\.hurt\([^\n]*\)[ \t]*(?:#[^\n]*)?$")
     found = list(call.finditer(body))
     if len(found) != 1:
@@ -36,7 +52,8 @@ def instrument_native_damage(source: str) -> str | None:
         f"if svv_qa_before >= 0.0 and is_instance_valid({e}):",
         f"\tvar svv_qa_delta: float = svv_qa_before - {e}.hp",
         "\tif svv_qa_delta > 0.0:",
-        f"\t\tvar svv_qa_id: String = str({src}.get_instance_id()) if is_instance_valid({src}) else \"unknown\"",
+        *["\t\t" + line for line in source_lines],
+        "\t\tvar svv_qa_id: String = svv_qa_source_ids[0] if svv_qa_source_ids.size() == 1 else \"unknown\"",
         f"\t\tvar svv_qa_hits: Dictionary = {e}.get_meta(\"svv_qa_boss_hits\", {{}})",
         "\t\tvar svv_qa_row: Dictionary = svv_qa_hits.get(svv_qa_id, {})",
         "\t\tsvv_qa_row[\"damage\"] = float(svv_qa_row.get(\"damage\", 0.0)) + svv_qa_delta",
