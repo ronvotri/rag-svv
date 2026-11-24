@@ -51,6 +51,23 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIsNone(instrument(result))
         self.assertIn('native.write_bytes(original)', RUNNER.read_text(encoding="utf-8"))
 
+    def test_candidate_inventory_and_alternate_isolation(self):
+        runner = runpy.run_path(str(RUNNER))
+        self.assertEqual(runner["parse_candidates"]([
+            "MVP_CANDIDATE baphomet supported=true",
+            "MVP_CANDIDATE osiris supported=false",
+            "MVP_CANDIDATE invalid supported=maybe",
+        ]), {"baphomet": True, "osiris": False})
+        self.assertEqual(runner["damage_hook_diagnostics"]("func unrelated():\n\tpass\n"),
+                         {"header_matched": False})
+        code = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('validator.call("supports", candidate)', code)
+        self.assertIn("--offline-boss-id=", code)
+        source = RUNNER.read_text(encoding="utf-8")
+        self.assertIn("boss-alternate-profile-sandbox", source)
+        self.assertIn("env=alt_env", source)
+        self.assertIn('report["alternate_boss"]', source)
+
     def test_runner_isolated_and_does_not_approve_playability(self):
         code = RUNNER.read_text(encoding="utf-8")
         for expected in (

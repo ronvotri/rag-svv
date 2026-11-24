@@ -24,7 +24,7 @@ func _finish(message: String, exit_code: int = 2) -> void:
 		world.running = false
 	get_tree().quit(exit_code)
 
-func _candidate() -> String:
+func _candidate(requested: String) -> String:
 	# Call only the native pure support classifier; never begin the MVP raid.
 	var script: Script = load("res://scripts/core/mvp_raid.gd")
 	if script == null or not script.can_instantiate():
@@ -32,14 +32,15 @@ func _candidate() -> String:
 	var validator: Object = script.new()
 	if validator == null or not validator.has_method("supports"):
 		return ""
+	var selected := ""
 	for candidate in BOSS_CANDIDATES:
-		if bool(validator.call("supports", candidate)):
-			if validator is Node:
-				(validator as Node).queue_free()
-			return candidate
+		var supported: bool = bool(validator.call("supports", candidate))
+		print("WORLD_BOSS_MAP_QA MVP_CANDIDATE ", candidate, " supported=", supported)
+		if supported and selected.is_empty() and (requested.is_empty() or requested == candidate):
+			selected = candidate
 	if validator is Node:
 		(validator as Node).queue_free()
-	return ""
+	return selected
 
 func _snapshot(filename: String) -> void:
 	if screenshot_folder.is_empty():
@@ -119,7 +120,11 @@ func _run() -> void:
 	if not errors.is_empty():
 		_finish("BLOCKED_party_ai")
 		return
-	var boss_id: String = _candidate()
+	var requested_boss := ""
+	for arg in args:
+		if str(arg).begins_with("--offline-boss-id="):
+			requested_boss = str(arg).substr(len("--offline-boss-id="))
+	var boss_id: String = _candidate(requested_boss)
 	if boss_id.is_empty():
 		_finish("BLOCKED_no_supported_native_mvp", 3)
 		return
