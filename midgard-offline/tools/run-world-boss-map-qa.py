@@ -28,8 +28,8 @@ def instrument_native_damage(source: str) -> str | None:
     # Restrict fallback to simple untyped null defaults, never arbitrary expressions.
     candidates = players or re.findall(
         r"(?:^|,)\s*(\w+)\s*(?::=|=)\s*null\s*(?=,|$)", args)
-    if not candidates:
-        return None
+    # If no source contract is known, still measure damage under "unknown".
+    # This is a total-damage observer, not evidence of per-AI attribution.
     source_lines = [
         "var svv_qa_source_ids: Array[String] = []",
     ]
@@ -63,6 +63,21 @@ def instrument_native_damage(source: str) -> str | None:
     ]
     patched = body[:m.start()] + "\n".join(i + line for line in lines) + body[m.end():]
     return source[:method.start(2)] + patched + source[method.end(2):]
+
+
+def instrument_native_death(source: str) -> str | None:
+    """Observe entry into the actual Enemy.die callback, without invoking it."""
+    headers = list(re.finditer(r"(?m)^func die\(\s*\)(?:\s*->\s*void)?\s*:[ \t]*\n", source))
+    if len(headers) != 1 or "SVV_QA_NATIVE_DEATH" in source:
+        return None
+    at = headers[0].end()
+    line = re.match(r"([ \t]+)\S", source[at:])
+    if not line:
+        return None
+    indent = line.group(1)
+    observer = (indent + 'if has_meta("svv_qa_boss_hits"):\n'
+                + indent + '\tprint("WORLD_BOSS_MAP_QA NATIVE_DEATH hp=", hp, " SVV_QA_NATIVE_DEATH")\n')
+    return source[:at] + observer + source[at:]
 
 
 def damage_hook_diagnostics(source: str) -> dict:
@@ -123,6 +138,9 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         "additional_bosses": {},
         "terminal_observation": [],
         "native_death_verified": False,
+        "death_hook_installed": False,
+        "death_callback_observation": [],
+        "damage_reconciliation": "not_run",
         "local_rewards_verified": False,
         "evidence": [],
         "screenshots": [],
@@ -150,12 +168,18 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         native = project / "scripts/core/main.gd"
         original = native.read_bytes() if native.is_file() else None
         patched = instrument_native_damage(original.decode("utf-8")) if original else None
+        death_file = project / "scripts/core/enemy.gd"
+        death_original = death_file.read_bytes() if death_file.is_file() else None
+        death_patched = instrument_native_death(death_original.decode("utf-8")) if death_original else None
+        report["death_hook_installed"] = death_patched is not None
         report["attribution_status"] = "hook_installed" if patched else "blocked_hook_contract"
         if original:
             report["hook_diagnostics"] = damage_hook_diagnostics(original.decode("utf-8"))
         try:
             if patched is not None:
                 native.write_text(patched, encoding="utf-8", newline="\n")
+            if death_patched is not None:
+                death_file.write_text(death_patched, encoding="utf-8", newline="\n")
             completed = subprocess.run(
                 command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace",
@@ -170,6 +194,12 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
             report["evidence"] = markers[:60]
             report["mvp_candidates"] = parse_candidates(markers)
             report["terminal_observation"] = [row for row in markers if row.startswith("TERMINAL ")][:1]
+            report["death_callback_observation"] = [row for row in markers if row.startswith("NATIVE_DEATH ")][:4]
+            if death_patched is not None and completed.returncode == 0:
+                for row in report["death_callback_observation"]:
+                    hp = re.fullmatch(r"NATIVE_DEATH hp=([-+0-9.eE]+) SVV_QA_NATIVE_DEATH", row)
+                    if hp and float(hp.group(1)) <= 0.0:
+                        report["native_death_verified"] = True
             report["combat_telemetry"] = [
                 row for row in markers if row.startswith("COMBAT ")
             ][:4]
@@ -177,6 +207,11 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
             if patched is not None:
                 summary = next((row for row in markers if row.startswith("ATTRIBUTION_SUMMARY ")), "")
                 match = re.search(r"ai_hitters=(\d+)", summary)
+                amounts = re.search(r"hp_loss=([-+0-9.eE]+) recorded=([-+0-9.eE]+)", summary)
+                report["damage_reconciliation"] = ("total_hp_loss_reconciled"
+                    if completed.returncode == 0 and amounts and float(amounts.group(1)) > 0
+                    and abs(float(amounts.group(1)) - float(amounts.group(2))) < 0.1
+                    else "unverified")
                 report["attribution_status"] = ("all_three_ai_hits_reconciled"
                     if completed.returncode == 0 and match and int(match.group(1)) == 3
                     and "reconciled=true" in summary else "partial_or_unverified")
@@ -193,6 +228,8 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         finally:
             if patched is not None and original is not None:
                 native.write_bytes(original)  # Restore byte-for-byte before any export.
+            if death_patched is not None and death_original is not None:
+                death_file.write_bytes(death_original)
         # Separate process and data directory: do not carry Baphomet state or
         # rewards into the second encounter. No native raid entrypoint is used.
         if report["status"] == "native_combat_observed":

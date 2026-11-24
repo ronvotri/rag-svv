@@ -46,7 +46,10 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIn('svv_qa_before - e.hp', result)
         self.assertIn('src.get_instance_id()', result)
         self.assertTrue(result.endswith('func other():\n\tpass\n'))
-        self.assertIsNone(instrument(source.replace("src: Player", "src: Object")))
+        unknown = instrument(source.replace("src: Player", "src: Object"))
+        self.assertIsNotNone(unknown)
+        self.assertNotIn("if src is Player", unknown)
+        self.assertIn('else "unknown"', unknown)
         untyped = instrument(source.replace("src: Player = null", "src = null, extra = null"))
         self.assertIsNotNone(untyped)
         self.assertIn("if src is Player", untyped)
@@ -56,6 +59,20 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIsNone(instrument(source.replace("\te.hurt", "\te.hurt(amount, Vector3.ZERO)\n\te.hurt")))
         self.assertIsNone(instrument(result))
         self.assertIn('native.write_bytes(original)', RUNNER.read_text(encoding="utf-8"))
+
+    def test_death_hook_observes_and_never_invokes_callback(self):
+        runner = runpy.run_path(str(RUNNER))
+        instrument = runner["instrument_native_death"]
+        source = "func die() -> void:\n\tqueue_free()\nfunc next():\n\tpass\n"
+        result = instrument(source)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.count("func die()"), 1)
+        self.assertEqual(result.count("queue_free()"), 1)
+        self.assertIn('has_meta("svv_qa_boss_hits")', result)
+        self.assertIn("NATIVE_DEATH hp=", result)
+        self.assertIsNone(instrument(result))
+        self.assertIsNone(instrument("func die(value: int):\n\tpass\n"))
+        self.assertIn("death_file.write_bytes(death_original)", RUNNER.read_text(encoding="utf-8"))
 
     def test_candidate_inventory_and_alternate_isolation(self):
         runner = runpy.run_path(str(RUNNER))
