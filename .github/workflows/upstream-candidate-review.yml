@@ -1,0 +1,35 @@
+name: Upstream client - candidate digest and inventory
+on:
+  push:
+    branches: [feature/offline-cards-unique-npc-wave34]
+    paths:
+      - 'midgard-offline/tools/review-upstream-candidate.py'
+      - 'midgard-offline/config/upstream-client-candidate.json'
+      - '.github/workflows/upstream-candidate-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: upstream-candidate-review
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile candidate inspector
+        run: python -m py_compile midgard-offline/tools/review-upstream-candidate.py
+      - name: Inspect one official candidate in temporary storage
+        run: python midgard-offline/tools/review-upstream-candidate.py
+      - name: Upload metadata only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-candidate-review
+          path: midgard-offline/work/upstream-candidate-review.json
+          if-no-files-found: ignore
+          retention-days: 7

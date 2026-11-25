@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "label": "0.2.11-dx12 candidate",
+  "archive_size": 650233042,
+  "pck_size": 761983044,
+  "pck_crc32": "1a31b0d9",
+  "approved_for_build": false,
+  "notice": "Observed metadata only; never used by production builder."
+}
