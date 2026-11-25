@@ -1,0 +1,35 @@
+name: Upstream client - direct base preflight
+on:
+  push:
+    branches: [feature/offline-cards-unique-npc-wave34]
+    paths:
+      - 'midgard-offline/tools/preflight-upstream-direct.py'
+      - 'midgard-offline/review/upstream-0.2.11-pin.json'
+      - '.github/workflows/upstream-direct-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: upstream-direct-preflight
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile isolated preflight
+        run: python -m py_compile midgard-offline/tools/preflight-upstream-direct.py
+      - name: Recover pinned full candidate and inspect compatibility
+        run: python midgard-offline/tools/preflight-upstream-direct.py
+      - name: Upload metadata only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-direct-preflight
+          path: midgard-offline/work/upstream-direct-preflight.json
+          if-no-files-found: ignore
+          retention-days: 7
