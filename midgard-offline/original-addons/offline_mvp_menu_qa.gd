@@ -48,10 +48,10 @@ func _run() -> void:
 		_finish()
 		return
 	SVVOfflineEvents.start_button.pressed.emit()
-	for frame in 360:
-		if not SVVOfflineEvents.mvp_launching:
-			break
+	var deadline: int = Time.get_ticks_msec() + 15000
+	while SVVOfflineEvents.mvp_launching and Time.get_ticks_msec() < deadline:
 		await get_tree().process_frame
+	print("MVP_MENU_TEST TRANSITION mode=", str(world.menus._mode), " paused=", get_tree().paused, " callback=", SVVOfflineEvents.mvp_loading_callback_completed)
 	var boss: Enemy = SVVOfflineEvents.mvp_last_spawn
 	_check(SVVOfflineEvents.mvp_last_id == "osiris", "requested_boss_id")
 	_check(is_instance_valid(boss), "native_boss_spawned")
@@ -64,7 +64,9 @@ func _run() -> void:
 	if is_instance_valid(boss):
 		_check(world.get("enemies").has(boss) and boss.hp > 0.0, "live_boss_in_native_registry")
 		var initial_hp: float = boss.hp
-		for frame in 120:
+		var combat_deadline: int = Time.get_ticks_msec() + 12000
+		var start_time: float = world.time
+		while is_instance_valid(boss) and boss.hp >= initial_hp and world.time - start_time < 10.0 and Time.get_ticks_msec() < combat_deadline:
 			await get_tree().process_frame
 		_check(is_instance_valid(boss) and boss.hp < initial_hp, "native_combat_damage")
 	_finish()

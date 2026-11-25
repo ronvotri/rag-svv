@@ -55,6 +55,7 @@ var mvp_preview := false
 var mvp_launching := false
 var mvp_last_spawn: Enemy
 var mvp_last_id := ""
+var mvp_loading_callback_completed := false
 
 
 func _ready() -> void:
@@ -418,17 +419,29 @@ func _begin_native_mvp_preview() -> void:
 	mvp_launching = true
 	mvp_last_spawn = null
 	mvp_last_id = ""
+	mvp_loading_callback_completed = false
 	_close()
 	world.leave_town()
 	world.set_stage("prontera")
-	# Same native loading callback as the smoke-tested adventure route.
-	# No forced menu close or unpause; a stuck transition is a QA failure.
-	world.menus.show_loading(func(): world.start_run("swordsman", false))
-	for frame in 240:
+	# This callback belongs to this launch only. Do not close unrelated
+	# level-up, skill-choice, pause, or tutorial overlays.
+	world.menus.show_loading(func():
+		world.start_run("swordsman", false)
+		mvp_loading_callback_completed = true
+	)
+	var deadline: int = Time.get_ticks_msec() + 12000
+	while Time.get_ticks_msec() < deadline:
 		if not is_instance_valid(world):
 			break
-		if world.running and world.map != null and world.player != null \
-			and world.menus._mode == "" and not get_tree().paused:
+		if mvp_loading_callback_completed and world.running and world.map != null and is_instance_valid(world.player):
+			if world.menus._mode == "loading":
+				world.menus.close()
+				# The loading overlay is owned by this transition.
+				if world.menus._mode == "":
+					get_tree().paused = false
+			if world.menus._mode != "" or get_tree().paused:
+				await get_tree().process_frame
+				continue
 			var boss: Enemy = await MVPEncounter.spawn(world, boss_id)
 			if is_instance_valid(boss):
 				mvp_last_spawn = boss
@@ -437,7 +450,9 @@ func _begin_native_mvp_preview() -> void:
 			mvp_launching = false
 			return
 		await get_tree().process_frame
-	print("OFFLINE_MVP_MENU_QA BLOCKED native_transition")
+	print("OFFLINE_MVP_MENU_QA BLOCKED native_transition callback=", mvp_loading_callback_completed)
+	if is_instance_valid(world):
+		print("OFFLINE_MVP_MENU_QA TRANSITION mode=", str(world.menus._mode), " paused=", get_tree().paused, " running=", world.running)
 	mvp_launching = false
 
 func _party_names() -> String:

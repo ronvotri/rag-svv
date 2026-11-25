@@ -228,7 +228,7 @@ def boss_runtime_check(work, report, godot, prepared, run_private):
     }
     report["boss_runtime_summary"]["primary_failure_markers"] = [
         line for line in result.get("evidence", [])
-        if line.startswith(("FAIL ", "RESULT ", "BLOCKED", "DENIED"))][:20]
+        if line.startswith(("FAIL ", "RESULT ", "BLOCKED", "DENIED", "SPAWN_DIAG "))][:20]
     report["boss_roster_gate"] = evaluate_boss_roster(result)
     if not report["boss_roster_gate"]["all_six_combat_observed"]:
         raise ValueError("Native boss roster incomplete")
@@ -248,7 +248,7 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
     report["menu_qa_script_error_count"] = menu.stdout.count("SCRIPT ERROR:")
     report["menu_qa_diagnostics"] = diagnostic_locations(menu.stdout)
     report["menu_qa_markers"] = [line.strip() for line in menu.stdout.splitlines()
-                                if line.startswith("MVP_MENU_TEST ")][:40]
+                                if line.startswith(("MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA ", "WORLD_BOSS_MAP_QA SPAWN_DIAG "))][:40]
     report["menu_qa_passed"] = (menu.returncode == 0 and not report["menu_qa_script_error_count"]
                                and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_qa_markers"])
     # Do not equate smoke or native combat with full compatibility or release approval.

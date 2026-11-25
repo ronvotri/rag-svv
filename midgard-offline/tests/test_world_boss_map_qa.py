@@ -123,11 +123,15 @@ class WorldBossMapTests(unittest.TestCase):
         helper = (SCRIPT.parent / "offline_mvp_encounter.gd").read_text(encoding="utf-8")
         menu = (SCRIPT.parent / "offline_events.gd").read_text(encoding="utf-8")
         for cue in ('Save._name != "profile_offline_test"', 'world.net.mode == ""',
-                    'world.spawn_enemy(boss_id, point, true)', 'found.size() != 1'):
+                    'world.spawn_enemy(boss_id, point, true)', 'matches.size() != 1'):
             self.assertIn(cue, helper)
         self.assertIn('--offline-mvp-menu-preview', menu)
         self.assertIn('await MVPEncounter.spawn(world, boss_id)', menu)
-        self.assertIn('world.menus.show_loading(func(): world.start_run("swordsman", false))', menu)
+        self.assertIn('world.menus.show_loading(func():', menu)
+        self.assertIn('mvp_loading_callback_completed', menu)
+        self.assertIn('if world.menus._mode == "loading":', menu)
+        self.assertLess(helper.index('var immediate: Array[Enemy]'), helper.index('await world.get_tree().process_frame'))
+        self.assertIn('_identity_matches(enemy, boss_id)', helper)
         self.assertNotIn('start_world_boss(', helper)
         self.assertNotIn('Save.set_setting(', helper)
         self.assertIn('offline_mvp_encounter.gd', INSTALLER.read_text(encoding="utf-8"))
