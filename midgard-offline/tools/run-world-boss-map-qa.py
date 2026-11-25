@@ -285,12 +285,26 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                         "id": alternate,
                         "status": "native_combat_observed" if observed else "blocked_or_failed_runtime_probe",
                         "visual_change_verified": visual_ok,
+                        "returncode": alt_run.returncode,
+                        "script_error_count": alt_run.stdout.count("SCRIPT ERROR:"),
+                        "diagnostic_locations": [
+                            {"path": path, "line": int(line)}
+                            for path, line in sorted(set(re.findall(
+                                r"res://((?:scripts|addons/svv_offline)/[A-Za-z0-9_./-]+\.gd):(\d+)",
+                                alt_run.stdout)))[:30]
+                            if ".." not in Path(path).parts
+                        ],
+                        "failure_markers": [
+                            row for row in alt_markers
+                            if row.startswith(("FAIL ", "RESULT ", "BLOCKED", "DENIED"))
+                        ][:20],
                         "evidence": alt_markers[:60],
                         "combat_telemetry": [row for row in alt_markers if row.startswith("COMBAT ")],
                         "terminal_observation": [row for row in alt_markers if row.startswith("TERMINAL ")][:1],
                     }
                 except subprocess.TimeoutExpired:
-                    report["additional_bosses"][alternate] = {"id": alternate, "status": "blocked_runtime_timeout"}
+                    report["additional_bosses"][alternate] = {"id": alternate, "status": "blocked_runtime_timeout",
+                                                             "failure_markers": ["BLOCKED runtime_timeout"]}
                 if alternate == alternatives[0]:
                     report["alternate_boss"] = report["additional_bosses"][alternate]
     images = sorted(qa_dir.glob("boss-*.png"))

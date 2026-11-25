@@ -187,7 +187,26 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     if smoke.returncode or report["smoke_script_error_count"] or not report["smoke_completed"]:
         raise ValueError("Isolated smoke failed")
     report["runtime_smoke_passed"] = True
+    # Execute independently: one failed gameplay probe must not suppress the other.
+    # Fail the overall workflow at the end if either gate fails.
+    try:
+        menu_runtime_check(work, report, godot, prepared, env, run_private)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        report["menu_qa_passed"] = False
+        report["menu_qa_error_type"] = type(error).__name__
+    try:
+        boss_runtime_check(work, report, godot, prepared, run_private)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        report["boss_qa_error_type"] = type(error).__name__
+    report["stage"] = "runtime_acceptance"
+    if not report.get("menu_qa_passed") or not report.get("boss_roster_gate", {}).get("all_six_combat_observed"):
+        raise ValueError("Independent runtime QA gate incomplete")
+    # Preserve the release and reward gates; this is only QA.
+
+def boss_runtime_check(work, report, godot, prepared, run_private):
     report["stage"] = "native_boss_runtime"
+    # Do not reuse the menu profile for the runner itself.
+    # The native runner additionally creates a fresh sandbox per MVP.
     boss = run_private([sys.executable, TOOLS / "run-world-boss-map-qa.py",
                         "--godot", godot, "--project", prepared, "--work", work], 1200)
     report["boss_runner_returncode"] = boss.returncode
@@ -202,11 +221,19 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
             "mvp_candidates", "attribution_status")
     }
     report["boss_runtime_summary"]["additional_bosses"] = {
-        name: {"status": value.get("status")} for name, value in result.get("additional_bosses", {}).items()
+        name: {key: value.get(key) for key in ("status", "visual_change_verified",
+               "returncode", "script_error_count", "diagnostic_locations",
+               "combat_telemetry", "terminal_observation", "failure_markers")}
+        for name, value in result.get("additional_bosses", {}).items()
     }
+    report["boss_runtime_summary"]["primary_failure_markers"] = [
+        line for line in result.get("evidence", [])
+        if line.startswith(("FAIL ", "RESULT ", "BLOCKED", "DENIED"))][:20]
     report["boss_roster_gate"] = evaluate_boss_roster(result)
     if not report["boss_roster_gate"]["all_six_combat_observed"]:
         raise ValueError("Native boss roster incomplete")
+
+def menu_runtime_check(work, report, godot, prepared, env, run_private):
     report["stage"] = "native_menu_runtime"
     # Separate from the smoke and boss QA profiles; no shared test saves.
     for variable, suffix in (("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"),
@@ -224,8 +251,6 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
                                 if line.startswith("MVP_MENU_TEST ")][:40]
     report["menu_qa_passed"] = (menu.returncode == 0 and not report["menu_qa_script_error_count"]
                                and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_qa_markers"])
-    if not report["menu_qa_passed"]:
-        raise ValueError("Native MVP menu QA failed")
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():
