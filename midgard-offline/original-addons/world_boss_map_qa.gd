@@ -63,13 +63,17 @@ func _native_number(obj: Object, name: String) -> Variant:
 
 # Observation only: a disappearing node is not proof of a boss kill.
 # The real death callback and reward settlement require separate verification.
-func _observe_terminal(boss: Enemy, human: Player) -> void:
-	var deadline: int = Time.get_ticks_msec() + 20000
+func _observe_terminal(boss: Enemy, human: Player, extended: bool) -> void:
+	var deadline: int = Time.get_ticks_msec() + (240000 if extended else 20000)
+	var world_limit: float = 180.0 if extended else 30.0
+	var frame_limit: int = 36000 if extended else 1800
 	var start_time: float = world.time
+	var next_sample: float = 15.0
+	print("WORLD_BOSS_MAP_QA OBSERVATION extended=", extended, " world_limit=", world_limit)
 	var outcome := "observation_limit"
 	var boss_hp: Variant = null
 	var human_hp: Variant = null
-	for frame in 1800:
+	for frame in frame_limit:
 		boss_hp = _native_number(boss, "hp") if is_instance_valid(boss) else null
 		human_hp = _native_number(human, "hp") if is_instance_valid(human) else null
 		if boss_hp != null and human_hp != null and float(boss_hp) <= 0.0 and float(human_hp) <= 0.0:
@@ -87,7 +91,13 @@ func _observe_terminal(boss: Enemy, human: Player) -> void:
 		if not world.running:
 			outcome = "world_stopped_unverified"
 			break
-		if Time.get_ticks_msec() >= deadline or world.time - start_time >= 30.0:
+		var elapsed: float = world.time - start_time
+		if extended and elapsed >= next_sample:
+			print("WORLD_BOSS_MAP_QA PROGRESS elapsed_world=", elapsed,
+				" boss_hp=", boss_hp, " player_hp=", human_hp,
+				" paused=", get_tree().paused)
+			next_sample += 15.0
+		if Time.get_ticks_msec() >= deadline or elapsed >= world_limit:
 			break
 		await get_tree().process_frame
 	print("WORLD_BOSS_MAP_QA TERMINAL outcome=", outcome,
@@ -242,7 +252,8 @@ func _run() -> void:
 			" reconciled=", reconciled)
 	await _snapshot("boss-after-120frames.png")
 	if errors.is_empty():
-		await _observe_terminal(spawned, world.player)
+		await _observe_terminal(spawned, world.player,
+			args.has("--offline-boss-extended") and boss_id == "baphomet")
 	# Gameplay mechanics observed; not proof of a full raid, AI attribution, safe loot, or rewards.
 	_finish("COMBAT_MECHANICS_VERIFIED" if errors.is_empty() else "FAIL",
 		0 if errors.is_empty() else 1)

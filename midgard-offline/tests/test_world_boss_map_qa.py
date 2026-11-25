@@ -106,12 +106,17 @@ class WorldBossMapTests(unittest.TestCase):
                       "simultaneous_zero_hp", "node_or_hp_missing_unverified",
                       "world_stopped_unverified", "observation_limit"):
             self.assertIn(label, code)
-        self.assertIn("Time.get_ticks_msec() + 20000", code)
+        self.assertIn("Time.get_ticks_msec() + (240000 if extended else 20000)", code)
+        self.assertIn("180.0 if extended else 30.0", code)
+        self.assertIn('args.has("--offline-boss-extended") and boss_id == "baphomet"', code)
         self.assertIn("terminal-observation.png", code)
         source = RUNNER.read_text(encoding="utf-8")
         self.assertIn('"native_death_verified": False', source)
         self.assertIn('"local_rewards_verified": False', source)
         self.assertIn('row.startswith("TERMINAL ")', source)
+        self.assertIn('command + ["--offline-boss-extended"]', source)
+        self.assertIn('timeout=max(timeout, 300)', source)
+        self.assertIn('row.startswith("PROGRESS ")', source)
 
     def test_runner_isolated_and_does_not_approve_playability(self):
         code = RUNNER.read_text(encoding="utf-8")

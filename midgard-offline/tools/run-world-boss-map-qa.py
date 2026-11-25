@@ -137,6 +137,8 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         "alternate_boss": {"status": "not_run"},
         "additional_bosses": {},
         "terminal_observation": [],
+        "extended_primary_observation": True,
+        "progress_samples": [],
         "native_death_verified": False,
         "death_hook_installed": False,
         "death_callback_observation": [],
@@ -180,10 +182,11 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                 native.write_text(patched, encoding="utf-8", newline="\n")
             if death_patched is not None:
                 death_file.write_text(death_patched, encoding="utf-8", newline="\n")
+            # Primary only: preserve the ordinary short checks for the other MVPs.
             completed = subprocess.run(
-                command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                command + ["--offline-boss-extended"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace",
-                env=env, timeout=timeout, check=False,
+                env=env, timeout=max(timeout, 300), check=False,
             )
             # Export only authored status labels, never original source or logs.
             markers = [
@@ -194,6 +197,7 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
             report["evidence"] = markers[:60]
             report["mvp_candidates"] = parse_candidates(markers)
             report["terminal_observation"] = [row for row in markers if row.startswith("TERMINAL ")][:1]
+            report["progress_samples"] = [row for row in markers if row.startswith("PROGRESS ")][:12]
             report["death_callback_observation"] = [row for row in markers if row.startswith("NATIVE_DEATH ")][:4]
             if death_patched is not None and completed.returncode == 0:
                 for row in report["death_callback_observation"]:
