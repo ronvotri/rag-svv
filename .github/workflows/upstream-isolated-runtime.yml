@@ -1,0 +1,29 @@
+name: Upstream client - isolated runtime QA
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: upstream-isolated-runtime
+  cancel-in-progress: false
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile isolated preflight
+        run: python -m py_compile midgard-offline/tools/preflight-upstream-direct.py
+      - name: Run isolated source and Godot QA
+        run: python midgard-offline/tools/preflight-upstream-direct.py --runtime --output midgard-offline/work/upstream-runtime-review.json
+      - name: Upload summary only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-runtime-review
+          path: midgard-offline/work/upstream-runtime-review.json
+          if-no-files-found: ignore
+          retention-days: 7
