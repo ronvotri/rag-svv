@@ -5,6 +5,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -74,9 +75,16 @@ def preflight(work, report, runtime=False):
     authored = set()
     for n in range(21, 62):
         authored.update(json.loads((ROOT / "patches" / f"vi-ui-batch-{n:03d}.json").read_text(encoding="utf-8")))
+    missing = authored - source_keys
+    legacy_retired = set(json.loads((ROOT / "config/retired-translation-keys.json").read_text(
+        encoding="utf-8"))["retired_source_keys"])
     report["translation_review"] = {"recent_keys": len(authored),
                                     "matching_source_keys": len(authored & source_keys),
-                                    "missing_source_keys_count": len(authored - source_keys),
+                                    "missing_source_keys_count": len(missing),
+                                    "previously_retired_missing": len(missing & legacy_retired),
+                                    "newly_missing_count": len(missing - legacy_retired),
+                                    "previously_retired_now_present": len(legacy_retired & source_keys),
+                                    "newly_missing_authored_keys": sorted(missing - legacy_retired),
                                     "new_retired_keys_approved": False}
     if runtime:
         runtime_preflight(work, report, cloud, config, recovered, prepared)
@@ -123,7 +131,14 @@ def self_test():
     result["additional_bosses"]["osiris"] = sample("eddga")
     assert evaluate_boss_roster(result)["combat_passed"] == 4
     assert not evaluate_boss_roster({})["all_six_combat_observed"]
+    assert diagnostic_locations("res://scripts/core/main.gd:123\nres://scripts/../private.gd:1") == [{"path": "scripts/core/main.gd", "line": 123}]
     print("DIRECT_RUNTIME_ROSTER_SELFTEST PASS")
+
+def diagnostic_locations(output):
+    """Only sanitized script paths and line numbers, not original error text."""
+    matches = re.findall(r"res://((?:scripts|addons/svv_offline)/[A-Za-z0-9_./-]+\.gd):(\d+)", output)
+    return [{"path": path, "line": int(line)} for path, line in sorted(set(matches))[:50]
+            if ".." not in Path(path).parts]
 
 def runtime_preflight(work, report, cloud, config, recovered, prepared):
     """Run only test-profile smoke and map QA; never export a client."""
@@ -158,6 +173,7 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
                             "--import", "--quit"], 600)
     report["import_returncode"] = imported.returncode
     report["import_script_error_count"] = imported.stdout.count("SCRIPT ERROR:")
+    report["import_diagnostic_locations"] = diagnostic_locations(imported.stdout) if imported.returncode or report["import_script_error_count"] else []
     if imported.returncode or report["import_script_error_count"]:
         raise ValueError("Godot import failed")
     report["stage"] = "isolated_smoke"
@@ -165,6 +181,7 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
                          "--offline-test", "--offline-qa"], 180)
     report["smoke_returncode"] = smoke.returncode
     report["smoke_script_error_count"] = smoke.stdout.count("SCRIPT ERROR:")
+    report["smoke_diagnostic_locations"] = diagnostic_locations(smoke.stdout) if smoke.returncode or report["smoke_script_error_count"] else []
     report["smoke_pass_count"] = smoke.stdout.count("OFFLINE_QA PASS ")
     report["smoke_completed"] = "OFFLINE_QA COMPLETE failures=0" in smoke.stdout
     if smoke.returncode or report["smoke_script_error_count"] or not report["smoke_completed"]:

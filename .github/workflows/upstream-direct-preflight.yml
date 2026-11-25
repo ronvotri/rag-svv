@@ -15,16 +15,18 @@ concurrency:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Compile isolated preflight
-        run: python -m py_compile midgard-offline/tools/preflight-upstream-direct.py
-      - name: Recover pinned full candidate and inspect compatibility
-        run: python midgard-offline/tools/preflight-upstream-direct.py
+      - name: Compile isolated preflight and test roster gate
+        run: |
+          python -m py_compile midgard-offline/tools/preflight-upstream-direct.py
+          python midgard-offline/tools/preflight-upstream-direct.py --self-test
+      - name: Recover pinned direct base and run isolated Godot gameplay QA
+        run: python midgard-offline/tools/preflight-upstream-direct.py --runtime
       - name: Upload metadata only
         if: always()
         uses: actions/upload-artifact@v4
