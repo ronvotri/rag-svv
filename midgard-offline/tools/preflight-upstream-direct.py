@@ -82,6 +82,49 @@ def preflight(work, report, runtime=False):
         runtime_preflight(work, report, cloud, config, recovered, prepared)
     report["stage"] = "complete"
 
+EXPECTED_MVPS = ("baphomet", "osiris", "eddga", "mistress", "maya", "dark_lord")
+
+def evaluate_boss_roster(result):
+    """A successful subprocess alone is not a combat acceptance result."""
+    expected = set(EXPECTED_MVPS)
+    candidates = result.get("mvp_candidates", {})
+    evidence = result.get("evidence", [])
+    primary = {row.split(" ", 1)[1] for row in evidence
+               if row.startswith("NATIVE_BOSS ")}
+    rows = {}
+    for name in EXPECTED_MVPS:
+        if candidates.get(name) is not True:
+            rows[name] = "unsupported_or_unreported"
+            continue
+        if primary == {name}:
+            row = result
+        else:
+            row = result.get("additional_bosses", {}).get(name, {})
+        rows[name] = ("combat_observed" if row.get("status") == "native_combat_observed"
+                      and row.get("visual_change_verified") is True
+                      and ("NATIVE_BOSS " + name) in row.get("evidence", [])
+                      and "RESULT COMBAT_MECHANICS_VERIFIED errors=0" in row.get("evidence", [])
+                      else "unverified")
+    return {"expected": len(expected), "combat_passed": sum(v == "combat_observed" for v in rows.values()),
+            "all_six_combat_observed": all(v == "combat_observed" for v in rows.values()),
+            "by_boss": rows}
+
+def self_test():
+    def evidence(name):
+        return ["NATIVE_BOSS " + name, "RESULT COMBAT_MECHANICS_VERIFIED errors=0"]
+    def sample(name):
+        return {"status": "native_combat_observed", "visual_change_verified": True,
+                "evidence": evidence(name)}
+    result = {**sample("baphomet"), "mvp_candidates": {n: True for n in EXPECTED_MVPS},
+              "additional_bosses": {n: sample(n) for n in EXPECTED_MVPS[1:]}}
+    assert evaluate_boss_roster(result)["all_six_combat_observed"]
+    result["additional_bosses"]["maya"]["visual_change_verified"] = False
+    assert evaluate_boss_roster(result)["combat_passed"] == 5
+    result["additional_bosses"]["osiris"] = sample("eddga")
+    assert evaluate_boss_roster(result)["combat_passed"] == 4
+    assert not evaluate_boss_roster({})["all_six_combat_observed"]
+    print("DIRECT_RUNTIME_ROSTER_SELFTEST PASS")
+
 def runtime_preflight(work, report, cloud, config, recovered, prepared):
     """Run only test-profile smoke and map QA; never export a client."""
     report["stage"] = "runtime_prepare"
@@ -126,6 +169,7 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     report["smoke_completed"] = "OFFLINE_QA COMPLETE failures=0" in smoke.stdout
     if smoke.returncode or report["smoke_script_error_count"] or not report["smoke_completed"]:
         raise ValueError("Isolated smoke failed")
+    report["runtime_smoke_passed"] = True
     report["stage"] = "native_boss_runtime"
     boss = run_private([sys.executable, TOOLS / "run-world-boss-map-qa.py",
                         "--godot", godot, "--project", prepared, "--work", work], 1200)
@@ -142,14 +186,20 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     report["boss_runtime_summary"]["additional_bosses"] = {
         name: {"status": value.get("status")} for name, value in result.get("additional_bosses", {}).items()
     }
+    report["boss_roster_gate"] = evaluate_boss_roster(result)
+    if not report["boss_roster_gate"]["all_six_combat_observed"]:
+        raise ValueError("Native boss roster incomplete")
     # Do not equate smoke or native combat with full compatibility or release approval.
-    report["runtime_smoke_passed"] = True
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "work/upstream-direct-preflight.json")
     parser.add_argument("--runtime", action="store_true", help="Run isolated Godot QA after source preflight")
+    parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
+    if args.self_test:
+        self_test()
+        return
     report = {"version": "0.2.11", "stage": "initial", "candidate_hash_matched": False,
               "direct_recovery_passed": False, "offline_patch_preflight_passed": False,
               "addon_install_preflight_passed": False, "runtime_compatibility_verified": False,

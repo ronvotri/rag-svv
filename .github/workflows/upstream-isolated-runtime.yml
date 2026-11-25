@@ -16,7 +16,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile isolated preflight
-        run: python -m py_compile midgard-offline/tools/preflight-upstream-direct.py
+        run: |
+          python -m py_compile midgard-offline/tools/preflight-upstream-direct.py
+          python midgard-offline/tools/preflight-upstream-direct.py --self-test
       - name: Run isolated source and Godot QA
         run: python midgard-offline/tools/preflight-upstream-direct.py --runtime --output midgard-offline/work/upstream-runtime-review.json
       - name: Upload summary only
