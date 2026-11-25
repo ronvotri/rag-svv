@@ -76,6 +76,7 @@ def instrument_native_death(source: str) -> str | None:
         return None
     indent = line.group(1)
     observer = (indent + 'if has_meta("svv_qa_boss_hits"):\n'
+                + indent + '\tset_meta("svv_qa_native_death", hp <= 0.0)\n'
                 + indent + '\tprint("WORLD_BOSS_MAP_QA NATIVE_DEATH hp=", hp, " SVV_QA_NATIVE_DEATH")\n')
     return source[:at] + observer + source[at:]
 
@@ -144,6 +145,8 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
         "death_callback_observation": [],
         "damage_reconciliation": "not_run",
         "local_rewards_verified": False,
+        "local_victory_ledger_verified": False,
+        "local_victory_observation": [],
         "evidence": [],
         "screenshots": [],
     }
@@ -204,6 +207,11 @@ def run_probe(godot: Path, project: Path, work: Path, *, timeout: int = 110) -> 
                     hp = re.fullmatch(r"NATIVE_DEATH hp=([-+0-9.eE]+) SVV_QA_NATIVE_DEATH", row)
                     if hp and float(hp.group(1)) <= 0.0:
                         report["native_death_verified"] = True
+            report["local_victory_observation"] = [row for row in markers if row.startswith("LOCAL_VICTORY ")][:1]
+            report["local_victory_ledger_verified"] = (
+                report["native_death_verified"] and completed.returncode == 0
+                and report["local_victory_observation"] ==
+                ["LOCAL_VICTORY recorded=true duplicate_blocked=true persisted=true"])
             report["combat_telemetry"] = [
                 row for row in markers if row.startswith("COMBAT ")
             ][:4]

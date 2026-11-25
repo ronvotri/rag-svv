@@ -63,12 +63,35 @@ func _native_number(obj: Object, name: String) -> Variant:
 
 # Observation only: a disappearing node is not proof of a boss kill.
 # The real death callback and reward settlement require separate verification.
-func _observe_terminal(boss: Enemy, human: Player, extended: bool) -> void:
+# QA-only victory ledger: no zeny, items, online rewards or real profile writes.
+# A native death callback on the exact tagged boss is mandatory.
+func _record_local_victory(boss: Enemy, human: Player, boss_id: String, token: String) -> bool:
+	if Save._name != "profile_offline_test" or OS.get_environment("SVV_WORLD_BOSS_QA_SANDBOX") != "1":
+		return false
+	if not BOSS_CANDIDATES.has(boss_id) or token.is_empty():
+		return false
+	if not is_instance_valid(boss) or not is_instance_valid(human):
+		return false
+	if boss.hp > 0.0 or human.hp <= 0.0 or not bool(boss.get_meta("svv_qa_native_death", false)):
+		return false
+	var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {}).duplicate(true)
+	var row: Dictionary = ledger.get(boss_id, {}).duplicate(true)
+	if str(row.get("last_token", "")) == token:
+		return false
+	row["wins"] = int(row.get("wins", 0)) + 1
+	row["last_token"] = token
+	ledger[boss_id] = row
+	Save.set_setting("svv_offline_mvp_victories", ledger)
+	Save.flush()
+	return not Save._dirty
+
+func _observe_terminal(boss: Enemy, human: Player, extended: bool, boss_id: String) -> void:
 	var deadline: int = Time.get_ticks_msec() + (240000 if extended else 20000)
 	var world_limit: float = 180.0 if extended else 30.0
 	var frame_limit: int = 36000 if extended else 1800
 	var start_time: float = world.time
 	var next_sample: float = 15.0
+	var victory_token: String = Crypto.new().generate_random_bytes(16).hex_encode()
 	print("WORLD_BOSS_MAP_QA OBSERVATION extended=", extended, " world_limit=", world_limit)
 	var outcome := "observation_limit"
 	var boss_hp: Variant = null
@@ -103,6 +126,17 @@ func _observe_terminal(boss: Enemy, human: Player, extended: bool) -> void:
 	print("WORLD_BOSS_MAP_QA TERMINAL outcome=", outcome,
 		" boss_hp=", boss_hp, " player_hp=", human_hp,
 		" elapsed_world=", world.time - start_time)
+	# Only the extended primary QA run has the temporary native death hook.
+	# Test repeat settlement and reload using the normal isolated save loader.
+	if extended and outcome == "boss_zero_hp_observed":
+		var recorded: bool = _record_local_victory(boss, human, boss_id, victory_token)
+		var duplicate_blocked: bool = not _record_local_victory(boss, human, boss_id, victory_token)
+		Save.load_profile()
+		var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {})
+		var row: Dictionary = ledger.get(boss_id, {})
+		var persisted: bool = int(row.get("wins", 0)) == 1 and str(row.get("last_token", "")) == victory_token
+		print("WORLD_BOSS_MAP_QA LOCAL_VICTORY recorded=", recorded,
+			" duplicate_blocked=", duplicate_blocked, " persisted=", persisted)
 	# Separate name: the original two-image combat acceptance gate is unchanged.
 	await _snapshot("terminal-observation.png")
 
@@ -253,7 +287,7 @@ func _run() -> void:
 	await _snapshot("boss-after-120frames.png")
 	if errors.is_empty():
 		await _observe_terminal(spawned, world.player,
-			args.has("--offline-boss-extended") and boss_id == "baphomet")
+			args.has("--offline-boss-extended") and boss_id == "baphomet", boss_id)
 	# Gameplay mechanics observed; not proof of a full raid, AI attribution, safe loot, or rewards.
 	_finish("COMBAT_MECHANICS_VERIFIED" if errors.is_empty() else "FAIL",
 		0 if errors.is_empty() else 1)

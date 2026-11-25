@@ -70,6 +70,7 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertEqual(result.count("queue_free()"), 1)
         self.assertIn('has_meta("svv_qa_boss_hits")', result)
         self.assertIn("NATIVE_DEATH hp=", result)
+        self.assertIn('set_meta("svv_qa_native_death", hp <= 0.0)', result)
         self.assertIsNone(instrument(result))
         self.assertIsNone(instrument("func die(value: int):\n\tpass\n"))
         self.assertIn("death_file.write_bytes(death_original)", RUNNER.read_text(encoding="utf-8"))
@@ -117,6 +118,18 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIn('command + ["--offline-boss-extended"]', source)
         self.assertIn('timeout=max(timeout, 300)', source)
         self.assertIn('row.startswith("PROGRESS ")', source)
+
+    def test_local_victory_ledger_is_test_only_and_duplicate_guarded(self):
+        code = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('Save._name != "profile_offline_test"', code)
+        self.assertIn('boss.get_meta("svv_qa_native_death", false)', code)
+        self.assertIn('str(row.get("last_token", "")) == token', code)
+        self.assertIn('Save.load_profile()', code)
+        self.assertIn('svv_offline_mvp_victories', code)
+        runner = RUNNER.read_text(encoding="utf-8")
+        self.assertIn('"local_victory_ledger_verified": False', runner)
+        self.assertIn('LOCAL_VICTORY recorded=true duplicate_blocked=true persisted=true', runner)
+        self.assertIn('"local_rewards_verified": False', runner)
 
     def test_runner_isolated_and_does_not_approve_playability(self):
         code = RUNNER.read_text(encoding="utf-8")

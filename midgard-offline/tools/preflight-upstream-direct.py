@@ -197,7 +197,8 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     result = json.loads(artifact.read_text(encoding="utf-8"))
     report["boss_runtime_summary"] = {
         key: result.get(key) for key in ("status", "damage_reconciliation",
-            "native_death_verified", "local_rewards_verified", "terminal_observation",
+            "native_death_verified", "local_rewards_verified", "local_victory_ledger_verified",
+            "local_victory_observation", "terminal_observation",
             "mvp_candidates", "attribution_status")
     }
     report["boss_runtime_summary"]["additional_bosses"] = {
