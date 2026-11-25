@@ -53,6 +53,8 @@ var status_timer := 0.0
 var mvp_picker: OptionButton
 var mvp_preview := false
 var mvp_launching := false
+var mvp_last_spawn: Enemy
+var mvp_last_id := ""
 
 
 func _ready() -> void:
@@ -414,6 +416,8 @@ func _begin_native_mvp_preview() -> void:
 		return
 	var boss_id: String = MVPEncounter.ROSTER[index]
 	mvp_launching = true
+	mvp_last_spawn = null
+	mvp_last_id = ""
 	_close()
 	world.leave_town()
 	world.set_stage("prontera")
@@ -426,6 +430,9 @@ func _begin_native_mvp_preview() -> void:
 		if world.running and world.map != null and world.player != null \
 			and world.menus._mode == "" and not get_tree().paused:
 			var boss: Enemy = await MVPEncounter.spawn(world, boss_id)
+			if is_instance_valid(boss):
+				mvp_last_spawn = boss
+				mvp_last_id = boss_id
 			print("OFFLINE_MVP_MENU_QA SPAWN id=", boss_id, " success=", is_instance_valid(boss))
 			mvp_launching = false
 			return

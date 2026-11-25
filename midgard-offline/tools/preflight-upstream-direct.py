@@ -207,6 +207,25 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     report["boss_roster_gate"] = evaluate_boss_roster(result)
     if not report["boss_roster_gate"]["all_six_combat_observed"]:
         raise ValueError("Native boss roster incomplete")
+    report["stage"] = "native_menu_runtime"
+    # Separate from the smoke and boss QA profiles; no shared test saves.
+    for variable, suffix in (("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"),
+                             ("XDG_CACHE_HOME", "cache")):
+        directory = work / "menu-test-profile" / suffix
+        directory.mkdir(parents=True, exist_ok=True)
+        env[variable] = str(directory)
+    menu = run_private([godot, "--headless", "--path", prepared,
+                        "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
+                        "--offline-test", "--offline-mvp-menu-preview"], 180)
+    report["menu_qa_returncode"] = menu.returncode
+    report["menu_qa_script_error_count"] = menu.stdout.count("SCRIPT ERROR:")
+    report["menu_qa_diagnostics"] = diagnostic_locations(menu.stdout)
+    report["menu_qa_markers"] = [line.strip() for line in menu.stdout.splitlines()
+                                if line.startswith("MVP_MENU_TEST ")][:40]
+    report["menu_qa_passed"] = (menu.returncode == 0 and not report["menu_qa_script_error_count"]
+                               and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_qa_markers"])
+    if not report["menu_qa_passed"]:
+        raise ValueError("Native MVP menu QA failed")
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():

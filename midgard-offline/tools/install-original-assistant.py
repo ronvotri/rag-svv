@@ -74,7 +74,7 @@ def install(project):
     qa = destination.parent / "qa"
     qa.mkdir(exist_ok=True)
     # World Boss runtime scene is never autoloaded or available from game menus.
-    for name in ("offline_smoke", "offline_visual", "world_boss_map_qa"):
+    for name in ("offline_smoke", "offline_visual", "world_boss_map_qa", "offline_mvp_menu_qa"):
         own_script = source.parent / (name + ".gd")
         if not own_script.is_file():
             raise ValueError("Authored QA script missing: " + name)
