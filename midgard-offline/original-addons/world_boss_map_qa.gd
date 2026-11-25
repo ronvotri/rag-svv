@@ -2,6 +2,8 @@ extends Node
 ## QA-only: not an autoload and never exposed in the player UI.
 ## Requires --offline-test, --offline-boss-map-qa and an isolated data dir.
 
+const MVPEncounter = preload("res://addons/svv_offline/offline_mvp_encounter.gd")
+
 const BOSS_CANDIDATES := [
 	"baphomet", "osiris", "eddga", "mistress", "maya", "dark_lord",
 	"phreeoni", "moonlight_flower", "golden_thief_bug",
@@ -210,23 +212,8 @@ func _run() -> void:
 	print("WORLD_BOSS_MAP_QA NATIVE_BOSS ", boss_id)
 	# Use original in-world spawn only. Do not call start_world_boss(),
 	# MvpRaid.start_route(), reward settlement, online chests or rankings.
-	var registry: Variant = world.get("enemies")
-	if not registry is Array:
-		_finish("BLOCKED_native_enemy_registry_unknown", 3)
-		return
-	var previous: Array = (registry as Array).duplicate()
-	var point: Vector3 = world.player.position + Vector3(8.0, 0.0, 2.0)
-	point.y = world.map.height_at(point)
 	var before_time: float = world.time
-	world.spawn_enemy(boss_id, point, true)
-	await get_tree().process_frame
-	var latest: Variant = world.get("enemies")
-	var spawned: Enemy = null
-	if latest is Array:
-		for item in latest:
-			if item is Enemy and not previous.has(item):
-				spawned = item
-				break
+	var spawned: Enemy = await MVPEncounter.spawn(world, boss_id)
 	_check(spawned != null and is_instance_valid(spawned), "native_enemy_spawned_in_world")
 	if not errors.is_empty():
 		_finish("BLOCKED_native_spawn")

@@ -3,6 +3,9 @@ extends CanvasLayer
 ## change the official World Boss, Festival rankings, saved builds or rewards.
 ## NPC companions are driven by deterministic combat rules in a separate menu.
 
+const MVPEncounter = preload("res://addons/svv_offline/offline_mvp_encounter.gd")
+const MVP_NAMES := ["Baphomet", "Osiris", "Eddga", "Mistress", "Maya", "Dark Lord"]
+
 const MODE_LABELS := {
 	"training": "Bài tập · Thử sát thương",
 	"festival": "Emperium Festival · Luyện Solo",
@@ -47,9 +50,13 @@ var skill_cd := 0.0
 var party_jobs: Array[String] = []
 var previous_pause := false
 var status_timer := 0.0
+var mvp_picker: OptionButton
+var mvp_preview := false
+var mvp_launching := false
 
 
 func _ready() -> void:
+	mvp_preview = Save._name == "profile_offline_test" and OS.get_cmdline_user_args().has("--offline-test") and OS.get_cmdline_user_args().has("--offline-mvp-menu-preview")
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 117
 	open_button = Button.new()
@@ -116,6 +123,16 @@ func _ready() -> void:
 		option.pressed.connect(_choose_mode.bind(str(key)))
 		col.add_child(option)
 		mode_buttons[str(key)] = option
+	mvp_picker = OptionButton.new()
+	for boss_name in MVP_NAMES:
+		mvp_picker.add_item(boss_name)
+	mvp_picker.select(0)
+	mvp_picker.custom_minimum_size.y = 42
+	mvp_picker.hide()
+	col.add_child(mvp_picker)
+	if mvp_preview:
+		mode_buttons["world_boss"].text = "World Boss · Săn MVP thật (QA)"
+		mode_buttons["world_boss"].tooltip_text = "Chọn MVP để thử combat trên bản đồ gốc"
 	status = Label.new()
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.add_theme_color_override("font_color", Color("fff0c5"))
@@ -324,7 +341,12 @@ func _choose_mode(next_mode: String) -> void:
 	for key in mode_buttons:
 		_style_mode_button(mode_buttons[key], str(key) == selected_mode)
 	help.text = MODE_HINTS[selected_mode]
-	start_button.disabled = false
+	var native_preview: bool = mvp_preview and selected_mode == "world_boss"
+	mvp_picker.visible = native_preview
+	start_button.text = "Vào trận thật (QA)" if native_preview else "Bắt đầu mô phỏng"
+	if native_preview:
+		help.text = "Thử nghiệm Swordsman cùng Party hiện tại trên bản đồ Prontera. Chưa trao thưởng."
+	start_button.disabled = mvp_launching
 	attack_button.disabled = true
 	skill_button.disabled = true
 	meter.hide()
@@ -355,7 +377,10 @@ func _close() -> void:
 
 
 func _begin() -> void:
-	if running or not _in_town():
+	if running or mvp_launching or not _in_town():
+		return
+	if mvp_preview and selected_mode == "world_boss":
+		_begin_native_mvp_preview()
 		return
 	party_jobs = SVVAssistant._party_members()
 	elapsed = 0.0
@@ -376,6 +401,37 @@ func _begin() -> void:
 	result.text = "Đồng đội: " + _party_names()
 	_render()
 
+
+func _begin_native_mvp_preview() -> void:
+	# Only explicitly opted-in test profiles can leave the simulation menu.
+	if not mvp_preview or Save._name != "profile_offline_test" or mvp_launching:
+		return
+	var world: World = SVVAssistant._world()
+	var index: int = mvp_picker.selected
+	if not is_instance_valid(world) or index < 0 or index >= MVPEncounter.ROSTER.size():
+		return
+	if world.net.mode != "" or world.net.eos() != null or world.cloud._enabled():
+		return
+	var boss_id: String = MVPEncounter.ROSTER[index]
+	mvp_launching = true
+	_close()
+	world.leave_town()
+	world.set_stage("prontera")
+	# Same native loading callback as the smoke-tested adventure route.
+	# No forced menu close or unpause; a stuck transition is a QA failure.
+	world.menus.show_loading(func(): world.start_run("swordsman", false))
+	for frame in 240:
+		if not is_instance_valid(world):
+			break
+		if world.running and world.map != null and world.player != null \
+			and world.menus._mode == "" and not get_tree().paused:
+			var boss: Enemy = await MVPEncounter.spawn(world, boss_id)
+			print("OFFLINE_MVP_MENU_QA SPAWN id=", boss_id, " success=", is_instance_valid(boss))
+			mvp_launching = false
+			return
+		await get_tree().process_frame
+	print("OFFLINE_MVP_MENU_QA BLOCKED native_transition")
+	mvp_launching = false
 
 func _party_names() -> String:
 	if party_jobs.is_empty():

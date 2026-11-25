@@ -58,6 +58,10 @@ def install(project):
     if not event_source.is_file():
         raise ValueError("Local-only event simulator missing")
     shutil.copyfile(event_source, destination.parent / event_source.name)
+    mvp_source = source.parent / "offline_mvp_encounter.gd"
+    if not mvp_source.is_file():
+        raise ValueError("Shared native MVP encounter helper missing")
+    shutil.copyfile(mvp_source, destination.parent / mvp_source.name)
     # Gated on --offline-test AND --rare-town-qa; production ignores it.
     rare_town = source.parent / "rare_town_qa.gd"
     if not rare_town.is_file():

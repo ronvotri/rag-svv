@@ -16,7 +16,7 @@ class WorldBossMapTests(unittest.TestCase):
         for expected in (
             "--offline-test", "--offline-boss-map-qa",
             "SVV_WORLD_BOSS_QA_SANDBOX", "profile_offline_test",
-            "RunSave.path()", "world.spawn_enemy(boss_id, point, true)",
+            "RunSave.path()", "MVPEncounter.spawn(world, boss_id)",
             "world.heroes.size() == 4", "HeroInput.BotHero",
             'world.set_stage("prontera")', "res://scenes/main.tscn",
             "WORLD_BOSS_MAP_QA RESULT", "boss-start.png",
@@ -118,6 +118,19 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertIn('command + ["--offline-boss-extended"]', source)
         self.assertIn('timeout=max(timeout, 300)', source)
         self.assertIn('row.startswith("PROGRESS ")', source)
+
+    def test_shared_mvp_spawn_and_preview_are_test_only(self):
+        helper = (SCRIPT.parent / "offline_mvp_encounter.gd").read_text(encoding="utf-8")
+        menu = (SCRIPT.parent / "offline_events.gd").read_text(encoding="utf-8")
+        for cue in ('Save._name != "profile_offline_test"', 'world.net.mode == ""',
+                    'world.spawn_enemy(boss_id, point, true)', 'found.size() != 1'):
+            self.assertIn(cue, helper)
+        self.assertIn('--offline-mvp-menu-preview', menu)
+        self.assertIn('await MVPEncounter.spawn(world, boss_id)', menu)
+        self.assertIn('world.menus.show_loading(func(): world.start_run("swordsman", false))', menu)
+        self.assertNotIn('start_world_boss(', helper)
+        self.assertNotIn('Save.set_setting(', helper)
+        self.assertIn('offline_mvp_encounter.gd', INSTALLER.read_text(encoding="utf-8"))
 
     def test_local_victory_ledger_is_test_only_and_duplicate_guarded(self):
         code = SCRIPT.read_text(encoding="utf-8")

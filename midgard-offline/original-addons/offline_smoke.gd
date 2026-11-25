@@ -31,6 +31,9 @@ func _run() -> void:
 		var option: Button = SVVOfflineEvents.mode_buttons.get(mode)
 		check(option != null and option.icon != null,
 			"offline mode " + mode + " has a rendered icon")
+	check(SVVOfflineEvents.mvp_picker.item_count == 6, "native MVP preview picker contains six bosses")
+	check(not SVVOfflineEvents.mvp_preview and not SVVOfflineEvents.mvp_picker.visible,
+		"native MVP preview stays hidden without explicit test flag")
 	# Five stable Prontera character looks must not reuse the same hair.
 	var seen_looks: Dictionary = {}
 	for job in SVVCompanionTown.JOBS:
