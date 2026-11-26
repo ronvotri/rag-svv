@@ -278,6 +278,8 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
                                and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_qa_markers"])
     report["menu_terminal_qa_passed"] = False
     report["menu_victory_ledger_verified"] = False
+    report["menu_reward_receipt_verified"] = False
+    report["native_reward_credit_verified"] = False
     if terminal is not None:
         report["menu_terminal_returncode"] = terminal.returncode
         report["menu_terminal_script_error_count"] = terminal.stdout.count("SCRIPT ERROR:")
@@ -287,6 +289,8 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
             and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_terminal_markers"])
         report["menu_victory_ledger_verified"] = (report["menu_terminal_qa_passed"]
             and "MVP_MENU_TEST TERMINAL outcome=victory saved=true replay_blocked=true persisted=true" in report["menu_terminal_markers"])
+        report["menu_reward_receipt_verified"] = (report["menu_victory_ledger_verified"]
+            and "MVP_MENU_TEST PASS single_pending_reward_receipt_persisted" in report["menu_terminal_markers"])
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():
