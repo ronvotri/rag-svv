@@ -450,9 +450,9 @@ func _begin_native_mvp_preview() -> void:
 			if world.menus._mode == "loading":
 				world.menus.close()
 				# The loading overlay is owned by this transition.
-				if world.menus._mode == "":
+				if world.menus._mode in ["", "closed"]:
 					get_tree().paused = false
-			if world.menus._mode != "" or get_tree().paused:
+			if world.menus._mode not in ["", "closed"] or get_tree().paused:
 				await get_tree().process_frame
 				continue
 			var boss: Enemy = await MVPEncounter.spawn(world, boss_id)

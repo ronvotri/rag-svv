@@ -94,11 +94,12 @@ func _run() -> void:
 		await get_tree().process_frame
 	_check(not observed_native_choice or world.menus._mode not in ["level_up", "start_skill"], "opening_choice_completed")
 	print("MVP_MENU_TEST TRANSITION mode=", str(world.menus._mode), " paused=", get_tree().paused, " callback=", SVVOfflineEvents.mvp_loading_callback_completed)
+	_check(not SVVOfflineEvents.mvp_launching, "launcher_completed_before_deadline")
 	var boss: Enemy = SVVOfflineEvents.mvp_last_spawn
 	_check(SVVOfflineEvents.mvp_last_id == "osiris", "requested_boss_id")
 	_check(is_instance_valid(boss), "native_boss_spawned")
 	_check(world.running and world.map != null and world.player != null, "native_map_and_player")
-	_check(not SVVOfflineEvents.panel.visible and not get_tree().paused and world.menus._mode == "", "no_stuck_overlay")
+	_check(not SVVOfflineEvents.panel.visible and not get_tree().paused and world.menus._mode in ["", "closed"], "no_stuck_overlay")
 	_check(world.heroes.size() == 4, "human_plus_three_party")
 	for hero in world.heroes:
 		if hero != world.player:
