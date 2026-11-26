@@ -66,6 +66,10 @@ def install(project):
     if not result_source.is_file():
         raise ValueError("Offline MVP result rules missing")
     shutil.copyfile(result_source, destination.parent / result_source.name)
+    credit_source = source.parent / "offline_mvp_credit_qa.gd"
+    if not credit_source.is_file():
+        raise ValueError("QA MVP wallet transaction helper missing")
+    shutil.copyfile(credit_source, destination.parent / credit_source.name)
     # Gated on --offline-test AND --rare-town-qa; production ignores it.
     rare_town = source.parent / "rare_town_qa.gd"
     if not rare_town.is_file():

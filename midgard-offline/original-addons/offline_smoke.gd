@@ -65,6 +65,23 @@ func _run() -> void:
 		check(rules.next_reward_receipt_ledger(reward_b, "osiris", "d".repeat(32), "defeat").is_empty(), "defeat never issues receipt")
 		check(rules.next_reward_receipt_ledger(reward_b, "osiris", "d".repeat(32), "unverified").is_empty(), "unverified kill never issues receipt")
 		check(reward_a.get("baphomet", {}).get("reward_receipts", {}).size() == 1, "receipt ledger copy leaves original unchanged")
+		var credit: Script = load("res://addons/svv_offline/offline_mvp_credit_qa.gd")
+		check(credit != null, "QA wallet helper loaded")
+		if credit != null and Save._name == "profile_offline_test":
+			var wallet_before: int = Save.zeny()
+			Save.set_setting("svv_offline_mvp_credit_fixture", reward_a)
+			Save.flush()
+			check(credit.redeem("baphomet", token_a), "QA receipt credits wallet once")
+			check(Save.zeny() == wallet_before + 100, "QA wallet credit exact amount")
+			Save.load_profile()
+			var credited: Dictionary = Save.setting("svv_offline_mvp_credit_fixture", {})
+			check(Save.zeny() == wallet_before + 100 and credited.get("baphomet", {}).get("reward_receipts", {}).get(token_a, {}).get("status", "") == "qa_credited", "QA wallet and receipt persist together")
+			check(not credit.redeem("baphomet", token_a) and Save.zeny() == wallet_before + 100, "QA reload reward replay blocked")
+			check(not credit.redeem("osiris", token_a), "QA cross MVP credit blocked")
+			# Fixture only; restore wallet and erase test receipt state.
+			Save.data.zeny = wallet_before
+			Save.set_setting("svv_offline_mvp_credit_fixture", {})
+			Save.flush()
 	# Five stable Prontera character looks must not reuse the same hair.
 	var seen_looks: Dictionary = {}
 	for job in SVVCompanionTown.JOBS:

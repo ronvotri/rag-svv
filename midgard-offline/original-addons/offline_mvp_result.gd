@@ -69,6 +69,33 @@ static func next_reward_receipt_ledger(ledger: Dictionary, boss_id: String, toke
 	updated[boss_id] = row
 	return updated
 
+# A credit plan is pure and non-spendable until the QA transaction commits
+# both the wallet and the receipt in the same encrypted profile.
+static func next_qa_credit(ledger: Dictionary, boss_id: String, token: String, balance: int) -> Dictionary:
+	if not ROSTER.has(boss_id) or token.length() != 32 or not token.is_valid_hex_number():
+		return {}
+	if balance < 0 or balance > 2147483647 - QA_ZENY_QUOTE:
+		return {}
+	var updated: Dictionary = ledger.duplicate(true)
+	var row: Variant = updated.get(boss_id, {})
+	if not row is Dictionary or not row.get("settled_tokens", []) is Array:
+		return {}
+	if not row.get("settled_tokens", []).has(token):
+		return {}
+	var receipts: Variant = row.get("reward_receipts", {})
+	if not receipts is Dictionary:
+		return {}
+	var receipt: Variant = receipts.get(token, {})
+	if not receipt is Dictionary or receipt.get("status", "") != "qa_pending":
+		return {}
+	if receipt.get("zeny_quote", 0) != QA_ZENY_QUOTE or receipt.get("mvp_marks", 0) != QA_MVP_MARKS:
+		return {}
+	receipt["status"] = "qa_credited"
+	receipts[token] = receipt
+	row["reward_receipts"] = receipts
+	updated[boss_id] = row
+	return {"ledger": updated, "balance": balance + QA_ZENY_QUOTE}
+
 static func title_for(outcome: String) -> String:
 	match outcome:
 		"victory": return "Săn MVP thành công!"
