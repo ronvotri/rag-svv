@@ -68,8 +68,11 @@ func _run() -> void:
 	_check(SVVOfflineEvents.panel.visible, "open_real_menu")
 	SVVOfflineEvents.mode_buttons["world_boss"].pressed.emit()
 	_check(SVVOfflineEvents.mvp_picker.visible and SVVOfflineEvents.mvp_picker.item_count == 6, "six_mvp_choices")
-	SVVOfflineEvents.mvp_picker.select(1)
-	_check(SVVOfflineEvents.mvp_picker.get_item_text(1) == "Osiris", "select_nondefault_osiris")
+	var extended: bool = OS.get_cmdline_user_args().has("--offline-mvp-menu-terminal")
+	var boss_index: int = 0 if extended else 1
+	var requested_id: String = "baphomet" if extended else "osiris"
+	SVVOfflineEvents.mvp_picker.select(boss_index)
+	_check(SVVOfflineEvents.mvp_picker.get_item_text(boss_index) == ("Baphomet" if extended else "Osiris"), "select_requested_mvp")
 	if not errors.is_empty():
 		_finish()
 		return
@@ -96,7 +99,7 @@ func _run() -> void:
 	print("MVP_MENU_TEST TRANSITION mode=", str(world.menus._mode), " paused=", get_tree().paused, " callback=", SVVOfflineEvents.mvp_loading_callback_completed)
 	_check(not SVVOfflineEvents.mvp_launching, "launcher_completed_before_deadline")
 	var boss: Enemy = SVVOfflineEvents.mvp_last_spawn
-	_check(SVVOfflineEvents.mvp_last_id == "osiris", "requested_boss_id")
+	_check(SVVOfflineEvents.mvp_last_id == requested_id, "requested_boss_id")
 	_check(is_instance_valid(boss), "native_boss_spawned")
 	_check(world.running and world.map != null and world.player != null, "native_map_and_player")
 	_check(not SVVOfflineEvents.panel.visible and not get_tree().paused and world.menus._mode in ["", "closed"], "no_stuck_overlay")
@@ -129,4 +132,29 @@ func _run() -> void:
 		await get_tree().process_frame
 		if is_instance_valid(boss):
 			_check(absf(SVVOfflineEvents.mvp_hud_hp.value - maxf(0.0, boss.hp)) < 0.1, "hud_reads_native_boss_hp")
+	if extended and errors.is_empty():
+		var terminal_deadline: int = Time.get_ticks_msec() + 240000
+		var start_world: float = world.time
+		var next_input: int = 0
+		while SVVOfflineEvents.mvp_hud_outcome == "active" and world.time - start_world < 180.0 and Time.get_ticks_msec() < terminal_deadline:
+			if world.menus._mode in ["level_up", "start_skill"] and Time.get_ticks_msec() >= next_input:
+				next_input = Time.get_ticks_msec() + 700
+				if not _press_native_choice(world.menus):
+					await _native_choice_input()
+			await get_tree().process_frame
+		var outcome: String = SVVOfflineEvents.mvp_hud_outcome
+		var saved: bool = SVVOfflineEvents.mvp_victory_saved
+		var token: String = SVVOfflineEvents.mvp_session_token
+		var replay_blocked := true
+		if outcome == "victory":
+			replay_blocked = not SVVOfflineEvents._settle_mvp_victory(outcome)
+		Save.load_profile()
+		var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {})
+		var row: Dictionary = ledger.get(requested_id, {})
+		var persisted: bool = int(row.get("wins", 0)) == 1 and str(row.get("last_token", "")) == token
+		print("MVP_MENU_TEST TERMINAL outcome=", outcome, " saved=", saved, " replay_blocked=", replay_blocked, " persisted=", persisted)
+		if outcome == "victory":
+			_check(saved and replay_blocked and persisted, "menu_victory_persisted_once")
+		else:
+			_check(not saved and not persisted and int(row.get("wins", 0)) == 0, "no_unverified_victory_saved")
 	_finish()

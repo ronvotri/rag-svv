@@ -67,6 +67,10 @@ var mvp_hud_started := 0.0
 var mvp_hud_initial_hp := 1.0
 var mvp_hud_outcome := ""
 var mvp_hud_expires := 0
+var mvp_session_token := ""
+var mvp_death_hp: Variant = null
+var mvp_death_seen := false
+var mvp_victory_saved := false
 
 
 func _ready() -> void:
@@ -376,10 +380,43 @@ func _attach_mvp_hud(world: World, boss: Enemy) -> void:
 				mvp_hud_initial_hp = maxf(mvp_hud_initial_hp, float(native_max))
 			break
 	mvp_hud_outcome = "active"
+	mvp_session_token = Crypto.new().generate_random_bytes(16).hex_encode()
+	mvp_death_hp = null
+	mvp_death_seen = false
+	mvp_victory_saved = false
 	mvp_hud_hp.show()
 	# Temporary QA death hook observes only tagged enemies. No direct damage.
 	boss.set_meta("svv_qa_boss_hits", {})
+	boss.set_meta("svv_qa_death_observer", _observe_mvp_native_death)
 	_update_mvp_hud()
+
+
+# Test-only native death observer: retain evidence before Enemy is freed.
+func _observe_mvp_native_death(boss: Enemy) -> void:
+	if not mvp_preview or Save._name != "profile_offline_test" or OS.get_environment("SVV_WORLD_BOSS_QA_SANDBOX") != "1":
+		return
+	if mvp_hud_outcome != "active" or mvp_death_seen or not is_instance_valid(boss) or boss != mvp_last_spawn:
+		return
+	if boss.hp > 0.0 or not bool(boss.get_meta("svv_qa_native_death", false)):
+		return
+	mvp_death_hp = boss.hp
+	mvp_death_seen = true
+
+
+func _settle_mvp_victory(outcome: String) -> bool:
+	if not mvp_preview or Save._name != "profile_offline_test" or OS.get_environment("SVV_WORLD_BOSS_QA_SANDBOX") != "1":
+		return false
+	if outcome != "victory" or not mvp_death_seen or not MVPEncounter.allowed(mvp_hud_world, mvp_last_id):
+		return false
+	if not is_instance_valid(mvp_hud_player) or mvp_hud_player != mvp_hud_world.player or mvp_hud_player.hp <= 0.0:
+		return false
+	var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {})
+	var updated: Dictionary = MVPResult.next_victory_ledger(ledger, mvp_last_id, mvp_session_token, outcome)
+	if updated.is_empty():
+		return false
+	Save.set_setting("svv_offline_mvp_victories", updated)
+	Save.flush()
+	return not Save._dirty
 
 
 func _update_mvp_hud() -> void:
@@ -399,9 +436,9 @@ func _update_mvp_hud() -> void:
 	if mvp_hud_outcome != "active":
 		mvp_hud.visible = clear_ui and Time.get_ticks_msec() < mvp_hud_expires
 		return
-	var boss_hp: Variant = mvp_last_spawn.hp if is_instance_valid(mvp_last_spawn) else null
+	var boss_hp: Variant = mvp_death_hp if mvp_death_seen else (mvp_last_spawn.hp if is_instance_valid(mvp_last_spawn) else null)
 	var player_health: Variant = mvp_hud_player.hp if is_instance_valid(mvp_hud_player) else null
-	var native_death: bool = is_instance_valid(mvp_last_spawn) and bool(mvp_last_spawn.get_meta("svv_qa_native_death", false))
+	var native_death: bool = mvp_death_seen
 	var outcome: String = MVPResult.classify(boss_hp, player_health, native_death, world.running, false)
 	var seconds: int = maxi(0, int(world.time - mvp_hud_started))
 	mvp_hud_name.text = "MVP · " + MVP_NAMES[MVPEncounter.ROSTER.find(mvp_last_id)]
@@ -415,10 +452,12 @@ func _update_mvp_hud() -> void:
 		mvp_hud_detail.text = "Không đọc được HP"
 	if outcome != "active":
 		mvp_hud_outcome = outcome
+		mvp_victory_saved = _settle_mvp_victory(outcome)
 		mvp_hud_name.text = MVPResult.title_for(outcome)
-		mvp_hud_detail.text = "%02d:%02d · Không phát thưởng" % [int(seconds / 60.0), seconds % 60]
+		var record_label: String = "Đã lưu thành tích" if mvp_victory_saved else "Không cộng thành tích"
+		mvp_hud_detail.text = "%02d:%02d · %s" % [int(seconds / 60.0), seconds % 60, record_label]
 		mvp_hud_expires = Time.get_ticks_msec() + 8000
-		print("OFFLINE_MVP_MENU_QA HUD_TERMINAL outcome=", outcome)
+		print("OFFLINE_MVP_MENU_QA HUD_TERMINAL outcome=", outcome, " saved=", mvp_victory_saved)
 	mvp_hud.visible = clear_ui
 
 

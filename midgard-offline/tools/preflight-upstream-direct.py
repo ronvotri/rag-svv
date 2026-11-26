@@ -199,7 +199,7 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
         report["boss_qa_error_type"] = type(error).__name__
     report["stage"] = "runtime_acceptance"
-    if not report.get("menu_qa_passed") or not report.get("boss_roster_gate", {}).get("all_six_combat_observed"):
+    if not report.get("menu_qa_passed") or not report.get("menu_terminal_qa_passed") or not report.get("boss_roster_gate", {}).get("all_six_combat_observed"):
         raise ValueError("Independent runtime QA gate incomplete")
     # Preserve the release and reward gates; this is only QA.
 
@@ -248,14 +248,27 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
     instrument = load("run-world-boss-map-qa").instrument_native_death
     death_patched = instrument(death_original.decode("utf-8"))
     report["menu_death_hook_installed"] = death_patched is not None
+    env["SVV_WORLD_BOSS_QA_SANDBOX"] = "1"
+    terminal = None
     try:
         if death_patched is not None:
             death_file.write_text(death_patched, encoding="utf-8")
         menu = run_private([godot, "--headless", "--path", prepared,
                             "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
                             "--offline-test", "--offline-mvp-menu-preview"], 180)
+        if menu.returncode == 0 and death_patched is not None:
+            for variable, suffix in (("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"),
+                                     ("XDG_CACHE_HOME", "cache")):
+                directory = work / "menu-terminal-test-profile" / suffix
+                directory.mkdir(parents=True, exist_ok=True)
+                env[variable] = str(directory)
+            terminal = run_private([godot, "--headless", "--path", prepared,
+                                    "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
+                                    "--offline-test", "--offline-mvp-menu-preview",
+                                    "--offline-mvp-menu-terminal"], 300)
     finally:
         death_file.write_bytes(death_original)
+        env.pop("SVV_WORLD_BOSS_QA_SANDBOX", None)
     report["menu_qa_returncode"] = menu.returncode
     report["menu_qa_script_error_count"] = menu.stdout.count("SCRIPT ERROR:")
     report["menu_qa_diagnostics"] = diagnostic_locations(menu.stdout)
@@ -263,6 +276,17 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
                                 if line.startswith(("MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA ", "WORLD_BOSS_MAP_QA SPAWN_DIAG "))][:40]
     report["menu_qa_passed"] = (menu.returncode == 0 and not report["menu_qa_script_error_count"]
                                and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_qa_markers"])
+    report["menu_terminal_qa_passed"] = False
+    report["menu_victory_ledger_verified"] = False
+    if terminal is not None:
+        report["menu_terminal_returncode"] = terminal.returncode
+        report["menu_terminal_script_error_count"] = terminal.stdout.count("SCRIPT ERROR:")
+        report["menu_terminal_markers"] = [line.strip() for line in terminal.stdout.splitlines()
+            if line.startswith(("MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA HUD_TERMINAL "))][-50:]
+        report["menu_terminal_qa_passed"] = (terminal.returncode == 0 and not report["menu_terminal_script_error_count"]
+            and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_terminal_markers"])
+        report["menu_victory_ledger_verified"] = (report["menu_terminal_qa_passed"]
+            and "MVP_MENU_TEST TERMINAL outcome=victory saved=true replay_blocked=true persisted=true" in report["menu_terminal_markers"])
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():

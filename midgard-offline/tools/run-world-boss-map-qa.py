@@ -77,7 +77,11 @@ def instrument_native_death(source: str) -> str | None:
     indent = line.group(1)
     observer = (indent + 'if has_meta("svv_qa_boss_hits"):\n'
                 + indent + '\tset_meta("svv_qa_native_death", hp <= 0.0)\n'
-                + indent + '\tprint("WORLD_BOSS_MAP_QA NATIVE_DEATH hp=", hp, " SVV_QA_NATIVE_DEATH")\n')
+                + indent + '\tprint("WORLD_BOSS_MAP_QA NATIVE_DEATH hp=", hp, " SVV_QA_NATIVE_DEATH")\n'
+                + indent + '\tif has_meta("svv_qa_death_observer"):\n'
+                + indent + '\t\tvar svv_qa_observer: Variant = get_meta("svv_qa_death_observer")\n'
+                + indent + '\t\tif svv_qa_observer is Callable and svv_qa_observer.is_valid():\n'
+                + indent + '\t\t\tsvv_qa_observer.call(self)\n')
     return source[:at] + observer + source[at:]
 
 
