@@ -131,7 +131,6 @@ func _process(delta: float) -> void:
 	elapsed += delta
 	if elapsed < 0.25:
 		return
-	var frame_seconds := elapsed
 	elapsed = 0.0
 	var in_town := _town_active()
 	if in_town:
@@ -142,8 +141,7 @@ func _process(delta: float) -> void:
 	npc_button.visible = in_town and not dialog.visible and not is_instance_valid(mira_visual)
 	if dialog.visible and not in_town:
 		_close_dialog()
-	if in_town and not dialog.visible:
-		_tick_patrol(frame_seconds)
+	# Stationary contact: avoid independently timed patrol/face changes.
 
 
 func _set_mira_animation(action_name: String) -> void:
@@ -161,26 +159,9 @@ func _set_mira_animation(action_name: String) -> void:
 		last_sprite_action = action
 
 
-func _tick_patrol(delta: float) -> void:
-	if not is_instance_valid(mira_visual) or not is_instance_valid(kafra_anchor):
-		return
-	patrol_time += maxf(0.0, delta)
-	var phase := fposmod(patrol_time, PATROL_PERIOD)
-	var step_fraction := 0.0
-	if phase < 2.0:
-		step_fraction = phase / 2.0
-	elif phase < 6.0:
-		step_fraction = 1.0
-	elif phase < 8.0:
-		step_fraction = 1.0 - (phase - 6.0) / 2.0
-	var next_position: Vector3 = kafra_anchor.global_position + STAND_OFFSET + PATROL_STEP * step_fraction
-	var motion: Vector3 = next_position - mira_visual.global_position
-	if motion.length() > 0.005:
-		mira_visual.face(motion)
-		_set_mira_animation("PC_WALK")
-	else:
-		_set_mira_animation("PC_IDLE")
-	mira_visual.global_position = next_position
+func _tick_patrol(_delta: float) -> void:
+	# Retained for compatibility with old QA callers; no motion in town.
+	pass
 
 
 func _town_active() -> bool:
@@ -229,13 +210,18 @@ func _create_world_sprite(parent: Node3D, anchor: Node3D) -> RoVisual:
 	if not RoAssets.has_sprite(MIRA_SPRITE):
 		push_warning("Mira: missing original Acolyte sprite, using town interaction fallback")
 		return null
-	var original_sprite = RoAssets.sprite([MIRA_SPRITE])
+	var original_sprite: RoSprite = SVVCompanionTown._composed_original_sprite("acolyte", MIRA_SPRITE)
 	if original_sprite == null:
 		return null
 	var character := RoVisual.new()
 	parent.add_child(character)
 	character.name = "MiraAcolyteNPC"
 	character.setup(original_sprite, Color(0.8, 0.8, 0.9), 40)
+	if not (character.sprite is Sprite3D) or character.sprite.texture == null:
+		character.queue_free()
+		return null
+	SVVCompanionTown._set_idle(character)
+	character.set_meta("svv_friend_head", str(SVVCompanionTown._resolved_look("acolyte").get("head_key", "")))
 	character.global_position = anchor.global_position + STAND_OFFSET
 	var nameplate := Label3D.new()
 	nameplate.text = "Mira · Acolyte"

@@ -32,6 +32,9 @@ const NPC_NAMES := {
 # These deliberately conservative values use the original styled_character
 # factory; no replacement texture or fake sprite is created.
 const NPC_LOOK := {
+	"acolyte": {"hair": 6, "hair_color": 4},
+	"gunslinger": {"hair": 7, "hair_color": 1},
+	"taekwon": {"hair": 8, "hair_color": 2},
 	"swordsman": {"hair": 1, "hair_color": 3},
 	"mage": {"hair": 5, "hair_color": 6},
 	"archer": {"hair": 3, "hair_color": 2},
@@ -247,22 +250,58 @@ func _spawn_in_town(parent: Node3D) -> void:
 		nameplate.position = Vector3(0.0, 1.65, 0.0)
 		visual.add_child(nameplate)
 		_set_idle(visual)
+		visual.set_meta("svv_friend_head", str(_resolved_look(job).get("head_key", "")))
 		npc_visuals[job] = visual
 
 
 # No body-only fallback: that was the source of the severed head.
 # Parameter order is pinned by Build #342's original-client composed QA.
+# Native styled_character silently falls back to head_m if a requested
+# head asset is missing. Resolve real, distinct head keys before calling it.
+# Resolve in a fixed order, independent of NPC spawn/retry order.
+func _resolved_look(job: String) -> Dictionary:
+	var used: Dictionary = {}
+	var roster := ["acolyte", "swordsman", "mage", "archer", "thief", "merchant", "gunslinger", "taekwon"]
+	for current in roster:
+		var gender: String = "f" if current in ["acolyte", "mage", "archer"] else "m"
+		if current in JOBS:
+			var body_key: String = _first_original_sprite(current)
+			if not body_key.is_empty():
+				gender = "f" if body_key.ends_with("_f") else "m"
+		var style: Dictionary = NPC_LOOK[current]
+		var preferred: int = int(style["hair"])
+		var candidates: Array[int] = [preferred]
+		for hair_id in range(1, 24):
+			if hair_id != preferred:
+				candidates.append(hair_id)
+		var chosen := ""
+		var hair_id_chosen := 0
+		for hair_id in candidates:
+			var key: String = "head_%s_%d" % [gender, hair_id]
+			if RoAssets.has_sprite(key) and not used.has(key):
+				chosen = key
+				hair_id_chosen = hair_id
+				break
+		if chosen.is_empty():
+			if current == job:
+				return {}
+			continue
+		used[chosen] = true
+		if current == job:
+			var color: int = int(style["hair_color"])
+			if color > 0 and not RoAssets.has_palette("hair_%s_%d_%d" % [gender, hair_id_chosen, color]):
+				color = 0
+			return {"gender": gender, "hair": hair_id_chosen, "hair_color": color, "cloth": 0, "head_key": chosen, "preferred_head": hair_id_chosen == preferred}
+	return {}
+
+
 func _composed_original_sprite(job: String, sprite_id: String) -> RoSprite:
 	if not RoAssets.has_sprite(sprite_id):
 		return null
-	var gender: String = "f" if sprite_id.ends_with("_f") else "m"
-	var style: Dictionary = NPC_LOOK.get(job, {"hair": 2, "hair_color": 0})
-	var look := {
-		"gender": gender,
-		"hair": int(style.get("hair", 2)),
-		"hair_color": int(style.get("hair_color", 0)),
-		"cloth": 0,
-	}
+	var look: Dictionary = _resolved_look(job)
+	if look.is_empty() or not RoAssets.has_sprite(str(look["head_key"])):
+		push_warning("SVV: no distinct native head for " + job)
+		return null
 	var composed: RoSprite = RoAssets.styled_character(
 		job, "", "", [RoVisual.PC_ATTACK], "", look)
 	if composed == null:
@@ -288,10 +327,17 @@ func _set_idle(visual: RoVisual) -> void:
 	if script != null:
 		var action_id: int = int(script.get_script_constant_map().get("PC_IDLE", -1))
 		if action_id >= 0:
-			visual.play(action_id, true, true)
-	# Freeze frame advancement for stationary NPCs; remain visible and clickable.
+			visual.play(action_id, false, true)
+	# The native renderer already composites head and body into one texture.
+	# Freeze the complete visual tree, including inherited processing, and
+	# retain a private frame if readable (dummy/headless may not expose pixels).
+	visual.process_mode = Node.PROCESS_MODE_DISABLED
 	visual.set_process(false)
 	visual.set_physics_process(false)
+	if visual.sprite is Sprite3D and visual.sprite.texture != null and not OS.has_feature("dedicated_server") and DisplayServer.get_name() != "headless":
+		var frame: Image = visual.sprite.texture.get_image()
+		if frame != null and not frame.is_empty():
+			visual.sprite.texture = ImageTexture.create_from_image(frame)
 
 
 func _clear_world() -> void:

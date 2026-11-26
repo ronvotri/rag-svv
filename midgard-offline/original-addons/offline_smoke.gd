@@ -262,7 +262,7 @@ func _run() -> void:
 		check(mira.sprite is Sprite3D and mira.sprite.texture != null, "Mira has rendered original sprite texture")
 		var old_pos: Vector3 = mira.global_position
 		SVVMiraTown._tick_patrol(1.0)
-		check(mira.global_position.distance_to(old_pos) <= 0.7, "Mira patrol stays safely near Kafra")
+		check(mira.global_position == old_pos and mira.process_mode == Node.PROCESS_MODE_DISABLED, "Mira static composite stays fixed")
 		check(mira.global_position.distance_to(kafra.global_position) > 1.0, "Mira does not overlap Kafra")
 		var cam: Camera3D = get_viewport().get_camera_3d()
 		if cam != null:
@@ -307,12 +307,27 @@ func _run() -> void:
 			var mira_gap := Vector2(current_npc.global_position.x, current_npc.global_position.z).distance_to(
 				Vector2(staged_mira.global_position.x, staged_mira.global_position.z))
 			check(mira_gap >= 1.75, current_job + " has space from Mira patrol")
+	var rendered_heads: Dictionary = {}
+	if is_instance_valid(staged_mira):
+		var mira_head: String = str(staged_mira.get_meta("svv_friend_head", ""))
+		check(not mira_head.is_empty() and RoAssets.has_sprite(mira_head), "Mira uses an existing distinct native head")
+		rendered_heads[mira_head] = true
 	for job in ["swordsman", "mage", "archer", "thief", "merchant"]:
 		var npc: RoVisual = SVVCompanionTown.npc_visuals.get(job)
 		check(npc != null and is_instance_valid(npc), job + " physically appears in Prontera")
 		if npc != null and is_instance_valid(npc):
 			check(npc.get_parent() == actual_town, job + " belongs to the original Town scene")
 			check(npc.sprite is Sprite3D and npc.sprite.texture != null, job + " uses genuine rendered Ragnarok sprite")
+			var head_key: String = str(npc.get_meta("svv_friend_head", ""))
+			check(not head_key.is_empty() and RoAssets.has_sprite(head_key) and not rendered_heads.has(head_key), job + " uses existing unique native head")
+			rendered_heads[head_key] = true
+			check(npc.process_mode == Node.PROCESS_MODE_DISABLED, job + " stationary composite disabled processing")
+			var frozen_texture: Texture2D = npc.sprite.texture
+			var frozen_offset: Vector2 = npc.sprite.offset
+			await get_tree().process_frame
+			await get_tree().process_frame
+			check(npc.sprite.texture == frozen_texture and npc.sprite.offset == frozen_offset, job + " composite frame stable")
+			print("OFFLINE_QA FRIEND_HEAD ", job, " ", head_key, " preferred=", SVVCompanionTown._resolved_look(job).get("preferred_head", false))
 			if kafra != null:
 				check(npc.global_position.distance_to(kafra.global_position) >= 1.0, job + " does not overlap Kafra")
 	# Regression: switching city context removes living visuals, dialogue,

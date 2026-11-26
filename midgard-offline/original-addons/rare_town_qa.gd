@@ -85,7 +85,10 @@ func _spawn(parent: Node3D) -> void:
 		if not RoAssets.has_sprite(job):
 			push_warning("RARE_TOWN_QA missing original sprite: " + job)
 			continue
-		var look := {"gender": str(target["gender"]), "hair": 2, "hair_color": 0, "cloth": 0}
+		var look: Dictionary = SVVCompanionTown._resolved_look(job)
+		if look.is_empty() or not RoAssets.has_sprite(str(look["head_key"])):
+			push_warning("RARE_TOWN_QA no distinct head: " + job)
+			continue
 		var composed: RoSprite = RoAssets.styled_character(
 			job, "", "", [RoVisual.PC_ATTACK], "", look)
 		if composed == null:
@@ -106,11 +109,8 @@ func _spawn(parent: Node3D) -> void:
 		tag.pixel_size = 0.006
 		tag.position = Vector3(0, 1.3, 0)
 		visual.add_child(tag)
-		visual.face(Vector3(0, 0, -1))
-		var script: Script = visual.get_script()
-		var idle: int = int(script.get_script_constant_map().get("PC_IDLE", -1)) if script != null else -1
-		if idle >= 0:
-			visual.play(idle, true, true)
+		SVVCompanionTown._set_idle(visual)
+		visual.set_meta("svv_friend_head", str(look["head_key"]))
 		visuals[key] = visual
 		print("RARE_TOWN_QA SPAWN ", key, " position=", visual.global_position)
 
