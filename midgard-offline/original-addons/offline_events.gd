@@ -411,7 +411,7 @@ func _settle_mvp_victory(outcome: String) -> bool:
 	if not is_instance_valid(mvp_hud_player) or mvp_hud_player != mvp_hud_world.player or mvp_hud_player.hp <= 0.0:
 		return false
 	var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {})
-	var updated: Dictionary = MVPResult.next_victory_ledger(ledger, mvp_last_id, mvp_session_token, outcome)
+	var updated: Dictionary = MVPResult.next_reward_receipt_ledger(ledger, mvp_last_id, mvp_session_token, outcome)
 	if updated.is_empty():
 		return false
 	Save.set_setting("svv_offline_mvp_victories", updated)
@@ -454,7 +454,7 @@ func _update_mvp_hud() -> void:
 		mvp_hud_outcome = outcome
 		mvp_victory_saved = _settle_mvp_victory(outcome)
 		mvp_hud_name.text = MVPResult.title_for(outcome)
-		var record_label: String = "Đã lưu thành tích" if mvp_victory_saved else "Không cộng thành tích"
+		var record_label: String = "Đã lưu thành tích · Phiếu thưởng QA" if mvp_victory_saved else "Không cộng thành tích"
 		mvp_hud_detail.text = "%02d:%02d · %s" % [int(seconds / 60.0), seconds % 60, record_label]
 		mvp_hud_expires = Time.get_ticks_msec() + 8000
 		print("OFFLINE_MVP_MENU_QA HUD_TERMINAL outcome=", outcome, " saved=", mvp_victory_saved)

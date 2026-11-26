@@ -152,9 +152,13 @@ func _run() -> void:
 		var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {})
 		var row: Dictionary = ledger.get(requested_id, {})
 		var persisted: bool = int(row.get("wins", 0)) == 1 and str(row.get("last_token", "")) == token
+		var receipts: Dictionary = row.get("reward_receipts", {})
+		var receipt: Dictionary = receipts.get(token, {})
 		print("MVP_MENU_TEST TERMINAL outcome=", outcome, " saved=", saved, " replay_blocked=", replay_blocked, " persisted=", persisted)
 		if outcome == "victory":
 			_check(saved and replay_blocked and persisted, "menu_victory_persisted_once")
+			_check(receipts.size() == 1 and int(receipt.get("zeny_quote", 0)) == 100 and int(receipt.get("mvp_marks", 0)) == 1 and receipt.get("status", "") == "qa_pending", "single_pending_reward_receipt_persisted")
 		else:
 			_check(not saved and not persisted and int(row.get("wins", 0)) == 0, "no_unverified_victory_saved")
+			_check(receipts.is_empty(), "no_reward_receipt_without_victory")
 	_finish()

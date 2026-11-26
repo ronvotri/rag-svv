@@ -54,6 +54,17 @@ func _run() -> void:
 		check(rules.next_victory_ledger(second, "osiris", token_a, "victory").is_empty(), "cross MVP replay blocked")
 		check(rules.next_victory_ledger(second, "osiris", "c".repeat(32), "defeat").is_empty(), "no victory count on defeat")
 		check(int(first.get("baphomet", {}).get("wins", 0)) == 1, "result ledger copy leaves original unchanged")
+		var reward_a: Dictionary = rules.next_reward_receipt_ledger({}, "baphomet", token_a, "victory")
+		var reward_b: Dictionary = rules.next_reward_receipt_ledger(reward_a, "baphomet", token_b, "victory")
+		var reward_receipts: Dictionary = reward_b.get("baphomet", {}).get("reward_receipts", {})
+		check(reward_receipts.size() == 2 and int(reward_b.get("baphomet", {}).get("wins", 0)) == 2, "one pending reward receipt per unique win")
+		check(reward_receipts.get(token_a, {}).get("status", "") == "qa_pending", "reward receipt cannot be spent")
+		check(int(reward_receipts.get(token_a, {}).get("zeny_quote", 0)) == 100, "test reward quote is explicit")
+		check(rules.next_reward_receipt_ledger(reward_b, "baphomet", token_a, "victory").is_empty(), "historical reward replay blocked")
+		check(rules.next_reward_receipt_ledger(reward_b, "osiris", token_a, "victory").is_empty(), "cross MVP reward replay blocked")
+		check(rules.next_reward_receipt_ledger(reward_b, "osiris", "d".repeat(32), "defeat").is_empty(), "defeat never issues receipt")
+		check(rules.next_reward_receipt_ledger(reward_b, "osiris", "d".repeat(32), "unverified").is_empty(), "unverified kill never issues receipt")
+		check(reward_a.get("baphomet", {}).get("reward_receipts", {}).size() == 1, "receipt ledger copy leaves original unchanged")
 	# Five stable Prontera character looks must not reuse the same hair.
 	var seen_looks: Dictionary = {}
 	for job in SVVCompanionTown.JOBS:

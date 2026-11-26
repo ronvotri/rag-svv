@@ -47,6 +47,28 @@ static func next_victory_ledger(ledger: Dictionary, boss_id: String, token: Stri
 	updated[boss_id] = row
 	return updated
 
+# Test-only receipt. It does not change the native wallet or inventory.
+# The victory token and receipt are committed in the same settings dictionary.
+const QA_ZENY_QUOTE := 100
+const QA_MVP_MARKS := 1
+
+static func next_reward_receipt_ledger(ledger: Dictionary, boss_id: String, token: String, outcome: String) -> Dictionary:
+	var updated: Dictionary = next_victory_ledger(ledger, boss_id, token, outcome)
+	if updated.is_empty():
+		return {}
+	var row: Dictionary = updated[boss_id]
+	var receipts: Variant = row.get("reward_receipts", {})
+	if not receipts is Dictionary or receipts.has(token):
+		return {}
+	receipts[token] = {
+		"zeny_quote": QA_ZENY_QUOTE,
+		"mvp_marks": QA_MVP_MARKS,
+		"status": "qa_pending",
+	}
+	row["reward_receipts"] = receipts
+	updated[boss_id] = row
+	return updated
+
 static func title_for(outcome: String) -> String:
 	match outcome:
 		"victory": return "Săn MVP thành công!"
