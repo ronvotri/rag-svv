@@ -430,10 +430,23 @@ func _begin_native_mvp_preview() -> void:
 		mvp_loading_callback_completed = true
 	)
 	var deadline: int = Time.get_ticks_msec() + 12000
+	var waiting_for_choice := false
 	while Time.get_ticks_msec() < deadline:
 		if not is_instance_valid(world):
 			break
+		if mvp_loading_callback_completed and not world.running:
+			break
 		if mvp_loading_callback_completed and world.running and world.map != null and is_instance_valid(world.player):
+			# An opening skill/level choice is legitimate. Human reading time
+			# must not consume the loading timeout or dismiss this native UI.
+			if world.menus._mode in ["level_up", "start_skill"]:
+				if not waiting_for_choice:
+					print("OFFLINE_MVP_MENU_QA WAIT_NATIVE_CHOICE")
+				waiting_for_choice = true
+				deadline = Time.get_ticks_msec() + 12000
+				await get_tree().process_frame
+				continue
+			waiting_for_choice = false
 			if world.menus._mode == "loading":
 				world.menus.close()
 				# The loading overlay is owned by this transition.

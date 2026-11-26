@@ -14,6 +14,32 @@ func _finish() -> void:
 	print("MVP_MENU_TEST COMPLETE errors=", errors.size())
 	get_tree().quit(0 if errors.is_empty() else 1)
 
+# Exercise a genuine connected native choice button when its callable is
+# explicit; otherwise use the original keyboard input path. No direct skill
+# grant, no call to menus.close(), no forced unpause.
+func _press_native_choice(node: Node) -> bool:
+	if node is BaseButton and node.is_visible_in_tree() and not node.disabled:
+		for connection in node.pressed.get_connections():
+			var callback: Callable = connection.get("callable", Callable())
+			if callback.is_valid() and str(callback.get_method()) in ["_pick", "_pick_start"]:
+				node.pressed.emit()
+				return true
+	for child in node.get_children():
+		if _press_native_choice(child):
+			return true
+	return false
+
+func _native_choice_input() -> void:
+	var press := InputEventKey.new()
+	press.keycode = KEY_1
+	press.physical_keycode = KEY_1
+	press.pressed = true
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+	var release := press.duplicate() as InputEventKey
+	release.pressed = false
+	Input.parse_input_event(release)
+
 func _run() -> void:
 	await get_tree().process_frame
 	if Save._name != "profile_offline_test" or not OS.get_cmdline_user_args().has("--offline-mvp-menu-preview"):
@@ -48,9 +74,25 @@ func _run() -> void:
 		_finish()
 		return
 	SVVOfflineEvents.start_button.pressed.emit()
-	var deadline: int = Time.get_ticks_msec() + 15000
+	var deadline: int = Time.get_ticks_msec() + 30000
+	var next_choice: int = 0
+	var choice_attempts: int = 0
+	var observed_native_choice := false
 	while SVVOfflineEvents.mvp_launching and Time.get_ticks_msec() < deadline:
+		if world.menus._mode in ["level_up", "start_skill"] and SVVOfflineEvents.mvp_loading_callback_completed:
+			if not observed_native_choice:
+				observed_native_choice = true
+				# Prove the launcher leaves the original choice visible.
+				_check(SVVOfflineEvents.mvp_launching and not is_instance_valid(SVVOfflineEvents.mvp_last_spawn), "native_choice_preserved_before_spawn")
+			if Time.get_ticks_msec() >= next_choice and choice_attempts < 12:
+				choice_attempts += 1
+				next_choice = Time.get_ticks_msec() + 700
+				var clicked: bool = _press_native_choice(world.menus)
+				print("MVP_MENU_TEST CHOICE attempt=", choice_attempts, " connected_button=", clicked)
+				if not clicked:
+					await _native_choice_input()
 		await get_tree().process_frame
+	_check(not observed_native_choice or world.menus._mode not in ["level_up", "start_skill"], "opening_choice_completed")
 	print("MVP_MENU_TEST TRANSITION mode=", str(world.menus._mode), " paused=", get_tree().paused, " callback=", SVVOfflineEvents.mvp_loading_callback_completed)
 	var boss: Enemy = SVVOfflineEvents.mvp_last_spawn
 	_check(SVVOfflineEvents.mvp_last_id == "osiris", "requested_boss_id")
