@@ -107,6 +107,18 @@ func _run() -> void:
 	if is_instance_valid(boss):
 		_check(world.get("enemies").has(boss) and boss.hp > 0.0, "live_boss_in_native_registry")
 		_check(is_instance_valid(SVVOfflineEvents.mvp_hud) and SVVOfflineEvents.mvp_hud.visible, "native_boss_hud_visible")
+		_check(SVVOfflineEvents.mvp_hud_hp.max_value >= boss.hp, "native_hp_bar_range")
+		# Verify the HUD's actual behavior under a normal tree pause, then
+		# restore the exact state. No forced opening-choice dismissal.
+		var original_pause: bool = get_tree().paused
+		get_tree().paused = true
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_check(not SVVOfflineEvents.mvp_hud.visible, "hud_hidden_during_pause")
+		get_tree().paused = original_pause
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_check(SVVOfflineEvents.mvp_hud.visible, "hud_returns_after_pause")
 		_check(SVVOfflineEvents.mvp_hud.mouse_filter == Control.MOUSE_FILTER_IGNORE and SVVOfflineEvents.mvp_hud_hp.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hud_does_not_capture_combat_input")
 		var initial_hp: float = boss.hp
 		var combat_deadline: int = Time.get_ticks_msec() + 12000

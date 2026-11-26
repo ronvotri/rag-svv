@@ -348,6 +348,7 @@ func _create_mvp_hud() -> void:
 	mvp_hud_hp = ProgressBar.new()
 	mvp_hud_hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mvp_hud_hp.show_percentage = false
+	mvp_hud_hp.step = 0.01
 	mvp_hud_hp.custom_minimum_size.y = 12
 	content.add_child(mvp_hud_hp)
 	mvp_hud_detail = Label.new()
@@ -365,8 +366,17 @@ func _attach_mvp_hud(world: World, boss: Enemy) -> void:
 	mvp_hud_world = world
 	mvp_hud_player = world.player
 	mvp_hud_started = world.time
+	# Prefer a readable native maximum. Otherwise use observed starting HP,
+	# not an invented boss stat.
 	mvp_hud_initial_hp = maxf(1.0, boss.hp)
+	for property in boss.get_property_list():
+		if str(property.get("name", "")) == "max_hp":
+			var native_max: Variant = boss.get("max_hp")
+			if (native_max is int or native_max is float) and is_finite(float(native_max)):
+				mvp_hud_initial_hp = maxf(mvp_hud_initial_hp, float(native_max))
+			break
 	mvp_hud_outcome = "active"
+	mvp_hud_hp.show()
 	# Temporary QA death hook observes only tagged enemies. No direct damage.
 	boss.set_meta("svv_qa_boss_hits", {})
 	_update_mvp_hud()
@@ -380,6 +390,10 @@ func _update_mvp_hud() -> void:
 		mvp_hud_outcome = ""
 		return
 	var world: World = mvp_hud_world
+	if not is_instance_valid(world.menus):
+		mvp_hud.hide()
+		mvp_hud_outcome = ""
+		return
 	# Never obscure the original level-up, pause or other modal controls.
 	var clear_ui: bool = world.menus._mode in ["", "closed"] and not get_tree().paused
 	if mvp_hud_outcome != "active":
@@ -392,15 +406,17 @@ func _update_mvp_hud() -> void:
 	var seconds: int = maxi(0, int(world.time - mvp_hud_started))
 	mvp_hud_name.text = "MVP · " + MVP_NAMES[MVPEncounter.ROSTER.find(mvp_last_id)]
 	if boss_hp != null:
-		mvp_hud_hp.max_value = maxf(mvp_hud_initial_hp, float(boss_hp))
+		mvp_hud_initial_hp = maxf(mvp_hud_initial_hp, float(boss_hp))
+		mvp_hud_hp.max_value = mvp_hud_initial_hp
 		mvp_hud_hp.value = maxf(0.0, float(boss_hp))
-		mvp_hud_detail.text = "%d HP · %02d:%02d" % [int(maxf(0.0, float(boss_hp))), int(seconds / 60.0), seconds % 60]
+		mvp_hud_detail.text = "%d / %d HP · %02d:%02d" % [int(maxf(0.0, float(boss_hp))), int(mvp_hud_initial_hp), int(seconds / 60.0), seconds % 60]
 	else:
+		mvp_hud_hp.hide()
 		mvp_hud_detail.text = "Không đọc được HP"
 	if outcome != "active":
 		mvp_hud_outcome = outcome
 		mvp_hud_name.text = MVPResult.title_for(outcome)
-		mvp_hud_detail.text = "Kết quả thử nghiệm · Không phát thưởng"
+		mvp_hud_detail.text = "%02d:%02d · Không phát thưởng" % [int(seconds / 60.0), seconds % 60]
 		mvp_hud_expires = Time.get_ticks_msec() + 8000
 		print("OFFLINE_MVP_MENU_QA HUD_TERMINAL outcome=", outcome)
 	mvp_hud.visible = clear_ui
