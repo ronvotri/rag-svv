@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Local-only Web MVP preview from an authorized, user-supplied 0.2.11 PCK.
 
-No network fetch, CI upload, deployment or production pin changes.
-Requires local Godot 4.7.2, GDRE 2.7.4, official templates and pinned fonts.
+No client network fetch, CI upload, deployment or production pin changes.
+Accepts local tools or --auto-tools on Linux (hash-checked official tools/fonts).
 The result is experimental: actual browser and repeat-hunt QA still required.
 """
 from __future__ import annotations
@@ -91,7 +91,7 @@ def build(args):
     for name, spec in config["fonts"].items():
         if cloud.digest(args.fonts / name) != spec["sha256"]:
             raise ValueError("Font checksum mismatch: " + name)
-    if args.output.exists() or args.output == ROOT or ROOT in args.output.parents:
+    if args.output.exists() or args.output == ROOT.parent or ROOT.parent in args.output.parents:
         raise ValueError("Choose a new output directory outside the repository")
     version = subprocess.check_output([str(args.godot), "--version"], text=True, timeout=30).strip()
     if not version.startswith(config["godot_version"] + "."):
@@ -140,15 +140,49 @@ def build(args):
     print("Serve only locally: python -m http.server 8765 --bind 127.0.0.1 --directory", args.output)
 
 
+def provision_linux_tools(args):
+    if not sys.platform.startswith("linux"):
+        raise ValueError("--auto-tools requires Linux (including WSL)")
+    cloud = load("cloud-build-original")
+    config = json.loads((ROOT / "config/cloud-tools.json").read_text(encoding="utf-8"))
+    cache = ROOT / "work" / "local-mvp-tool-cache"
+    archives = cache / "archives"
+    for name in ("godot_linux", "gdre_linux"):
+        archive = cloud.download(config[name], archives / (name + ".zip"))
+        cloud.extract_safe(archive, cache / name)
+    args.godot = cloud.executable(cache / "godot_linux", "godot")
+    args.gdre = cloud.executable(cache / "gdre_linux", "gdre")
+    args.templates = cache / "templates"
+    archive = cloud.download(config["templates"], archives / "templates.tpz")
+    cloud.extract_safe(archive, args.templates, {"web_nothreads_debug.zip", "web_nothreads_release.zip", "windows_debug_x86_64.exe"})
+    args.fonts = cache / "fonts"
+    for name, spec in config["fonts"].items():
+        cloud.download(spec, args.fonts / name)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("pck", "gdre", "godot", "templates", "fonts", "output"):
+    for name in ("pck", "output"):
         parser.add_argument("--" + name, type=lambda p: Path(p).expanduser().resolve(), required=True)
+    for name in ("gdre", "godot", "templates", "fonts"):
+        parser.add_argument("--" + name, type=lambda p: Path(p).expanduser().resolve())
+    parser.add_argument("--auto-tools", action="store_true", help="Download verified build tools/fonts only on Linux/WSL")
     parser.add_argument("--authorized-local-client", action="store_true",
                         help="Confirm permission to prepare and run the supplied client locally")
     args = parser.parse_args()
     if not args.authorized_local_client:
         parser.error("An authorized local client is required")
+    if not args.pck.is_file():
+        parser.error("Provide your authorized local 0.2.11 PCK")
+    if args.auto_tools:
+        if any(getattr(args, name) is not None for name in ("gdre", "godot", "templates", "fonts")):
+            parser.error("Use --auto-tools or explicit local tool paths, not both")
+        pin = json.loads((ROOT / "review/upstream-0.2.11-pin.json").read_text(encoding="utf-8"))
+        if args.pck.stat().st_size != pin["pck_size"] or load("cloud-build-original").digest(args.pck) != pin["pck_sha256"]:
+            parser.error("Local PCK differs from reviewed 0.2.11 bytes")
+        provision_linux_tools(args)
+    elif any(getattr(args, name) is None for name in ("gdre", "godot", "templates", "fonts")):
+        parser.error("Provide local tools/fonts or use --auto-tools")
     build(args)
 
 
