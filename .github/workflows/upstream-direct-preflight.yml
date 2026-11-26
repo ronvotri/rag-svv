@@ -5,6 +5,11 @@ on:
     paths:
       - 'midgard-offline/tools/preflight-upstream-direct.py'
       - 'midgard-offline/review/upstream-0.2.11-pin.json'
+      - 'midgard-offline/original-addons/**'
+      - 'midgard-offline/patches/**'
+      - 'midgard-offline/tools/**'
+      - 'midgard-offline/tests/**'
+      - 'midgard-offline/config/**'
       - '.github/workflows/upstream-direct-preflight.yml'
   workflow_dispatch:
 permissions:
@@ -25,6 +30,7 @@ jobs:
         run: |
           python -m py_compile midgard-offline/tools/preflight-upstream-direct.py
           python midgard-offline/tools/preflight-upstream-direct.py --self-test
+          python -m unittest discover -s midgard-offline/tests -p 'test_world_boss_map_qa.py'
       - name: Recover pinned direct base and run isolated Godot gameplay QA
         run: python midgard-offline/tools/preflight-upstream-direct.py --runtime
       - name: Upload metadata only
