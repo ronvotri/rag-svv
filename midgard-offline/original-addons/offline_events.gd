@@ -5,6 +5,7 @@ extends CanvasLayer
 
 const MVPEncounter = preload("res://addons/svv_offline/offline_mvp_encounter.gd")
 const MVPResult = preload("res://addons/svv_offline/offline_mvp_result.gd")
+const MVPCredit = preload("res://addons/svv_offline/offline_mvp_credit_qa.gd")
 const MVP_NAMES := ["Baphomet", "Osiris", "Eddga", "Mistress", "Maya", "Dark Lord"]
 
 const MODE_LABELS := {
@@ -71,6 +72,9 @@ var mvp_session_token := ""
 var mvp_death_hp: Variant = null
 var mvp_death_seen := false
 var mvp_victory_saved := false
+var mvp_reward_credited := false
+var mvp_reward_balance_before := 0
+var mvp_reward_balance_after := 0
 
 
 func _ready() -> void:
@@ -384,6 +388,9 @@ func _attach_mvp_hud(world: World, boss: Enemy) -> void:
 	mvp_death_hp = null
 	mvp_death_seen = false
 	mvp_victory_saved = false
+	mvp_reward_credited = false
+	mvp_reward_balance_before = 0
+	mvp_reward_balance_after = 0
 	mvp_hud_hp.show()
 	# Temporary QA death hook observes only tagged enemies. No direct damage.
 	boss.set_meta("svv_qa_boss_hits", {})
@@ -453,8 +460,15 @@ func _update_mvp_hud() -> void:
 	if outcome != "active":
 		mvp_hud_outcome = outcome
 		mvp_victory_saved = _settle_mvp_victory(outcome)
+		if mvp_victory_saved and OS.get_cmdline_user_args().has("--offline-mvp-wallet-preview"):
+			mvp_reward_balance_before = Save.zeny()
+			mvp_reward_credited = MVPCredit.redeem_menu(mvp_last_id, mvp_session_token)
+			mvp_reward_balance_after = Save.zeny()
+			print("OFFLINE_MVP_MENU_QA WALLET credited=", mvp_reward_credited, " delta=", mvp_reward_balance_after - mvp_reward_balance_before)
 		mvp_hud_name.text = MVPResult.title_for(outcome)
 		var record_label: String = "Đã lưu thành tích · Phiếu thưởng QA" if mvp_victory_saved else "Không cộng thành tích"
+		if mvp_reward_credited:
+			record_label = "Đã nhận %d Zeny (QA)" % MVPResult.QA_ZENY_QUOTE
 		mvp_hud_detail.text = "%02d:%02d · %s" % [int(seconds / 60.0), seconds % 60, record_label]
 		mvp_hud_expires = Time.get_ticks_msec() + 8000
 		print("OFFLINE_MVP_MENU_QA HUD_TERMINAL outcome=", outcome, " saved=", mvp_victory_saved)

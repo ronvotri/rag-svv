@@ -1,4 +1,5 @@
 extends Node
+const MVPCredit = preload("res://addons/svv_offline/offline_mvp_credit_qa.gd")
 ## Isolated menu-to-native-combat regression. Never loaded from production UI.
 var errors: Array[String] = []
 
@@ -148,6 +149,12 @@ func _run() -> void:
 		var replay_blocked := true
 		if outcome == "victory":
 			replay_blocked = not SVVOfflineEvents._settle_mvp_victory(outcome)
+		var wallet_preview: bool = OS.get_cmdline_user_args().has("--offline-mvp-wallet-preview")
+		var wallet_replay_blocked := true
+		var wallet_before_reload: int = Save.zeny()
+		if outcome == "victory" and wallet_preview:
+			wallet_replay_blocked = not MVPCredit.redeem_menu(requested_id, token)
+		Save.flush()
 		Save.load_profile()
 		var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {})
 		var row: Dictionary = ledger.get(requested_id, {})
@@ -157,8 +164,13 @@ func _run() -> void:
 		print("MVP_MENU_TEST TERMINAL outcome=", outcome, " saved=", saved, " replay_blocked=", replay_blocked, " persisted=", persisted)
 		if outcome == "victory":
 			_check(saved and replay_blocked and persisted, "menu_victory_persisted_once")
-			_check(receipts.size() == 1 and int(receipt.get("zeny_quote", 0)) == 100 and int(receipt.get("mvp_marks", 0)) == 1 and receipt.get("status", "") == "qa_pending", "single_pending_reward_receipt_persisted")
+			var expected_status: String = "qa_credited" if wallet_preview else "qa_pending"
+			_check(receipts.size() == 1 and int(receipt.get("zeny_quote", 0)) == 100 and int(receipt.get("mvp_marks", 0)) == 1 and receipt.get("status", "") == expected_status, "single_reward_receipt_persisted")
+			if wallet_preview:
+				_check(SVVOfflineEvents.mvp_reward_credited and SVVOfflineEvents.mvp_reward_balance_after - SVVOfflineEvents.mvp_reward_balance_before == 100, "menu_wallet_exact_credit")
+				_check(wallet_replay_blocked and Save.zeny() == wallet_before_reload, "menu_wallet_replay_blocked_and_persisted")
+				_check(not MVPCredit.redeem_menu(requested_id, token) and Save.zeny() == wallet_before_reload, "menu_wallet_reload_replay_blocked")
 		else:
 			_check(not saved and not persisted and int(row.get("wins", 0)) == 0, "no_unverified_victory_saved")
-			_check(receipts.is_empty(), "no_reward_receipt_without_victory")
+			_check(receipts.is_empty() and not SVVOfflineEvents.mvp_reward_credited, "no_reward_receipt_without_victory")
 	_finish()

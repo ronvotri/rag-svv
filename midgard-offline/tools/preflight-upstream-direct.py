@@ -272,7 +272,7 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
             terminal = run_private([godot, "--headless", "--path", prepared,
                                     "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
                                     "--offline-test", "--offline-mvp-menu-preview",
-                                    "--offline-mvp-menu-terminal"], 300)
+                                    "--offline-mvp-menu-terminal", "--offline-mvp-wallet-preview"], 300)
     finally:
         death_file.write_bytes(death_original)
         env.pop("SVV_WORLD_BOSS_QA_SANDBOX", None)
@@ -297,7 +297,10 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
         report["menu_victory_ledger_verified"] = (report["menu_terminal_qa_passed"]
             and "MVP_MENU_TEST TERMINAL outcome=victory saved=true replay_blocked=true persisted=true" in report["menu_terminal_markers"])
         report["menu_reward_receipt_verified"] = (report["menu_victory_ledger_verified"]
-            and "MVP_MENU_TEST PASS single_pending_reward_receipt_persisted" in report["menu_terminal_markers"])
+            and "MVP_MENU_TEST PASS single_reward_receipt_persisted" in report["menu_terminal_markers"])
+        report["native_reward_credit_verified"] = (report["menu_reward_receipt_verified"] and all(
+            "MVP_MENU_TEST PASS " + label in report["menu_terminal_markers"] for label in (
+                "menu_wallet_exact_credit", "menu_wallet_replay_blocked_and_persisted", "menu_wallet_reload_replay_blocked")))
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():
