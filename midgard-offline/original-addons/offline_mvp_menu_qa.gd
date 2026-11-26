@@ -106,10 +106,15 @@ func _run() -> void:
 			_check(hero.input is HeroInput.BotHero, "native_bot_input")
 	if is_instance_valid(boss):
 		_check(world.get("enemies").has(boss) and boss.hp > 0.0, "live_boss_in_native_registry")
+		_check(is_instance_valid(SVVOfflineEvents.mvp_hud) and SVVOfflineEvents.mvp_hud.visible, "native_boss_hud_visible")
+		_check(SVVOfflineEvents.mvp_hud.mouse_filter == Control.MOUSE_FILTER_IGNORE and SVVOfflineEvents.mvp_hud_hp.mouse_filter == Control.MOUSE_FILTER_IGNORE, "hud_does_not_capture_combat_input")
 		var initial_hp: float = boss.hp
 		var combat_deadline: int = Time.get_ticks_msec() + 12000
 		var start_time: float = world.time
 		while is_instance_valid(boss) and boss.hp >= initial_hp and world.time - start_time < 10.0 and Time.get_ticks_msec() < combat_deadline:
 			await get_tree().process_frame
 		_check(is_instance_valid(boss) and boss.hp < initial_hp, "native_combat_damage")
+		await get_tree().process_frame
+		if is_instance_valid(boss):
+			_check(absf(SVVOfflineEvents.mvp_hud_hp.value - maxf(0.0, boss.hp)) < 0.1, "hud_reads_native_boss_hp")
 	_finish()

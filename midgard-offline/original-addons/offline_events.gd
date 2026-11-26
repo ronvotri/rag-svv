@@ -4,6 +4,7 @@ extends CanvasLayer
 ## NPC companions are driven by deterministic combat rules in a separate menu.
 
 const MVPEncounter = preload("res://addons/svv_offline/offline_mvp_encounter.gd")
+const MVPResult = preload("res://addons/svv_offline/offline_mvp_result.gd")
 const MVP_NAMES := ["Baphomet", "Osiris", "Eddga", "Mistress", "Maya", "Dark Lord"]
 
 const MODE_LABELS := {
@@ -56,6 +57,16 @@ var mvp_launching := false
 var mvp_last_spawn: Enemy
 var mvp_last_id := ""
 var mvp_loading_callback_completed := false
+var mvp_hud: PanelContainer
+var mvp_hud_name: Label
+var mvp_hud_hp: ProgressBar
+var mvp_hud_detail: Label
+var mvp_hud_world: World
+var mvp_hud_player: Player
+var mvp_hud_started := 0.0
+var mvp_hud_initial_hp := 1.0
+var mvp_hud_outcome := ""
+var mvp_hud_expires := 0
 
 
 func _ready() -> void:
@@ -177,6 +188,8 @@ func _ready() -> void:
 	close_button.custom_minimum_size.y = 42
 	close_button.pressed.connect(_close)
 	col.add_child(close_button)
+	if mvp_preview:
+		_create_mvp_hud()
 	get_viewport().size_changed.connect(_fit)
 	_fit()
 	_choose_mode("training")
@@ -308,9 +321,94 @@ func _fit() -> void:
 	panel.offset_top = -height * 0.5
 	panel.offset_bottom = height * 0.5
 	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if is_instance_valid(mvp_hud):
+		var hud_width: float = minf(340.0, screen.x - 20.0)
+		mvp_hud.position = Vector2((screen.x - hud_width) * 0.5, 80.0)
+		mvp_hud.size.x = hud_width
+
+
+func _create_mvp_hud() -> void:
+	mvp_hud = PanelContainer.new()
+	mvp_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = Color(0.07, 0.16, 0.13, 0.92)
+	frame.border_color = Color("e8b657")
+	frame.set_border_width_all(1)
+	frame.set_corner_radius_all(8)
+	frame.set_content_margin_all(8)
+	mvp_hud.add_theme_stylebox_override("panel", frame)
+	var content := VBoxContainer.new()
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mvp_hud.add_child(content)
+	mvp_hud_name = Label.new()
+	mvp_hud_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mvp_hud_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mvp_hud_name.add_theme_color_override("font_color", Color("ffe39b"))
+	content.add_child(mvp_hud_name)
+	mvp_hud_hp = ProgressBar.new()
+	mvp_hud_hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mvp_hud_hp.show_percentage = false
+	mvp_hud_hp.custom_minimum_size.y = 12
+	content.add_child(mvp_hud_hp)
+	mvp_hud_detail = Label.new()
+	mvp_hud_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mvp_hud_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mvp_hud_detail.add_theme_font_size_override("font_size", 13)
+	content.add_child(mvp_hud_detail)
+	add_child(mvp_hud)
+	mvp_hud.hide()
+
+
+func _attach_mvp_hud(world: World, boss: Enemy) -> void:
+	if not mvp_preview or not is_instance_valid(mvp_hud):
+		return
+	mvp_hud_world = world
+	mvp_hud_player = world.player
+	mvp_hud_started = world.time
+	mvp_hud_initial_hp = maxf(1.0, boss.hp)
+	mvp_hud_outcome = "active"
+	# Temporary QA death hook observes only tagged enemies. No direct damage.
+	boss.set_meta("svv_qa_boss_hits", {})
+	_update_mvp_hud()
+
+
+func _update_mvp_hud() -> void:
+	if not is_instance_valid(mvp_hud) or mvp_hud_outcome.is_empty():
+		return
+	if not is_instance_valid(mvp_hud_world):
+		mvp_hud.hide()
+		mvp_hud_outcome = ""
+		return
+	var world: World = mvp_hud_world
+	# Never obscure the original level-up, pause or other modal controls.
+	var clear_ui: bool = world.menus._mode in ["", "closed"] and not get_tree().paused
+	if mvp_hud_outcome != "active":
+		mvp_hud.visible = clear_ui and Time.get_ticks_msec() < mvp_hud_expires
+		return
+	var boss_hp: Variant = mvp_last_spawn.hp if is_instance_valid(mvp_last_spawn) else null
+	var player_health: Variant = mvp_hud_player.hp if is_instance_valid(mvp_hud_player) else null
+	var native_death: bool = is_instance_valid(mvp_last_spawn) and bool(mvp_last_spawn.get_meta("svv_qa_native_death", false))
+	var outcome: String = MVPResult.classify(boss_hp, player_health, native_death, world.running, false)
+	var seconds: int = maxi(0, int(world.time - mvp_hud_started))
+	mvp_hud_name.text = "MVP · " + MVP_NAMES[MVPEncounter.ROSTER.find(mvp_last_id)]
+	if boss_hp != null:
+		mvp_hud_hp.max_value = maxf(mvp_hud_initial_hp, float(boss_hp))
+		mvp_hud_hp.value = maxf(0.0, float(boss_hp))
+		mvp_hud_detail.text = "%d HP · %02d:%02d" % [int(maxf(0.0, float(boss_hp))), int(seconds / 60.0), seconds % 60]
+	else:
+		mvp_hud_detail.text = "Không đọc được HP"
+	if outcome != "active":
+		mvp_hud_outcome = outcome
+		mvp_hud_name.text = MVPResult.title_for(outcome)
+		mvp_hud_detail.text = "Kết quả thử nghiệm · Không phát thưởng"
+		mvp_hud_expires = Time.get_ticks_msec() + 8000
+		print("OFFLINE_MVP_MENU_QA HUD_TERMINAL outcome=", outcome)
+	mvp_hud.visible = clear_ui
 
 
 func _process(delta: float) -> void:
+	if mvp_preview:
+		_update_mvp_hud()
 	status_timer += delta
 	if status_timer >= 0.5:
 		status_timer = 0.0
@@ -419,6 +517,9 @@ func _begin_native_mvp_preview() -> void:
 	mvp_launching = true
 	mvp_last_spawn = null
 	mvp_last_id = ""
+	mvp_hud_outcome = ""
+	if is_instance_valid(mvp_hud):
+		mvp_hud.hide()
 	mvp_loading_callback_completed = false
 	_close()
 	world.leave_town()
@@ -459,6 +560,7 @@ func _begin_native_mvp_preview() -> void:
 			if is_instance_valid(boss):
 				mvp_last_spawn = boss
 				mvp_last_id = boss_id
+				_attach_mvp_hud(world, boss)
 			print("OFFLINE_MVP_MENU_QA SPAWN id=", boss_id, " success=", is_instance_valid(boss))
 			mvp_launching = false
 			return

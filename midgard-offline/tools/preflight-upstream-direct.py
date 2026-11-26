@@ -241,9 +241,21 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
         directory = work / "menu-test-profile" / suffix
         directory.mkdir(parents=True, exist_ok=True)
         env[variable] = str(directory)
-    menu = run_private([godot, "--headless", "--path", prepared,
-                        "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
-                        "--offline-test", "--offline-mvp-menu-preview"], 180)
+    # Observe native death only inside the disposable menu test process.
+    # Restore original script bytes before any subsequent QA.
+    death_file = prepared / "scripts/core/enemy.gd"
+    death_original = death_file.read_bytes()
+    instrument = load("run-world-boss-map-qa").instrument_native_death
+    death_patched = instrument(death_original.decode("utf-8"))
+    report["menu_death_hook_installed"] = death_patched is not None
+    try:
+        if death_patched is not None:
+            death_file.write_text(death_patched, encoding="utf-8")
+        menu = run_private([godot, "--headless", "--path", prepared,
+                            "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
+                            "--offline-test", "--offline-mvp-menu-preview"], 180)
+    finally:
+        death_file.write_bytes(death_original)
     report["menu_qa_returncode"] = menu.returncode
     report["menu_qa_script_error_count"] = menu.stdout.count("SCRIPT ERROR:")
     report["menu_qa_diagnostics"] = diagnostic_locations(menu.stdout)
