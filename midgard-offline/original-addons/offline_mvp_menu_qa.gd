@@ -41,6 +41,65 @@ func _native_choice_input() -> void:
 	release.pressed = false
 	Input.parse_input_event(release)
 
+# Test-only: follow the game's native exit entrypoint. Never clear enemies,
+# force running=false or enter town directly to manufacture a passing result.
+func _press_native_end_leave(node: Node) -> bool:
+	if node is BaseButton and node.is_visible_in_tree() and not node.disabled:
+		for connection in node.pressed.get_connections():
+			var callback: Callable = connection.get("callable", Callable())
+			if callback.is_valid() and str(callback.get_method()) == "_end_leave":
+				node.pressed.emit()
+				return true
+	for child in node.get_children():
+		if _press_native_end_leave(child):
+			return true
+	return false
+
+
+func _repeat_hunt(world: World, previous_token: String) -> void:
+	if not OS.get_cmdline_user_args().has("--offline-mvp-repeat-preview"):
+		return
+	if Save._name != "profile_offline_test" or OS.get_environment("SVV_WORLD_BOSS_QA_SANDBOX") != "1":
+		_check(false, "repeat_sandbox")
+		return
+	var prior: Dictionary = Save.setting("svv_offline_mvp_victories", {}).duplicate(true)
+	if not world.has_method("abandon_run"):
+		_check(false, "native_exit_available")
+		return
+	# The Python preflight enables the flag only for a zero-required-argument
+	# native method. This is an isolated probe, not a production shortcut.
+	if world.running:
+		world.call("abandon_run")
+	var deadline: int = Time.get_ticks_msec() + 15000
+	var leave_pressed := false
+	while Time.get_ticks_msec() < deadline and SVVCompanionTown._town() == null:
+		if not leave_pressed:
+			leave_pressed = _press_native_end_leave(world.menus)
+		await get_tree().process_frame
+	_check(SVVCompanionTown._town() != null and not world.running, "repeat_native_return_to_prontera")
+	if not errors.is_empty():
+		print("MVP_MENU_TEST REPEAT_RETURN mode=", world.menus._mode, " running=", world.running, " leave_pressed=", leave_pressed)
+		return
+	_check(Save.setting("svv_offline_mvp_victories", {}) == prior, "repeat_first_victory_unchanged")
+	SVVOfflineEvents.open_button.pressed.emit()
+	_check(SVVOfflineEvents.panel.visible, "repeat_menu_reopens")
+	SVVOfflineEvents.mode_buttons["world_boss"].pressed.emit()
+	SVVOfflineEvents.mvp_picker.select(1)
+	SVVOfflineEvents.start_button.pressed.emit()
+	deadline = Time.get_ticks_msec() + 30000
+	var next_choice: int = 0
+	while SVVOfflineEvents.mvp_launching and Time.get_ticks_msec() < deadline:
+		if world.menus._mode in ["level_up", "start_skill"] and Time.get_ticks_msec() >= next_choice:
+			next_choice = Time.get_ticks_msec() + 700
+			if not _press_native_choice(world.menus):
+				await _native_choice_input()
+		await get_tree().process_frame
+	var boss: Enemy = SVVOfflineEvents.mvp_last_spawn
+	_check(not SVVOfflineEvents.mvp_launching and is_instance_valid(boss) and SVVOfflineEvents.mvp_last_id == "osiris", "repeat_second_mvp_spawn")
+	_check(world.running and world.heroes.size() == 4 and SVVOfflineEvents.mvp_session_token != previous_token, "repeat_new_session_and_party")
+	_check(Save.setting("svv_offline_mvp_victories", {}) == prior, "repeat_no_extra_victory_on_spawn")
+
+
 func _run() -> void:
 	await get_tree().process_frame
 	if Save._name != "profile_offline_test" or not OS.get_cmdline_user_args().has("--offline-mvp-menu-preview"):
@@ -172,6 +231,8 @@ func _run() -> void:
 				_check(not MVPCredit.redeem_menu(requested_id, token) and Save.zeny() == wallet_before_reload, "menu_wallet_reload_replay_blocked")
 				SVVOfflineEvents._refresh_mvp_summary(boss_index)
 				_check(SVVOfflineEvents.result.text.contains("1 huy hiệu MVP") and SVVOfflineEvents.result.text.contains("1 lần hạ"), "menu_achievement_summary_after_reload")
+				if errors.is_empty():
+					await _repeat_hunt(world, token)
 		else:
 			_check(not saved and not persisted and int(row.get("wins", 0)) == 0, "no_unverified_victory_saved")
 			_check(receipts.is_empty() and not SVVOfflineEvents.mvp_reward_credited, "no_reward_receipt_without_victory")

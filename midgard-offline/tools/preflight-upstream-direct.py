@@ -75,6 +75,8 @@ def preflight(work, report, runtime=False):
             "flow": inspector.method_flow_hints(source, names),
         }
     report["native_return_contract"] = return_contract
+    abandon = return_contract.get("scripts/core/main.gd", {}).get("signatures", {}).get("abandon_run", {})
+    report["repeat_probe_exit_signature_compatible"] = abandon.get("required") == 0
     report["scene_candidate_count"] = audit["scene_candidate_count"]
     report["stage"] = "offline_patch_preflight"
     prepared = work / "prepared"
@@ -285,10 +287,13 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
                 directory = work / "menu-terminal-test-profile" / suffix
                 directory.mkdir(parents=True, exist_ok=True)
                 env[variable] = str(directory)
-            terminal = run_private([godot, "--headless", "--path", prepared,
-                                    "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
-                                    "--offline-test", "--offline-mvp-menu-preview",
-                                    "--offline-mvp-menu-terminal", "--offline-mvp-wallet-preview"], 300)
+            command = [godot, "--headless", "--path", prepared,
+                       "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
+                       "--offline-test", "--offline-mvp-menu-preview",
+                       "--offline-mvp-menu-terminal", "--offline-mvp-wallet-preview"]
+            if report.get("repeat_probe_exit_signature_compatible"):
+                command.append("--offline-mvp-repeat-preview")
+            terminal = run_private(command, 360)
     finally:
         death_file.write_bytes(death_original)
         env.pop("SVV_WORLD_BOSS_QA_SANDBOX", None)
@@ -304,11 +309,12 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
     report["menu_reward_receipt_verified"] = False
     report["native_reward_credit_verified"] = False
     report["menu_achievement_summary_verified"] = False
+    report["menu_repeat_hunt_verified"] = False
     if terminal is not None:
         report["menu_terminal_returncode"] = terminal.returncode
         report["menu_terminal_script_error_count"] = terminal.stdout.count("SCRIPT ERROR:")
         report["menu_terminal_markers"] = [line.strip() for line in terminal.stdout.splitlines()
-            if line.startswith(("MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA HUD_TERMINAL "))][-50:]
+            if line.startswith(("MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA HUD_TERMINAL "))][-90:]
         report["menu_terminal_qa_passed"] = (terminal.returncode == 0 and not report["menu_terminal_script_error_count"]
             and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_terminal_markers"])
         report["menu_victory_ledger_verified"] = (report["menu_terminal_qa_passed"]
@@ -320,6 +326,10 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
                 "menu_wallet_exact_credit", "menu_wallet_replay_blocked_and_persisted", "menu_wallet_reload_replay_blocked")))
         report["menu_achievement_summary_verified"] = (report["native_reward_credit_verified"] and
             "MVP_MENU_TEST PASS menu_achievement_summary_after_reload" in report["menu_terminal_markers"])
+        report["menu_repeat_hunt_verified"] = (report["menu_achievement_summary_verified"] and all(
+            "MVP_MENU_TEST PASS " + label in report["menu_terminal_markers"] for label in (
+                "repeat_native_return_to_prontera", "repeat_first_victory_unchanged", "repeat_menu_reopens",
+                "repeat_second_mvp_spawn", "repeat_new_session_and_party", "repeat_no_extra_victory_on_spawn")))
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():

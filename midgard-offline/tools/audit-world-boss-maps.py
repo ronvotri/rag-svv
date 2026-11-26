@@ -152,6 +152,12 @@ FLOW_CALL_PROBES = {
     "save_setting_write": r"\bSave\s*\.\s*set_setting\s*\(",
     "save_flush": r"\bSave\s*\.\s*flush\s*\(",
     "run_save_write": r"\bRunSave\s*\.\s*save\s*\(",
+    "run_save_clear": r"\bRunSave\s*\.\s*clear\s*\(",
+    "enter_town": r"\benter_town\s*\(",
+    "clear_battlefield": r"\bclear_battlefield\s*\(",
+    "bank_run": r"\b_bank_run\s*\(",
+    "end_run": r"\b_end_run\s*\(",
+    "show_end": r"\bshow_end\s*\(",
     "official_zeny_write": r"\b(?:Save\s*\.\s*add_zeny|add_zeny)\s*\(",
 }
 FLOW_RISK_PROBES = {
