@@ -55,7 +55,7 @@ def main():
                        "--pck", str(client), "--gdre", str(args.gdre),
                        "--godot", str(args.godot), "--templates", str(args.templates),
                        "--fonts", str(args.fonts), "--output", str(args.output),
-                       "--authorized-local-client"]
+                       "--authorized-local-client", "--town-visual-output", str(work / "friend-visual-review")]
             with log_path.open("w", encoding="utf-8") as log:
                 result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, timeout=2400)
             stages = []
@@ -67,6 +67,10 @@ def main():
                         stages.append(line.strip().split()[-1])
                     if "SCRIPT ERROR:" in line:
                         error_count += 1
+            report["friend_visual_capture_completed"] = (work / "friend-visual-review/portrait-sprite-review.png").is_file() and (work / "friend-visual-review/prontera-npcs.png").is_file()
+            visual_report = work / "friend-visual-review/friend-visual-report.json"
+            if visual_report.is_file():
+                report["friend_visual_review"] = json.loads(visual_report.read_text(encoding="utf-8"))
             report["build_stages"] = stages
             report["script_error_count"] = error_count
             report["build_returncode"] = result.returncode

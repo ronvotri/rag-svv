@@ -5,6 +5,7 @@ on:
     paths:
       - 'midgard-offline/review/run-web-export-probe.py'
       - 'midgard-offline/review/build-local-mvp-web-preview.py'
+      - 'midgard-offline/review/friend-town-visual-review.gd'
       - '.github/workflows/world-boss-web-export-probe.yml'
   workflow_dispatch:
 permissions:
@@ -31,5 +32,16 @@ jobs:
         with:
           name: world-boss-web-export-report
           path: midgard-offline/work/world-boss-web-export-probe.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload rendered visual review screenshots only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friend-town-visual-review
+          path: |
+            midgard-offline/work/friend-visual-review/prontera-npcs.png
+            midgard-offline/work/friend-visual-review/portrait-sprite-review.png
+            midgard-offline/work/friend-visual-review/friend-visual-report.json
           if-no-files-found: ignore
           retention-days: 7

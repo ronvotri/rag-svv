@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -129,8 +130,40 @@ def build(args):
         if text.count(old) != 2:
             raise ValueError("Export preset layout changed")
         preset.write_text(text.replace(old, 'custom_features="offline,svv_mvp_preview"', 1), encoding="utf-8")
+        visual_output = getattr(args, "town_visual_output", None)
+        review_script = project / "svv_friend_visual_review.gd"
+        review_scene = project / "svv_friend_visual_review.tscn"
+        if visual_output is not None:
+            visual_output.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / "review/friend-town-visual-review.gd", review_script)
+            review_scene.write_text(
+                '[gd_scene load_steps=2 format=3]\n\n'
+                '[ext_resource type="Script" path="res://svv_friend_visual_review.gd" id="1"]\n\n'
+                '[node name="FriendVisualReview" type="Node"]\nscript = ExtResource("1")\n',
+                encoding="utf-8")
         print("LOCAL_MVP_WEB_STAGE import", flush=True)
         run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
+        if visual_output is not None:
+            try:
+                xvfb = shutil.which("xvfb-run")
+                if not xvfb:
+                    raise ValueError("Xvfb unavailable")
+                env = dict(os.environ)
+                for variable, suffix in (("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"), ("XDG_CACHE_HOME", "cache")):
+                    directory = work / "friend-visual-profile" / suffix
+                    directory.mkdir(parents=True, exist_ok=True)
+                    env[variable] = str(directory)
+                subprocess.run([xvfb, "--auto-servernum", "--server-args=-screen 0 1280x960x24",
+                                str(godot), "--path", str(project), "--resolution", "1280x900",
+                                "res://svv_friend_visual_review.tscn", "--", "--offline-test",
+                                "--friend-visual-output=" + str(visual_output)], env=env, check=True, timeout=100)
+                print("LOCAL_MVP_FRIEND_VISUAL completed", flush=True)
+            except (OSError, ValueError, subprocess.SubprocessError):
+                print("LOCAL_MVP_FRIEND_VISUAL failed", flush=True)
+            finally:
+                review_script.unlink(missing_ok=True)
+                review_scene.unlink(missing_ok=True)
+                review_script.with_suffix(".gd.uid").unlink(missing_ok=True)
         args.output.mkdir(parents=True, exist_ok=False)
         print("LOCAL_MVP_WEB_STAGE export", flush=True)
         run([godot, "--headless", "--path", project, "--export-release", "Web Offline", args.output / "index.html"])
@@ -170,6 +203,7 @@ def main():
         parser.add_argument("--" + name, type=lambda p: Path(p).expanduser().resolve(), required=True)
     for name in ("gdre", "godot", "templates", "fonts"):
         parser.add_argument("--" + name, type=lambda p: Path(p).expanduser().resolve())
+    parser.add_argument("--town-visual-output", type=lambda p: Path(p).expanduser().resolve(), help="Optional isolated renderer screenshot review (Linux/Xvfb)")
     parser.add_argument("--auto-tools", action="store_true", help="Download verified build tools/fonts only on Linux/WSL")
     parser.add_argument("--authorized-local-client", action="store_true",
                         help="Confirm permission to prepare and run the supplied client locally")
