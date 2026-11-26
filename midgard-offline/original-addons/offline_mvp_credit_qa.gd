@@ -36,5 +36,7 @@ static func redeem(boss_id: String, token: String) -> bool:
 		# fields together in memory; do not issue a partial reward.
 		Save.data.settings = old_settings
 		Save.data.zeny = old_balance
+		# Keep dirty state for the existing retry mechanism. A failed flush
+		# must not be reported as a successful reward.
 		return false
 	return true

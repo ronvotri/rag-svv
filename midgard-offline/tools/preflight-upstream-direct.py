@@ -187,6 +187,13 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     if smoke.returncode or report["smoke_script_error_count"] or not report["smoke_completed"]:
         raise ValueError("Isolated smoke failed")
     report["runtime_smoke_passed"] = True
+    wallet_checks = ("QA receipt credits wallet once", "QA wallet credit exact amount",
+                     "QA wallet and receipt persist together", "QA reload reward replay blocked",
+                     "QA cross MVP credit blocked")
+    report["qa_fixture_wallet_credit_verified"] = all(
+        "OFFLINE_QA PASS " + label in smoke.stdout for label in wallet_checks)
+    if not report["qa_fixture_wallet_credit_verified"]:
+        raise ValueError("QA wallet transaction fixture incomplete")
     # Execute independently: one failed gameplay probe must not suppress the other.
     # Fail the overall workflow at the end if either gate fails.
     try:
