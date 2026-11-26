@@ -1,0 +1,35 @@
+name: World Boss - Web export probe
+on:
+  push:
+    branches: [feature/offline-cards-unique-npc-wave34]
+    paths:
+      - 'midgard-offline/review/run-web-export-probe.py'
+      - 'midgard-offline/review/build-local-mvp-web-preview.py'
+      - '.github/workflows/world-boss-web-export-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: world-boss-web-export-probe
+  cancel-in-progress: false
+jobs:
+  web-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check export entrypoints
+        run: python -m py_compile midgard-offline/review/build-local-mvp-web-preview.py midgard-offline/review/run-web-export-probe.py
+      - name: Export Web inside isolated runner
+        run: python midgard-offline/review/run-web-export-probe.py
+      - name: Upload export metadata only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-boss-web-export-report
+          path: midgard-offline/work/world-boss-web-export-probe.json
+          if-no-files-found: ignore
+          retention-days: 7

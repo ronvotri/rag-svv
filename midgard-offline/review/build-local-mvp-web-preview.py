@@ -99,11 +99,13 @@ def build(args):
     # The installer intentionally requires work/ for private preparation.
     work_root = ROOT / "work"
     work_root.mkdir(exist_ok=True)
+    print("LOCAL_MVP_WEB_STAGE recover", flush=True)
     with tempfile.TemporaryDirectory(prefix="local-mvp-web-", dir=work_root) as folder:
         work = Path(folder)
         recovered, project = work / "recovered", work / "prepared"
         run([args.gdre, "--headless", "--recover=" + str(args.pck),
              "--output=" + str(recovered), "--exclude=res://eos/credentials.cfg"])
+        print("LOCAL_MVP_WEB_STAGE prepare", flush=True)
         load("prepare-original-offline").prepare(recovered, project)
         load("install-original-assistant").install(project)
         load("install-start-background").install(project)
@@ -127,8 +129,10 @@ def build(args):
         if text.count(old) != 2:
             raise ValueError("Export preset layout changed")
         preset.write_text(text.replace(old, 'custom_features="offline,svv_mvp_preview"', 1), encoding="utf-8")
+        print("LOCAL_MVP_WEB_STAGE import", flush=True)
         run([godot, "--headless", "--editor", "--path", project, "--import", "--quit"])
         args.output.mkdir(parents=True, exist_ok=False)
+        print("LOCAL_MVP_WEB_STAGE export", flush=True)
         run([godot, "--headless", "--path", project, "--export-release", "Web Offline", args.output / "index.html"])
         if not (args.output / "index.html").is_file():
             raise ValueError("Web entry file missing")
