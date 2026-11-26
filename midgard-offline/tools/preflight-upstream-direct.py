@@ -328,8 +328,8 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
             "MVP_MENU_TEST PASS menu_achievement_summary_after_reload" in report["menu_terminal_markers"])
         report["menu_repeat_hunt_verified"] = (report["menu_achievement_summary_verified"] and all(
             "MVP_MENU_TEST PASS " + label in report["menu_terminal_markers"] for label in (
-                "repeat_native_return_to_prontera", "repeat_first_victory_unchanged", "repeat_menu_reopens",
-                "repeat_second_mvp_spawn", "repeat_new_session_and_party", "repeat_no_extra_victory_on_spawn")))
+                "repeat_return_button_visible", "repeat_native_return_to_prontera", "repeat_first_victory_unchanged", "repeat_menu_reopens",
+                "repeat_second_mvp_spawn", "repeat_new_session_and_party", "repeat_no_extra_victory_on_spawn", "repeat_second_mvp_combat")))
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():

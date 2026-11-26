@@ -62,6 +62,8 @@ var mvp_hud: PanelContainer
 var mvp_hud_name: Label
 var mvp_hud_hp: ProgressBar
 var mvp_hud_detail: Label
+var mvp_return_button: Button
+var mvp_returning := false
 var mvp_hud_world: World
 var mvp_hud_player: Player
 var mvp_hud_started := 0.0
@@ -365,6 +367,13 @@ func _create_mvp_hud() -> void:
 	mvp_hud_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mvp_hud_detail.add_theme_font_size_override("font_size", 13)
 	content.add_child(mvp_hud_detail)
+	mvp_return_button = Button.new()
+	mvp_return_button.text = "Về Prontera"
+	mvp_return_button.custom_minimum_size.y = 36
+	mvp_return_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	mvp_return_button.pressed.connect(_return_from_mvp)
+	content.add_child(mvp_return_button)
+	mvp_return_button.hide()
 	add_child(mvp_hud)
 	mvp_hud.hide()
 
@@ -385,6 +394,9 @@ func _attach_mvp_hud(world: World, boss: Enemy) -> void:
 				mvp_hud_initial_hp = maxf(mvp_hud_initial_hp, float(native_max))
 			break
 	mvp_hud_outcome = "active"
+	mvp_returning = false
+	mvp_return_button.hide()
+	mvp_return_button.disabled = false
 	mvp_session_token = Crypto.new().generate_random_bytes(16).hex_encode()
 	mvp_death_hp = null
 	mvp_death_seen = false
@@ -427,6 +439,45 @@ func _settle_mvp_victory(outcome: String) -> bool:
 	return not Save._dirty
 
 
+# Use native abandonment to bank/clear the run, then the original town
+# entry only after the engine confirms the run is stopped. No forced state.
+func _return_from_mvp() -> void:
+	if not mvp_preview or Save._name != "profile_offline_test" or mvp_returning or mvp_hud_outcome != "victory" or not mvp_victory_saved:
+		return
+	var world: World = mvp_hud_world
+	if not is_instance_valid(world) or not is_instance_valid(world.menus) or world.net.mode != "" or world.net.eos() != null or world.cloud._enabled():
+		return
+	if world.menus._mode not in ["", "closed"] or get_tree().paused:
+		return
+	mvp_returning = true
+	mvp_return_button.disabled = true
+	Save.flush()
+	if not Save._dirty:
+		if world.running:
+			world.abandon_run()
+		var deadline: int = Time.get_ticks_msec() + 12000
+		while is_instance_valid(world) and Time.get_ticks_msec() < deadline:
+			if not world.running and world.menus._mode in ["", "closed"] and not get_tree().paused:
+				if SVVCompanionTown._town() == null:
+					world.enter_town("swordsman")
+				break
+			await get_tree().process_frame
+		while is_instance_valid(world) and Time.get_ticks_msec() < deadline and SVVCompanionTown._town() == null:
+			await get_tree().process_frame
+		if is_instance_valid(world) and not world.running and SVVCompanionTown._town() != null:
+			Save.flush()
+			mvp_hud_outcome = ""
+			mvp_hud.hide()
+			mvp_last_spawn = null
+			mvp_returning = false
+			print("OFFLINE_MVP_MENU_QA RETURN_PRONTERA success=true")
+			return
+	mvp_returning = false
+	mvp_return_button.disabled = false
+	mvp_hud_detail.text = "Chưa về thành được · Thử lại"
+	print("OFFLINE_MVP_MENU_QA RETURN_PRONTERA success=false")
+
+
 func _update_mvp_hud() -> void:
 	if not is_instance_valid(mvp_hud) or mvp_hud_outcome.is_empty():
 		return
@@ -442,7 +493,9 @@ func _update_mvp_hud() -> void:
 	# Never obscure the original level-up, pause or other modal controls.
 	var clear_ui: bool = world.menus._mode in ["", "closed"] and not get_tree().paused
 	if mvp_hud_outcome != "active":
-		mvp_hud.visible = clear_ui and Time.get_ticks_msec() < mvp_hud_expires
+		var return_ready: bool = mvp_hud_outcome == "victory" and mvp_victory_saved and SVVCompanionTown._town() == null
+		mvp_return_button.visible = return_ready and not mvp_returning
+		mvp_hud.visible = clear_ui and (return_ready or Time.get_ticks_msec() < mvp_hud_expires)
 		return
 	var boss_hp: Variant = mvp_death_hp if mvp_death_seen else (mvp_last_spawn.hp if is_instance_valid(mvp_last_spawn) else null)
 	var player_health: Variant = mvp_hud_player.hp if is_instance_valid(mvp_hud_player) else null

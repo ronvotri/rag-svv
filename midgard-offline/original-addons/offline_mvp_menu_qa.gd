@@ -63,22 +63,19 @@ func _repeat_hunt(world: World, previous_token: String) -> void:
 		_check(false, "repeat_sandbox")
 		return
 	var prior: Dictionary = Save.setting("svv_offline_mvp_victories", {}).duplicate(true)
-	if not world.has_method("abandon_run"):
-		_check(false, "native_exit_available")
-		return
-	# The Python preflight enables the flag only for a zero-required-argument
-	# native method. This is an isolated probe, not a production shortcut.
-	if world.running:
-		world.call("abandon_run")
-	var deadline: int = Time.get_ticks_msec() + 15000
-	var leave_pressed := false
-	while Time.get_ticks_msec() < deadline and SVVCompanionTown._town() == null:
-		if not leave_pressed:
-			leave_pressed = _press_native_end_leave(world.menus)
+	var deadline: int = Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < deadline and not SVVOfflineEvents.mvp_return_button.is_visible_in_tree():
 		await get_tree().process_frame
-	_check(SVVCompanionTown._town() != null and not world.running, "repeat_native_return_to_prontera")
+	_check(SVVOfflineEvents.mvp_return_button.is_visible_in_tree() and not SVVOfflineEvents.mvp_return_button.disabled, "repeat_return_button_visible")
 	if not errors.is_empty():
-		print("MVP_MENU_TEST REPEAT_RETURN mode=", world.menus._mode, " running=", world.running, " leave_pressed=", leave_pressed)
+		return
+	SVVOfflineEvents.mvp_return_button.pressed.emit()
+	deadline = Time.get_ticks_msec() + 15000
+	while Time.get_ticks_msec() < deadline and SVVOfflineEvents.mvp_returning:
+		await get_tree().process_frame
+	_check(SVVCompanionTown._town() != null and not world.running and not SVVOfflineEvents.mvp_returning, "repeat_native_return_to_prontera")
+	if not errors.is_empty():
+		print("MVP_MENU_TEST REPEAT_RETURN mode=", world.menus._mode, " running=", world.running)
 		return
 	_check(Save.setting("svv_offline_mvp_victories", {}) == prior, "repeat_first_victory_unchanged")
 	SVVOfflineEvents.open_button.pressed.emit()
@@ -98,6 +95,12 @@ func _repeat_hunt(world: World, previous_token: String) -> void:
 	_check(not SVVOfflineEvents.mvp_launching and is_instance_valid(boss) and SVVOfflineEvents.mvp_last_id == "osiris", "repeat_second_mvp_spawn")
 	_check(world.running and world.heroes.size() == 4 and SVVOfflineEvents.mvp_session_token != previous_token, "repeat_new_session_and_party")
 	_check(Save.setting("svv_offline_mvp_victories", {}) == prior, "repeat_no_extra_victory_on_spawn")
+	if is_instance_valid(boss):
+		var hp_before: float = boss.hp
+		deadline = Time.get_ticks_msec() + 12000
+		while is_instance_valid(boss) and boss.hp >= hp_before and Time.get_ticks_msec() < deadline:
+			await get_tree().process_frame
+		_check(is_instance_valid(boss) and boss.hp < hp_before, "repeat_second_mvp_combat")
 
 
 func _run() -> void:
