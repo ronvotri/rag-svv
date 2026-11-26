@@ -82,6 +82,15 @@ func _run() -> void:
 			check(Save.zeny() == wallet_before + 100 and credited.get("baphomet", {}).get("reward_receipts", {}).get(token_a, {}).get("status", "") == "qa_credited", "QA wallet and receipt persist together")
 			check(not credit.redeem("baphomet", token_a) and Save.zeny() == wallet_before + 100, "QA reload reward replay blocked")
 			check(not credit.redeem("osiris", token_a), "QA cross MVP credit blocked")
+			# Simulate an interruption after a second receipt was saved, before
+			# its wallet credit. Reload before retrying the pending receipt.
+			var interrupted: Dictionary = rules.next_reward_receipt_ledger(credited, "osiris", token_b, "victory")
+			Save.set_setting("svv_offline_mvp_credit_fixture", interrupted)
+			Save.flush()
+			Save.load_profile()
+			check(credit.recover_fixture_pending() == 1 and Save.zeny() == wallet_before + 200, "pending MVP reward recovered after reload")
+			Save.load_profile()
+			check(credit.recover_fixture_pending() == 0 and Save.zeny() == wallet_before + 200, "recovered reward never credited twice")
 			# Fixture only; restore wallet and erase test receipt state.
 			Save.data.zeny = wallet_before
 			Save.set_setting("svv_offline_mvp_credit_fixture", {})

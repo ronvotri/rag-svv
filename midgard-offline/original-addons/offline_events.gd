@@ -547,6 +547,10 @@ func _open() -> void:
 	get_tree().paused = true
 	veil.show()
 	panel.show()
+	if mvp_preview:
+		var recovered: int = MVPCredit.recover_menu_pending()
+		if recovered > 0:
+			print("OFFLINE_MVP_MENU_QA RECOVERED_PENDING count=", recovered)
 	_choose_mode(selected_mode)
 	open_button.hide()
 

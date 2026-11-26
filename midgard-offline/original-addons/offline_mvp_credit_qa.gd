@@ -16,6 +16,32 @@ static func redeem_menu(boss_id: String, token: String) -> bool:
 	return _redeem("svv_offline_mvp_victories", boss_id, token)
 
 
+# Retry persisted pending receipts only, not an unverified battle.
+static func recover_menu_pending() -> int:
+	var args := OS.get_cmdline_user_args()
+	if Save._name != "profile_offline_test" or not args.has("--offline-test") or not args.has("--offline-mvp-menu-preview") or not args.has("--offline-mvp-wallet-preview") or OS.get_environment("SVV_WORLD_BOSS_QA_SANDBOX") != "1":
+		return 0
+	return _recover_pending("svv_offline_mvp_victories")
+
+
+static func recover_fixture_pending() -> int:
+	if Save._name != "profile_offline_test" or not OS.get_cmdline_user_args().has("--offline-test") or not OS.get_cmdline_user_args().has("--offline-qa"):
+		return 0
+	return _recover_pending(KEY)
+
+
+static func _recover_pending(key: String) -> int:
+	var raw: Variant = Save.setting(key, {})
+	if not raw is Dictionary:
+		return 0
+	var recovered := 0
+	for pending in Rules.pending_qa_receipts(raw):
+		if not _redeem(key, str(pending["boss_id"]), str(pending["token"])):
+			break
+		recovered += 1
+	return recovered
+
+
 static func _redeem(key: String, boss_id: String, token: String) -> bool:
 	if Save._name != "profile_offline_test":
 		return false

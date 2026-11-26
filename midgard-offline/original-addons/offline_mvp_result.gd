@@ -122,6 +122,31 @@ static func achievement_summary(ledger: Dictionary, boss_id: String = "") -> Dic
 				marks += QA_MVP_MARKS
 	return {"wins": wins, "marks": marks}
 
+# Bounded recovery candidates, only receipts which pass the same credit
+# validation. Already credited, malformed or unrelated records are ignored.
+static func pending_qa_receipts(ledger: Dictionary, limit: int = 16) -> Array[Dictionary]:
+	var pending: Array[Dictionary] = []
+	var seen: Dictionary = {}
+	for id in ROSTER:
+		var row: Variant = ledger.get(id, {})
+		if not row is Dictionary:
+			continue
+		var receipts: Variant = row.get("reward_receipts", {})
+		var settled: Variant = row.get("settled_tokens", [])
+		if not receipts is Dictionary or not settled is Array:
+			continue
+		for key in receipts:
+			var token: String = str(key)
+			if token.length() != 32 or not token.is_valid_hex_number() or not settled.has(token) or seen.has(token):
+				continue
+			var receipt: Variant = receipts[key]
+			if receipt is Dictionary and receipt.get("status", "") == "qa_pending" and receipt.get("zeny_quote", 0) == QA_ZENY_QUOTE and receipt.get("mvp_marks", 0) == QA_MVP_MARKS:
+				seen[token] = true
+				pending.append({"boss_id": id, "token": token})
+				if pending.size() >= clampi(limit, 1, 16):
+					return pending
+	return pending
+
 static func title_for(outcome: String) -> String:
 	match outcome:
 		"victory": return "Săn MVP thành công!"
