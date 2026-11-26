@@ -105,10 +105,13 @@ func _run() -> void:
 		var unique_head: bool = not head.is_empty() and not heads.has(head) and RoAssets.has_sprite(head)
 		heads[head] = true
 		var stable: bool = not digest.is_empty() and digest == str(first.get(job, ""))
-		var valid: bool = unique_head and stable and portrait != null
+		var expected_gender: String = "f" if job in ["acolyte", "mage", "archer"] else "m"
+		var gender_matches: bool = head.begins_with("head_" + expected_gender + "_")
+		var valid: bool = unique_head and stable and portrait != null and gender_matches
 		complete = complete and valid
 		entries.append({"job": job, "head_key": head, "unique_native_head": unique_head,
-			"rendered_frame_stable_2s": stable, "portrait_present": portrait != null})
+			"rendered_frame_stable_2s": stable, "portrait_present": portrait != null,
+			"portrait_gender_matches": gender_matches, "look": SVVCompanionTown._resolved_look(job)})
 		var card := VBoxContainer.new()
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.custom_minimum_size.x = 360
@@ -136,7 +139,67 @@ func _run() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var board_saved: bool = await _capture("portrait-sprite-review.png")
+	# Render candidate hair colors on the actual native composed sprite.
+	# This is a review sheet, not a claim that palette numbers imply colors.
+	body.get_child(0).queue_free()
+	body.get_child(1).queue_free()
+	grid.queue_free()
+	await get_tree().process_frame
+	body.add_child(_label("Native hair palette review — compare with portrait", 24))
+	var palette_grid := GridContainer.new()
+	palette_grid.columns = 10
+	palette_grid.add_theme_constant_override("h_separation", 4)
+	palette_grid.add_theme_constant_override("v_separation", 4)
+	body.add_child(palette_grid)
+	var sample_root := Node3D.new()
+	add_child(sample_root)
+	for job in jobs:
+		var resolved: Dictionary = SVVCompanionTown._resolved_look(job)
+		var profile: Dictionary = SVVAssistant._friend_profile(job)
+		var portrait_cell := VBoxContainer.new()
+		portrait_cell.custom_minimum_size = Vector2(116, 108)
+		palette_grid.add_child(portrait_cell)
+		portrait_cell.add_child(_label(str(profile.get("name", job)), 14))
+		var target := TextureRect.new()
+		target.texture = SVVAssistant._portrait_texture(job)
+		target.custom_minimum_size = Vector2(100, 88)
+		target.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		target.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait_cell.add_child(target)
+		for color in range(9):
+			var cell := VBoxContainer.new()
+			cell.custom_minimum_size = Vector2(116, 108)
+			palette_grid.add_child(cell)
+			cell.add_child(_label("Palette " + str(color), 13))
+			var icon := TextureRect.new()
+			icon.custom_minimum_size = Vector2(100, 88)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			cell.add_child(icon)
+			if resolved.is_empty():
+				continue
+			if color > 0 and not RoAssets.has_palette("hair_%s_%d_%d" % [resolved["gender"], resolved["hair"], color]):
+				continue
+			var look: Dictionary = resolved.duplicate(true)
+			look["hair_color"] = color
+			var composed: RoSprite = RoAssets.styled_character(job, "", "", [RoVisual.PC_ATTACK], "", look)
+			if composed == null:
+				continue
+			var sample := RoVisual.new()
+			sample_root.add_child(sample)
+			sample.setup(composed, Color(0.8, 0.8, 0.9), 40)
+			SVVCompanionTown._set_idle(sample)
+			if sample.sprite is Sprite3D and sample.sprite.texture != null:
+				icon.texture = sample.sprite.texture
+			sample.queue_free()
+		await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var palette_saved: bool = await _capture("hair-palette-review.png")
+	sample_root.queue_free()
 	var report := {"map_screenshot": map_saved, "comparison_screenshot": board_saved,
+		"palette_screenshot": palette_saved,
 		"all_six_unique_heads_and_stable_frames": complete, "portrait_likeness_approved": false,
 		"entries": entries}
 	var file := FileAccess.open(output_dir.path_join("friend-visual-report.json"), FileAccess.WRITE)

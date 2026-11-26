@@ -321,6 +321,8 @@ func _run() -> void:
 			var head_key: String = str(npc.get_meta("svv_friend_head", ""))
 			check(not head_key.is_empty() and RoAssets.has_sprite(head_key) and not rendered_heads.has(head_key), job + " uses existing unique native head")
 			rendered_heads[head_key] = true
+			var expected_gender: String = "f" if job in ["mage", "archer"] else "m"
+			check(head_key.begins_with("head_" + expected_gender + "_"), job + " matches portrait gender")
 			check(npc.process_mode == Node.PROCESS_MODE_DISABLED, job + " stationary composite disabled processing")
 			var frozen_texture: Texture2D = npc.sprite.texture
 			var frozen_offset: Vector2 = npc.sprite.offset

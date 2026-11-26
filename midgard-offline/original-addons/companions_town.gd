@@ -6,12 +6,12 @@ extends CanvasLayer
 
 const JOBS := ["swordsman", "mage", "archer", "thief", "merchant"]
 const SPRITE_CANDIDATES := {
-	"swordsman": ["swordsman_m", "swordsman_f"],
-	"mage": ["mage_f", "mage_m"],
+	"swordsman": ["swordsman", "swordsman_m"],
+	"mage": ["mage_f"],
 	# Wave two: audit original sprites BEFORE any city placement.
-	"archer": ["archer_f", "archer_m"],
-	"thief": ["thief_m", "thief_f"],
-	"merchant": ["merchant_m", "merchant_f"],
+	"archer": ["archer_f"],
+	"thief": ["thief", "thief_m"],
+	"merchant": ["merchant", "merchant_m"],
 	# Never substitute Super Novice for Nao: a valid source asset is not
 	# automatically a correct visual match for the basic Novice job.
 	# A missing Novice remains visibly unverified during QA, not silently faked.
@@ -32,14 +32,16 @@ const NPC_NAMES := {
 # These deliberately conservative values use the original styled_character
 # factory; no replacement texture or fake sprite is created.
 const NPC_LOOK := {
-	"acolyte": {"hair": 6, "hair_color": 4},
-	"gunslinger": {"hair": 7, "hair_color": 1},
-	"taekwon": {"hair": 8, "hair_color": 2},
-	"swordsman": {"hair": 1, "hair_color": 3},
-	"mage": {"hair": 5, "hair_color": 6},
-	"archer": {"hair": 3, "hair_color": 2},
-	"thief": {"hair": 4, "hair_color": 0},
-	"merchant": {"hair": 2, "hair_color": 5},
+	# Portrait review: fixed identity; colors are provisional until the native
+	# palette contact sheet is inspected. Never infer gender from an asset hit.
+	"acolyte": {"gender": "f", "hair": 6, "hair_color": 7, "target_hair": "golden blonde"},
+	"gunslinger": {"gender": "m", "hair": 7, "hair_color": 1},
+	"taekwon": {"gender": "m", "hair": 8, "hair_color": 2},
+	"swordsman": {"gender": "m", "hair": 1, "hair_color": 1, "target_hair": "red"},
+	"mage": {"gender": "f", "hair": 5, "hair_color": 2, "target_hair": "violet"},
+	"archer": {"gender": "f", "hair": 3, "hair_color": 7, "target_hair": "golden blonde"},
+	"thief": {"gender": "m", "hair": 4, "hair_color": 0, "target_hair": "dark"},
+	"merchant": {"gender": "m", "hair": 2, "hair_color": 3, "target_hair": "brown"},
 }
 
 const NPC_GREETINGS := {
@@ -263,12 +265,8 @@ func _resolved_look(job: String) -> Dictionary:
 	var used: Dictionary = {}
 	var roster := ["acolyte", "swordsman", "mage", "archer", "thief", "merchant", "gunslinger", "taekwon"]
 	for current in roster:
-		var gender: String = "f" if current in ["acolyte", "mage", "archer"] else "m"
-		if current in JOBS:
-			var body_key: String = _first_original_sprite(current)
-			if not body_key.is_empty():
-				gender = "f" if body_key.ends_with("_f") else "m"
 		var style: Dictionary = NPC_LOOK[current]
+		var gender: String = str(style["gender"])
 		var preferred: int = int(style["hair"])
 		var candidates: Array[int] = [preferred]
 		for hair_id in range(1, 24):
