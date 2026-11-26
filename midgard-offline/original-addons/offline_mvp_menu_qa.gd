@@ -170,6 +170,8 @@ func _run() -> void:
 				_check(SVVOfflineEvents.mvp_reward_credited and SVVOfflineEvents.mvp_reward_balance_after - SVVOfflineEvents.mvp_reward_balance_before == 100, "menu_wallet_exact_credit")
 				_check(wallet_replay_blocked and Save.zeny() == wallet_before_reload, "menu_wallet_replay_blocked_and_persisted")
 				_check(not MVPCredit.redeem_menu(requested_id, token) and Save.zeny() == wallet_before_reload, "menu_wallet_reload_replay_blocked")
+				SVVOfflineEvents._refresh_mvp_summary(boss_index)
+				_check(SVVOfflineEvents.result.text.contains("1 huy hiệu MVP") and SVVOfflineEvents.result.text.contains("1 lần hạ"), "menu_achievement_summary_after_reload")
 		else:
 			_check(not saved and not persisted and int(row.get("wins", 0)) == 0, "no_unverified_victory_saved")
 			_check(receipts.is_empty() and not SVVOfflineEvents.mvp_reward_credited, "no_reward_receipt_without_victory")

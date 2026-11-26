@@ -65,6 +65,10 @@ func _run() -> void:
 		check(rules.next_reward_receipt_ledger(reward_b, "osiris", "d".repeat(32), "defeat").is_empty(), "defeat never issues receipt")
 		check(rules.next_reward_receipt_ledger(reward_b, "osiris", "d".repeat(32), "unverified").is_empty(), "unverified kill never issues receipt")
 		check(reward_a.get("baphomet", {}).get("reward_receipts", {}).size() == 1, "receipt ledger copy leaves original unchanged")
+		check(rules.achievement_summary(reward_b) == {"wins": 2, "marks": 0}, "pending rewards do not count as marks")
+		var credited_plan: Dictionary = rules.next_qa_credit(reward_b, "baphomet", token_a, 0)
+		check(rules.achievement_summary(credited_plan.get("ledger", {})) == {"wins": 2, "marks": 1}, "credited reward derives one achievement mark")
+		check(rules.achievement_summary(credited_plan.get("ledger", {}), "osiris") == {"wins": 0, "marks": 0}, "MVP achievement filter isolates boss")
 		var credit: Script = load("res://addons/svv_offline/offline_mvp_credit_qa.gd")
 		check(credit != null, "QA wallet helper loaded")
 		if credit != null and Save._name == "profile_offline_test":

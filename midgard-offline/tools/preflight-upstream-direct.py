@@ -59,6 +59,22 @@ def preflight(work, report, runtime=False):
     audit = load("audit-world-boss-maps").inventory(recovered)
     report["native_world_boss_contract"] = audit["native_world_boss_contract"]
     report["native_world_boss_flow"] = audit["native_world_boss_flow"]
+    # Discover native exit/return contracts for repeat hunts. Only method
+    # signatures and allowlisted call cues leave the private recovery.
+    inspector = load("audit-world-boss-maps")
+    return_contract = {}
+    for relative in ("scripts/core/main.gd", "scripts/ui/menus.gd"):
+        path = recovered / relative
+        if not path.is_file() or path.stat().st_size > inspector.MAX_FILE_SIZE:
+            continue
+        source = path.read_text(encoding="utf-8", errors="replace")
+        names = tuple(sorted(set(name for name in inspector.FUNC.findall(inspector._masked_gd_code(source))
+            if re.search(r"town|abandon|quit_run|end_run|finish_run|bank_run|return_to|exit_run|clear_battlefield", name, re.I))))[:80]
+        return_contract[relative] = {
+            "signatures": inspector.api_signatures(source, names),
+            "flow": inspector.method_flow_hints(source, names),
+        }
+    report["native_return_contract"] = return_contract
     report["scene_candidate_count"] = audit["scene_candidate_count"]
     report["stage"] = "offline_patch_preflight"
     prepared = work / "prepared"
@@ -287,6 +303,7 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
     report["menu_victory_ledger_verified"] = False
     report["menu_reward_receipt_verified"] = False
     report["native_reward_credit_verified"] = False
+    report["menu_achievement_summary_verified"] = False
     if terminal is not None:
         report["menu_terminal_returncode"] = terminal.returncode
         report["menu_terminal_script_error_count"] = terminal.stdout.count("SCRIPT ERROR:")
@@ -301,6 +318,8 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
         report["native_reward_credit_verified"] = (report["menu_reward_receipt_verified"] and all(
             "MVP_MENU_TEST PASS " + label in report["menu_terminal_markers"] for label in (
                 "menu_wallet_exact_credit", "menu_wallet_replay_blocked_and_persisted", "menu_wallet_reload_replay_blocked")))
+        report["menu_achievement_summary_verified"] = (report["native_reward_credit_verified"] and
+            "MVP_MENU_TEST PASS menu_achievement_summary_after_reload" in report["menu_terminal_markers"])
     # Do not equate smoke or native combat with full compatibility or release approval.
 
 def main():

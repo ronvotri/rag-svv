@@ -96,6 +96,32 @@ static func next_qa_credit(ledger: Dictionary, boss_id: String, token: String, b
 	updated[boss_id] = row
 	return {"ledger": updated, "balance": balance + QA_ZENY_QUOTE}
 
+# Local achievement marks, not native inventory items or spendable currency.
+# Derive from credited receipts instead of storing a second mutable balance.
+static func achievement_summary(ledger: Dictionary, boss_id: String = "") -> Dictionary:
+	var wins: int = 0
+	var marks: int = 0
+	var seen: Dictionary = {}
+	for id in ROSTER:
+		if not boss_id.is_empty() and boss_id != id:
+			continue
+		var row: Variant = ledger.get(id, {})
+		if not row is Dictionary:
+			continue
+		wins += maxi(0, int(row.get("wins", 0)))
+		var receipts: Variant = row.get("reward_receipts", {})
+		var settled: Variant = row.get("settled_tokens", [])
+		if not receipts is Dictionary or not settled is Array:
+			continue
+		for token in receipts:
+			if not settled.has(token) or seen.has(token):
+				continue
+			var receipt: Variant = receipts[token]
+			if receipt is Dictionary and receipt.get("status", "") == "qa_credited" and receipt.get("mvp_marks", 0) == QA_MVP_MARKS:
+				seen[token] = true
+				marks += QA_MVP_MARKS
+	return {"wins": wins, "marks": marks}
+
 static func title_for(outcome: String) -> String:
 	match outcome:
 		"victory": return "Săn MVP thành công!"

@@ -149,6 +149,7 @@ func _ready() -> void:
 	for boss_name in MVP_NAMES:
 		mvp_picker.add_item(boss_name)
 	mvp_picker.select(0)
+	mvp_picker.item_selected.connect(_refresh_mvp_summary)
 	mvp_picker.custom_minimum_size.y = 42
 	mvp_picker.hide()
 	col.add_child(mvp_picker)
@@ -468,7 +469,7 @@ func _update_mvp_hud() -> void:
 		mvp_hud_name.text = MVPResult.title_for(outcome)
 		var record_label: String = "Đã lưu thành tích · Phiếu thưởng QA" if mvp_victory_saved else "Không cộng thành tích"
 		if mvp_reward_credited:
-			record_label = "Đã nhận %d Zeny (QA)" % MVPResult.QA_ZENY_QUOTE
+			record_label = "+%d Zeny · +%d huy hiệu (QA)" % [MVPResult.QA_ZENY_QUOTE, MVPResult.QA_MVP_MARKS]
 		mvp_hud_detail.text = "%02d:%02d · %s" % [int(seconds / 60.0), seconds % 60, record_label]
 		mvp_hud_expires = Time.get_ticks_msec() + 8000
 		print("OFFLINE_MVP_MENU_QA HUD_TERMINAL outcome=", outcome, " saved=", mvp_victory_saved)
@@ -515,7 +516,7 @@ func _choose_mode(next_mode: String) -> void:
 	mvp_picker.visible = native_preview
 	start_button.text = "Vào trận thật (QA)" if native_preview else "Bắt đầu mô phỏng"
 	if native_preview:
-		help.text = "Thử nghiệm Swordsman cùng Party hiện tại trên bản đồ Prontera. Chưa trao thưởng."
+		help.text = "Swordsman cùng Party hiện tại trên bản đồ Prontera. Thưởng QA: Zeny và huy hiệu thành tích; không phải vật phẩm."
 	start_button.disabled = mvp_launching
 	attack_button.disabled = true
 	skill_button.disabled = true
@@ -524,6 +525,19 @@ func _choose_mode(next_mode: String) -> void:
 	meter.value = 100
 	status.text = "Chế độ đã chọn: " + str(MODE_LABELS[selected_mode]) + ". Có thể dùng Party đã kết bạn."
 	result.text = ""
+	if native_preview:
+		_refresh_mvp_summary(mvp_picker.selected)
+
+
+func _refresh_mvp_summary(index: int) -> void:
+	if not mvp_preview or selected_mode != "world_boss" or index < 0 or index >= MVPEncounter.ROSTER.size():
+		return
+	var raw: Variant = Save.setting("svv_offline_mvp_victories", {})
+	var ledger: Dictionary = raw if raw is Dictionary else {}
+	var total: Dictionary = MVPResult.achievement_summary(ledger)
+	var selected: Dictionary = MVPResult.achievement_summary(ledger, MVPEncounter.ROSTER[index])
+	result.text = "%s: %d lần hạ · Tổng: %d lần hạ · %d huy hiệu MVP (QA)" % [
+		MVP_NAMES[index], selected["wins"], total["wins"], total["marks"]]
 
 
 func _open() -> void:
