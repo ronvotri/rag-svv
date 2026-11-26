@@ -62,6 +62,10 @@ def install(project):
     if not mvp_source.is_file():
         raise ValueError("Shared native MVP encounter helper missing")
     shutil.copyfile(mvp_source, destination.parent / mvp_source.name)
+    result_source = source.parent / "offline_mvp_result.gd"
+    if not result_source.is_file():
+        raise ValueError("Offline MVP result rules missing")
+    shutil.copyfile(result_source, destination.parent / result_source.name)
     # Gated on --offline-test AND --rare-town-qa; production ignores it.
     rare_town = source.parent / "rare_town_qa.gd"
     if not rare_town.is_file():

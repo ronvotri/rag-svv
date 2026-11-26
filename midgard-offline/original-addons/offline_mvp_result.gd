@@ -1,0 +1,57 @@
+extends RefCounted
+## Pure offline encounter result rules. No native stat changes, rewards or save I/O.
+const ROSTER := ["baphomet", "osiris", "eddga", "mistress", "maya", "dark_lord"]
+
+static func classify(boss_hp: Variant, player_hp: Variant, native_death: bool, running: bool, cancelled: bool) -> String:
+	if cancelled:
+		return "cancelled"
+	if not (boss_hp is float or boss_hp is int) or not (player_hp is float or player_hp is int):
+		return "unverified"
+	var boss: float = float(boss_hp)
+	var player: float = float(player_hp)
+	if not is_finite(boss) or not is_finite(player):
+		return "unverified"
+	if boss <= 0.0 and player <= 0.0:
+		return "draw" if native_death else "unverified"
+	if player <= 0.0:
+		return "defeat"
+	if boss <= 0.0:
+		return "victory" if native_death else "unverified"
+	return "active" if running else "unverified"
+
+# Return an empty dictionary for invalid or duplicate settlement.
+# Copy the caller's ledger, preserving other MVPs and legacy counters.
+static func next_victory_ledger(ledger: Dictionary, boss_id: String, token: String, outcome: String) -> Dictionary:
+	if outcome != "victory" or not ROSTER.has(boss_id) or token.length() != 32 or not token.is_valid_hex_number():
+		return {}
+	# Reject replays across different bosses as well as the same boss.
+	for key in ledger:
+		var existing: Variant = ledger[key]
+		if not existing is Dictionary:
+			return {}
+		var settled: Variant = existing.get("settled_tokens", [])
+		if not settled is Array:
+			return {}
+		if str(existing.get("last_token", "")) == token or settled.has(token):
+			return {}
+	var updated: Dictionary = ledger.duplicate(true)
+	var row: Dictionary = updated.get(boss_id, {})
+	var tokens: Array = row.get("settled_tokens", []).duplicate()
+	var previous: String = str(row.get("last_token", ""))
+	if not previous.is_empty() and not tokens.has(previous):
+		tokens.append(previous)
+	tokens.append(token)
+	row["settled_tokens"] = tokens
+	row["last_token"] = token
+	row["wins"] = int(row.get("wins", 0)) + 1
+	updated[boss_id] = row
+	return updated
+
+static func title_for(outcome: String) -> String:
+	match outcome:
+		"victory": return "Săn MVP thành công!"
+		"defeat": return "Thất bại"
+		"draw": return "Hai bên cùng gục ngã"
+		"cancelled": return "Đã rời trận"
+		"active": return "Đang chiến đấu"
+		_: return "Chưa xác nhận kết quả"

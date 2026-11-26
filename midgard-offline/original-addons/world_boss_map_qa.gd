@@ -4,6 +4,8 @@ extends Node
 
 const MVPEncounter = preload("res://addons/svv_offline/offline_mvp_encounter.gd")
 
+const MVPResult = preload("res://addons/svv_offline/offline_mvp_result.gd")
+
 const BOSS_CANDIDATES := [
 	"baphomet", "osiris", "eddga", "mistress", "maya", "dark_lord",
 	"phreeoni", "moonlight_flower", "golden_thief_bug",
@@ -74,16 +76,13 @@ func _record_local_victory(boss: Enemy, human: Player, boss_id: String, token: S
 		return false
 	if not is_instance_valid(boss) or not is_instance_valid(human):
 		return false
-	if boss.hp > 0.0 or human.hp <= 0.0 or not bool(boss.get_meta("svv_qa_native_death", false)):
+	var outcome: String = MVPResult.classify(boss.hp, human.hp,
+		bool(boss.get_meta("svv_qa_native_death", false)), world.running, false)
+	var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {})
+	var updated: Dictionary = MVPResult.next_victory_ledger(ledger, boss_id, token, outcome)
+	if updated.is_empty():
 		return false
-	var ledger: Dictionary = Save.setting("svv_offline_mvp_victories", {}).duplicate(true)
-	var row: Dictionary = ledger.get(boss_id, {}).duplicate(true)
-	if str(row.get("last_token", "")) == token:
-		return false
-	row["wins"] = int(row.get("wins", 0)) + 1
-	row["last_token"] = token
-	ledger[boss_id] = row
-	Save.set_setting("svv_offline_mvp_victories", ledger)
+	Save.set_setting("svv_offline_mvp_victories", updated)
 	Save.flush()
 	return not Save._dirty
 

@@ -34,6 +34,26 @@ func _run() -> void:
 	check(SVVOfflineEvents.mvp_picker.item_count == 6, "native MVP preview picker contains six bosses")
 	check(not SVVOfflineEvents.mvp_preview and not SVVOfflineEvents.mvp_picker.visible,
 		"native MVP preview stays hidden without explicit test flag")
+	# Pure result rules, independent of combat fixtures; never grant loot.
+	var rules: Script = load("res://addons/svv_offline/offline_mvp_result.gd")
+	check(rules != null, "offline MVP outcome rules load")
+	if rules != null:
+		check(rules.classify(0.0, 100.0, true, true, false) == "victory", "MVP confirmed death wins")
+		check(rules.classify(0.0, 100.0, false, true, false) == "unverified", "zero boss HP alone cannot win")
+		check(rules.classify(100.0, 0.0, false, true, false) == "defeat", "player death loses")
+		check(rules.classify(0.0, 0.0, true, true, false) == "draw", "simultaneous death never wins")
+		check(rules.classify(null, 100.0, true, true, false) == "unverified", "missing boss never wins")
+		check(rules.classify(0.0, 100.0, true, true, true) == "cancelled", "cancelled encounter never wins")
+		check(rules.classify(100.0, 100.0, false, false, false) == "unverified", "stopped world never wins")
+		var token_a: String = "a".repeat(32)
+		var token_b: String = "b".repeat(32)
+		var first: Dictionary = rules.next_victory_ledger({}, "baphomet", token_a, "victory")
+		var second: Dictionary = rules.next_victory_ledger(first, "baphomet", token_b, "victory")
+		check(int(second.get("baphomet", {}).get("wins", 0)) == 2, "two distinct MVP wins")
+		check(rules.next_victory_ledger(second, "baphomet", token_a, "victory").is_empty(), "old encounter replay blocked")
+		check(rules.next_victory_ledger(second, "osiris", token_a, "victory").is_empty(), "cross MVP replay blocked")
+		check(rules.next_victory_ledger(second, "osiris", "c".repeat(32), "defeat").is_empty(), "no victory count on defeat")
+		check(int(first.get("baphomet", {}).get("wins", 0)) == 1, "result ledger copy leaves original unchanged")
 	# Five stable Prontera character looks must not reuse the same hair.
 	var seen_looks: Dictionary = {}
 	for job in SVVCompanionTown.JOBS:
