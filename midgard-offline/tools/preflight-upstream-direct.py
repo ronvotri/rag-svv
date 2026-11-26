@@ -314,7 +314,7 @@ def menu_runtime_check(work, report, godot, prepared, env, run_private):
         report["menu_terminal_returncode"] = terminal.returncode
         report["menu_terminal_script_error_count"] = terminal.stdout.count("SCRIPT ERROR:")
         report["menu_terminal_markers"] = [line.strip() for line in terminal.stdout.splitlines()
-            if line.startswith(("MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA HUD_TERMINAL "))][-90:]
+            if line.startswith(("MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA HUD_TERMINAL ", "OFFLINE_MVP_MENU_QA RETURN_PRONTERA "))][-90:]
         report["menu_terminal_qa_passed"] = (terminal.returncode == 0 and not report["menu_terminal_script_error_count"]
             and "MVP_MENU_TEST COMPLETE errors=0" in report["menu_terminal_markers"])
         report["menu_victory_ledger_verified"] = (report["menu_terminal_qa_passed"]

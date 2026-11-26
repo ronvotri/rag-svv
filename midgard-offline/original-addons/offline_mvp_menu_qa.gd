@@ -63,9 +63,22 @@ func _repeat_hunt(world: World, previous_token: String) -> void:
 		_check(false, "repeat_sandbox")
 		return
 	var prior: Dictionary = Save.setting("svv_offline_mvp_victories", {}).duplicate(true)
-	var deadline: int = Time.get_ticks_msec() + 10000
+	# A boss kill can trigger a native level-up at the same moment as victory.
+	# Finish any real choices via the original UI rather than forcing unpause.
+	var deadline: int = Time.get_ticks_msec() + 30000
+	var next_postkill_choice: int = 0
+	var last_mode := ""
 	while Time.get_ticks_msec() < deadline and not SVVOfflineEvents.mvp_return_button.is_visible_in_tree():
+		var mode: String = str(world.menus._mode)
+		if mode != last_mode:
+			print("MVP_MENU_TEST RETURN_WAIT mode=", mode, " paused=", get_tree().paused, " running=", world.running)
+			last_mode = mode
+		if mode in ["level_up", "start_skill"] and Time.get_ticks_msec() >= next_postkill_choice:
+			next_postkill_choice = Time.get_ticks_msec() + 700
+			if not _press_native_choice(world.menus):
+				await _native_choice_input()
 		await get_tree().process_frame
+	print("MVP_MENU_TEST RETURN_VISIBILITY mode=", world.menus._mode, " paused=", get_tree().paused, " running=", world.running, " town=", SVVCompanionTown._town() != null, " outcome=", SVVOfflineEvents.mvp_hud_outcome, " saved=", SVVOfflineEvents.mvp_victory_saved, " hud=", SVVOfflineEvents.mvp_hud.visible, " button=", SVVOfflineEvents.mvp_return_button.visible)
 	_check(SVVOfflineEvents.mvp_return_button.is_visible_in_tree() and not SVVOfflineEvents.mvp_return_button.disabled, "repeat_return_button_visible")
 	if not errors.is_empty():
 		return
