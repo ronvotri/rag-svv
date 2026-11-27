@@ -89,7 +89,7 @@ class OriginalPartyBootstrap(unittest.TestCase):
             'const MIRA_SPRITE := "acolyte_f"',
             'const KAFRA_NPC := "kafra"',
             'RoAssets.has_sprite(MIRA_SPRITE)',
-            'RoAssets.sprite([MIRA_SPRITE])',
+            'SVVCompanionTown._composed_original_sprite("acolyte", MIRA_SPRITE)',
             'RoVisual.new()',
             'candidate.npc_node(KAFRA_NPC)',
             'func _unhandled_input(event: InputEvent)',
@@ -105,10 +105,11 @@ class OriginalPartyBootstrap(unittest.TestCase):
         root = module_path.parents[1]
         script = (root / "original-addons/mira_town.gd").read_text(encoding="utf-8")
         smoke = (root / "original-addons/offline_smoke.gd").read_text(encoding="utf-8")
-        self.assertIn('func _tick_patrol(delta: float) -> void:', script)
-        self.assertIn('_set_mira_animation("PC_WALK")', script)
-        self.assertIn('_set_mira_animation("PC_IDLE")', script)
-        self.assertIn('script.get_script_constant_map()', script)
+        self.assertIn('func _tick_patrol(_delta: float) -> void:', script)
+        self.assertNotIn('_set_mira_animation("PC_WALK")', script)
+        self.assertNotIn('_tick_patrol(frame_seconds)', script)
+        self.assertIn('SVVCompanionTown._set_idle(character)', script)
+        self.assertIn('Mira static composite stays fixed', smoke)
         self.assertIn('town.is_inside_tree()', script)
         self.assertIn('world.enter_town("swordsman")', smoke)
         self.assertIn('world.leave_town()', smoke)

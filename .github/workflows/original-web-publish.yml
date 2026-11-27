@@ -1,6 +1,7 @@
 name: Ragnarok SVV - publish original Web (Pages Free)
 on:
   # Keep the existing repository rights opt-in and production environment.
+  # Re-run after updating stale sprite regression assertions (publish #19).
   # Restrict automatic publication to an explicit release-workflow update.
   push:
     branches: [release/ragnarok-web]

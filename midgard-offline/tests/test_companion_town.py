@@ -19,21 +19,29 @@ class NativeCompanionTownTests(unittest.TestCase):
 
     def test_original_npc_looks_are_distinct_and_town_idle_is_stable(self):
         self.assertIn('const NPC_LOOK := {', self.npcs)
-        for job in ('swordsman', 'mage', 'archer', 'thief', 'merchant'):
-            self.assertIn('"' + job + '": {"hair":', self.npcs)
-        self.assertIn('var style: Dictionary = NPC_LOOK.get(job', self.npcs)
-        self.assertIn('"hair": int(style.get("hair", 2))', self.npcs)
-        self.assertIn('"hair_color": int(style.get("hair_color", 0))', self.npcs)
+        for job, gender in (("acolyte", "f"), ("swordsman", "m"), ("mage", "f"),
+                            ("archer", "f"), ("thief", "m"), ("merchant", "m")):
+            self.assertIn('"' + job + '": {"gender": "' + gender + '", "hair":', self.npcs)
+        self.assertIn('var style: Dictionary = NPC_LOOK[current]', self.npcs)
+        self.assertIn('var gender: String = str(style["gender"])', self.npcs)
+        self.assertIn('RoAssets.has_sprite(key) and not used.has(key)', self.npcs)
+        self.assertIn('RoAssets.has_palette(', self.npcs)
+        self.assertIn('visual.process_mode = Node.PROCESS_MODE_DISABLED', self.npcs)
+        self.assertIn('uses existing unique native head', self.smoke)
+        self.assertIn('matches portrait gender', self.smoke)
+        self.assertIn('composite frame stable', self.smoke)
         self.assertIn('visual.face(Vector3(0.0, 0.0, 1.0))', self.npcs)
         self.assertIn('visual.set_process(false)', self.npcs)
         self.assertIn('visual.set_physics_process(false)', self.npcs)
         self.assertNotIn('var look := {"gender": gender, "hair": 2, "hair_color": 0, "cloth": 0}', self.npcs)
 
     def test_new_characters_use_original_sprites_not_placeholder_art(self):
-        for string in ('"swordsman_m"', '"swordsman_f"', '"mage_f"', '"mage_m"',
+        for string in ('"swordsman": ["swordsman", "swordsman_m"]', '"mage": ["mage_f"]',
                        "RoAssets.has_sprite(sprite_id)", "RoAssets.styled_character(",
                        "RoVisual.new()", "parent.add_child(visual)"):
             self.assertIn(string, self.npcs)
+        self.assertNotIn('"swordsman_f"', self.npcs)
+        self.assertNotIn('"mage_m"', self.npcs)
         self.assertNotIn("Emoji", self.npcs)
         self.assertNotIn("SpriteFrames.new()", self.npcs)
         self.assertNotIn("Image.create(", self.npcs)
@@ -117,8 +125,9 @@ class NativeCompanionTownTests(unittest.TestCase):
 
     def test_wave_two_sprite_candidates_and_staged_prontera_npcs(self):
         self.assertIn('const JOBS := ["swordsman", "mage", "archer", "thief", "merchant"]', self.npcs)
-        for job in ("archer", "thief", "merchant", "novice"):
-            self.assertIn('"' + job + '": ["' + job + '_', self.npcs)
+        for candidate in ('"archer": ["archer_f"]', '"thief": ["thief", "thief_m"]',
+                          '"merchant": ["merchant", "merchant_m"]', '"novice": ["novice_f", "novice_m"]'):
+            self.assertIn(candidate, self.npcs)
         self.assertIn('job + " original Ragnarok sprite renders for later town placement"', self.smoke)
         self.assertIn('OFFLINE_QA WAVE2_SPRITE ', self.smoke)
         self.assertIn('"novice": ["novice_f", "novice_m"]', self.npcs)
