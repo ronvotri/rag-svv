@@ -78,6 +78,24 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
             self.assertEqual(asset_map["version"], "abcdef0123456")
             self.assertEqual(asset_map["large_assets"], result["large_assets"])
 
+    def test_splash_is_correct_in_initial_html_not_delayed_javascript(self):
+        cover_url = mod.splash_url(mod.startup_cover())
+        original = ('<html><head></head><body><div id="status">'
+                    '<img src="index.png" srcset="old.png 2x" id="status-splash" alt="Loading">'
+                    '<progress id="status-progress"></progress></div></body></html>')
+        html = mod.replace_startup_splash(original, cover_url, require_image=True)
+        self.assertIn('src="' + cover_url + '"', html)
+        self.assertIn('href="' + cover_url + '"', html)
+        self.assertIn('id="status-progress"', html)
+        self.assertNotIn("index.png", html)
+        self.assertNotIn("old.png", html)
+        self.assertNotIn("DOMContentLoaded", html)
+        again = mod.replace_startup_splash(html, cover_url, require_image=True)
+        self.assertEqual(again.count('id="status-splash"'), 1)
+        self.assertEqual(again.count('rel="preload"'), 1)
+        with self.assertRaises(ValueError):
+            mod.replace_startup_splash("<html><head></head></html>", cover_url, require_image=True)
+
     def test_unchanged_chunks_keep_urls_across_commits(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

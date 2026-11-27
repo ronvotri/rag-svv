@@ -84,6 +84,29 @@ def main():
                     raise ValueError("Missing expected Web export file")
                 files[name] = path.stat().st_size
             report["export_file_sizes"] = files
+            # Exercise actual Cloudflare package locally (not a deployment).
+            report["stage"] = "stage_pages"
+            import re
+            import shutil
+            deploy = load(ROOT / "tools/prepare-original-web-deploy.py")
+            version = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+            packaged = private / "pages"
+            manifest = deploy.stage(args.output, packaged, version)
+            public = packaged / "public"
+            url = deploy.splash_url(deploy.startup_cover())
+            game_html = (public / "game.html").read_text(encoding="utf-8")
+            bootstrap_html = (public / "index.html").read_text(encoding="utf-8")
+            tags = re.findall(r'<img\b[^>]*\bid\s*=\s*(["\'])status-splash\1[^>]*>', game_html, flags=re.I)
+            if len(tags) != 1 or 'src="' + url + '"' not in game_html or 'src="' + url + '"' not in bootstrap_html:
+                raise ValueError("Initial splash is not consistent across Pages entrypoints")
+            if 'img.src="./ragnarok-loading.jpg"' in game_html:
+                raise ValueError("Delayed splash swap survived")
+            report["initial_splash_markup_verified"] = True
+            report["pages_package_file_count"] = manifest["deployment_files"]
+            report["pages_package_max_file_bytes"] = max(p.stat().st_size for p in public.rglob("*") if p.is_file())
+            report["pages_package_split_assets"] = sorted(manifest["large_assets"])
+            report["pages_package_passed"] = True
+            shutil.rmtree(packaged)
             report["export_passed"] = True
             report["stage"] = "complete"
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:

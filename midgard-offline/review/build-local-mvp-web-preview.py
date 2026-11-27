@@ -167,8 +167,15 @@ def build(args):
         args.output.mkdir(parents=True, exist_ok=False)
         print("LOCAL_MVP_WEB_STAGE export", flush=True)
         run([godot, "--headless", "--path", project, "--export-release", "Web Offline", args.output / "index.html"])
-        if not (args.output / "index.html").is_file():
+        entry = args.output / "index.html"
+        if not entry.is_file():
             raise ValueError("Web entry file missing")
+        # Apply to raw local export as well as the later Pages wrapper.
+        deploy = load("prepare-original-web-deploy")
+        cover = deploy.startup_cover()
+        url = deploy.splash_url(cover)
+        entry.write_text(deploy.replace_startup_splash(entry.read_text(encoding="utf-8"), url, require_image=True), encoding="utf-8")
+        shutil.copyfile(cover, args.output / "ragnarok-loading.jpg")
         (args.output / "PREVIEW-NOT-RELEASED.txt").write_text(
             "Experimental local MVP preview. Browser QA and native return/repeat validation pending.\n"
             "Use a distinct localhost origin, not the existing public site. Do not redistribute.\n"

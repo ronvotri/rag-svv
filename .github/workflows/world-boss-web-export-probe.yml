@@ -6,6 +6,9 @@ on:
       - 'midgard-offline/review/run-web-export-probe.py'
       - 'midgard-offline/review/build-local-mvp-web-preview.py'
       - 'midgard-offline/review/friend-town-visual-review.gd'
+      - 'midgard-offline/tools/prepare-original-web-deploy.py'
+      - 'midgard-offline/cloudflare/pages-bootstrap.html'
+      - 'midgard-offline/tests/test_original_web_deploy.py'
       - '.github/workflows/world-boss-web-export-probe.yml'
   workflow_dispatch:
 permissions:
@@ -23,7 +26,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check export entrypoints
-        run: python -m py_compile midgard-offline/review/build-local-mvp-web-preview.py midgard-offline/review/run-web-export-probe.py
+        run: |
+          python -m py_compile midgard-offline/review/build-local-mvp-web-preview.py midgard-offline/review/run-web-export-probe.py midgard-offline/tools/prepare-original-web-deploy.py
+          python -m unittest discover -s midgard-offline/tests -p 'test_original_web_deploy.py'
       - name: Export Web inside isolated runner
         run: python midgard-offline/review/run-web-export-probe.py
       - name: Upload export metadata only
