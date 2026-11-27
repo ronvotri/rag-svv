@@ -29,6 +29,11 @@ class OfflineEventTests(unittest.TestCase):
         self.assertIn('if offline_x >= 8.0:', self.code)
         self.assertIn('Vector2(8.0, bar_y + 44.0)', self.code)
         self.assertIn('_style_launcher_button(open_button)', self.code)
+        self.assertIn('var bar_y: float = 68.0 if OS.has_feature("web") else (56.0 if narrow else 10.0)', self.code)
+        # Keep all three launchers on the same Web row even at desktop widths.
+        for addon, marker in (("offline_assistant.gd", "toolbar_y"), ("web_save_manager.gd", "toolbar_y")):
+            source = (EVENTS.parent / addon).read_text("utf-8")
+            self.assertIn(f'var {marker}: float = 68.0 if OS.has_feature("web")', source)
         # Desktop: the illustrated simulation launcher must end before Friends.
         width = 1280
         friend_width, save_width, offline_width = 132, 188, 164

@@ -136,7 +136,8 @@ func _fit_button() -> void:
 	var friend_width: float = 98.0 if compact else (112.0 if narrow else 132.0)
 	var save_width: float = 114.0 if compact else (154.0 if narrow else 188.0)
 	var start_x: float = maxf(8.0, size.x - 12.0 - friend_width - 8.0 - save_width)
-	var toolbar_y: float = 56.0 if narrow else 10.0
+	# On Web reserve the top row for native music and browser fullscreen.
+	var toolbar_y: float = 68.0 if OS.has_feature("web") else (56.0 if narrow else 10.0)
 	open_button.text = "Sao lưu" if compact else "Sao lưu / Nạp save"
 	open_button.custom_minimum_size = Vector2(save_width, 38.0)
 	open_button.position = Vector2(start_x + friend_width + 8.0, toolbar_y)

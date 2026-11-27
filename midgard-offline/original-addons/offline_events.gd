@@ -317,7 +317,8 @@ func _fit() -> void:
 	var friend_width: float = 98.0 if compact else (112.0 if narrow else 132.0)
 	var save_width: float = 114.0 if compact else (154.0 if narrow else 188.0)
 	var friends_x: float = maxf(8.0, screen.x - 12.0 - friend_width - 8.0 - save_width)
-	var bar_y: float = 56.0 if narrow else 10.0
+	# On Web reserve the top row for native music and browser fullscreen.
+	var bar_y: float = 68.0 if OS.has_feature("web") else (56.0 if narrow else 10.0)
 	var offline_width: float = 164.0
 	var offline_x: float = friends_x - offline_width - 8.0
 	if offline_x >= 8.0:

@@ -67,6 +67,20 @@ class StartBackgroundTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "already installed"):
                 installer.install(project)
 
+    def test_known_glyphs_are_repaired_even_without_a_verified_outer_pair(self):
+        code = installer.GDSCRIPT
+        recognized = code.index("known_glyphs[button] = label in left_glyphs")
+        geometry = code.index("if rect.size.x > 100.0")
+        fallback = code.index("for glyph_button in known_glyphs:")
+        guard = code.index("if outer_left == null or outer_right == null:")
+        hide = code.index("duplicate.hide()")
+        self.assertLess(recognized, geometry)
+        self.assertLess(fallback, guard)
+        self.assertLess(guard, hide)
+        self.assertIn("glyph.icon = _svv_class_arrow_texture(bool(known_glyphs[glyph_button]))", code)
+        self.assertNotIn(".hide()", code[fallback:guard])
+        self.assertNotIn(".pressed.disconnect", code[fallback:guard])
+
     def test_fails_closed_if_menu_implementation_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             project, script = self.source(directory)

@@ -53,19 +53,24 @@ func _svv_fix_class_select_navigation() -> void:
 	var outer_left: Button = null
 	var outer_right: Button = null
 	var inner_previous: Array[Button] = []
+	var known_glyphs: Dictionary = {}
 	# Only classify page arrows; never touch the in-card PLAY / confirmation
 	# button. In particular, its existing pressed signal is preserved.
-	var left_glyphs := ["◀", "◁", "❮", "‹", "〈", "<", "◄", "⬅", "«"]
-	var right_glyphs := ["▶", "►", "❯", "›", "〉", ">", "►", "➡", "»"]
+	var left_glyphs := ["◀", "◁", "❮", "‹", "〈", "<", "◄", "⬅", "«", "←", "❰", "⯇"]
+	var right_glyphs := ["▶", "▷", "►", "❯", "›", "〉", ">", "➡", "»", "→", "❱", "⯈"]
 	for node in find_children("*", "Button", true, false):
 		var button: Button = node as Button
 		if button == null or not button.is_visible_in_tree():
 			continue
+		var label: String = button.text.strip_edges()
+		# A known arrow glyph is safe to restyle even when responsive layout
+		# puts it outside the original narrow geometric detection bands.
+		if label in left_glyphs or label in right_glyphs:
+			known_glyphs[button] = label in left_glyphs
 		var rect: Rect2 = button.get_global_rect()
 		if rect.size.x > 100.0 or rect.size.y > 88.0:
 			continue
 		var center: Vector2 = rect.get_center()
-		var label: String = button.text.strip_edges()
 		if center.y < viewport_size.y * 0.20 or center.y > viewport_size.y * 0.85:
 			continue
 		if center.x <= viewport_size.x * 0.15 and (label in left_glyphs or button.icon != null):
@@ -74,6 +79,19 @@ func _svv_fix_class_select_navigation() -> void:
 			outer_right = button
 		elif center.x > viewport_size.x * 0.24 and center.x < viewport_size.x * 0.54 and center.y > viewport_size.y * 0.60 and label in left_glyphs:
 			inner_previous.append(button)
+	# Restyle recognized glyphs independently; a missing outer arrow must
+	# not leave the other arrow as a missing-font square. Never hide in fallback.
+	for glyph_button in known_glyphs:
+		var glyph: Button = glyph_button as Button
+		if glyph == outer_left or glyph == outer_right:
+			if outer_left != null and outer_right != null:
+				continue
+		glyph.text = ""
+		glyph.icon = _svv_class_arrow_texture(bool(known_glyphs[glyph_button]))
+		glyph.expand_icon = true
+		glyph.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if not glyph.pressed.is_connected(_svv_reapply_class_navigation):
+			glyph.pressed.connect(_svv_reapply_class_navigation)
 	# Do not hide any in-card control unless BOTH native outer arrows exist.
 	# Otherwise the screen still has its original functional navigation.
 	if outer_left == null or outer_right == null:
