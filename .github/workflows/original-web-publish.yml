@@ -1,13 +1,5 @@
 name: Ragnarok SVV - publish original Web (Pages Free)
 on:
-  # Auto-release only when this dedicated release branch changes.
-  # Public redistribution still requires a one-time repository opt-in:
-  # RAGNAROK_AUTO_DEPLOY_WEB=true (set only if game asset rights are confirmed).
-  push:
-    branches: [release/ragnarok-web]
-    paths:
-      - '.github/workflows/original-web-publish.yml'
-      - 'midgard-offline/**'
   workflow_dispatch:
     inputs:
       redistribution_rights_confirmed:
@@ -22,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    if: ${{ (github.event_name == 'push' && vars.RAGNAROK_AUTO_DEPLOY_WEB == 'true') || (github.event_name == 'workflow_dispatch' && inputs.redistribution_rights_confirmed == true) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.redistribution_rights_confirmed == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     environment: web-production
@@ -42,9 +34,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Ensure this is the dedicated production release branch
+      - name: Verify explicitly selected Wave 34 Beta commit
         run: |
-          test "$GITHUB_REF_NAME" = "release/ragnarok-web"
+          test "$GITHUB_REF_NAME" = "feature/offline-cards-unique-npc-wave34"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Verify Pages credentials (R2 credentials are NOT required)
         run: |
@@ -55,16 +47,13 @@ jobs:
           node --test midgard-offline/tests/*.test.cjs
           python -m unittest discover -s midgard-offline/tests -p 'test_*.py'
           python -m py_compile midgard-offline/tools/*.py
-      - name: Rebuild original Godot Web client and run offline gameplay smoke tests
-        env:
-          SVV_WEB_NPC_QA: "0"
-        run: python midgard-offline/tools/cloud-build-original.py --target web
+      - name: Rebuild tested 0.2.11 Beta and retain validated Pages package
+        run: python midgard-offline/review/run-web-export-probe.py --retain-pages midgard-offline/work/cloud/cloudflare-deploy
       - name: Stage only static Cloudflare Pages assets
         id: pack
         run: |
           CLIENT_SHA="$(git rev-parse HEAD)"
           echo "sha=$CLIENT_SHA" >> "$GITHUB_OUTPUT"
-          python midgard-offline/tools/prepare-original-web-deploy.py --version "$CLIENT_SHA"
           python - <<'PY'
           import json
           from pathlib import Path
@@ -74,6 +63,10 @@ jobs:
           assert len(assets) <= 20000, "Exceeds Cloudflare Pages Free file count"
           assert all(p.stat().st_size <= 25 * 1024 * 1024 for p in assets)
           assert manifest["large_assets"], "Expected original Godot large files to be split"
+          assert manifest["version"] == __import__("os").environ["GITHUB_SHA"], "Wrong package version"
+          report = json.loads(Path("midgard-offline/work/world-boss-web-export-probe.json").read_text(encoding="utf-8"))
+          assert report["candidate_hash_matched"] and report["export_passed"] and report["pages_package_passed"]
+          assert report["initial_splash_markup_verified"], "Old splash fix not verified"
           assert not (base / "r2").exists(), "Unexpected R2 asset output"
           assert not (base / "functions").exists(), "Unexpected Pages Functions"
           print("STATIC PAGES PASS:", len(assets), "files and", len(manifest["large_assets"]), "split assets")
@@ -111,7 +104,8 @@ jobs:
             echo "## Ragnarok Web: Pages-only deployment submitted"
             echo "Project: rag-svv-web"
             echo "Original client commit: ${{ steps.pack.outputs.sha }}"
-            echo "Release branch: release/ragnarok-web (pinned to commit ${{ github.sha }})."
+            echo "Beta source: feature/offline-cards-unique-npc-wave34 (pinned to commit ${{ github.sha }})."
+            echo "Uses separate Beta test profile; older profile is not migrated or deleted."
             echo "HTTPS site: https://rag-svv-web.pages.dev"
             echo "No R2, database or backend gameplay server."
             echo "Browser/device QA and player-save QA are still required."

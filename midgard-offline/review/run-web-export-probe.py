@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Ephemeral Web export compatibility probe. No client distribution or deployment."""
 from __future__ import annotations
+import argparse
 import importlib.util
 import json
 from pathlib import Path
@@ -17,6 +18,12 @@ def load(path):
     return module
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--retain-pages", type=Path, help="Retain locally staged Pages files for explicitly authorized manual release; never uploads")
+    args_cli = parser.parse_args()
+    destination = args_cli.retain_pages.resolve() if args_cli.retain_pages is not None else None
+    if destination is not None and (destination.exists() or ROOT / "work" not in destination.parents):
+        parser.error("Retained Pages output must be new and inside midgard-offline/work")
     work = ROOT / "work"
     work.mkdir(exist_ok=True)
     report = {"scope": "ephemeral export compatibility only", "stage": "initial",
@@ -106,7 +113,15 @@ def main():
             report["pages_package_max_file_bytes"] = max(p.stat().st_size for p in public.rglob("*") if p.is_file())
             report["pages_package_split_assets"] = sorted(manifest["large_assets"])
             report["pages_package_passed"] = True
-            shutil.rmtree(packaged)
+            if destination is not None:
+                # The manual workflow has an explicit rights confirmation;
+                # this tool only retains local files. It never deploys.
+                (public / "PREVIEW-NOT-RELEASED.txt").unlink(missing_ok=True)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(packaged), str(destination))
+                report["pages_retained_locally"] = True
+            else:
+                shutil.rmtree(packaged)
             report["export_passed"] = True
             report["stage"] = "complete"
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
