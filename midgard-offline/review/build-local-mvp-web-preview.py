@@ -156,7 +156,7 @@ def build(args):
                 subprocess.run([xvfb, "--auto-servernum", "--server-args=-screen 0 1280x960x24",
                                 str(godot), "--path", str(project), "--resolution", "1280x900",
                                 "res://svv_friend_visual_review.tscn", "--", "--offline-test",
-                                "--friend-visual-output=" + str(visual_output)], env=env, check=True, timeout=100)
+                                "--friend-visual-output=" + str(visual_output)], env=env, check=True, timeout=180)
                 print("LOCAL_MVP_FRIEND_VISUAL completed", flush=True)
             except (OSError, ValueError, subprocess.SubprocessError):
                 print("LOCAL_MVP_FRIEND_VISUAL failed", flush=True)

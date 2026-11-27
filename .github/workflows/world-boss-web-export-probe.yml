@@ -43,6 +43,8 @@ jobs:
             midgard-offline/work/friend-visual-review/prontera-npcs.png
             midgard-offline/work/friend-visual-review/portrait-sprite-review.png
             midgard-offline/work/friend-visual-review/hair-palette-review.png
+            midgard-offline/work/friend-visual-review/hairstyle-review.png
+            midgard-offline/work/friend-visual-review/clothing-review.png
             midgard-offline/work/friend-visual-review/friend-visual-report.json
           if-no-files-found: ignore
           retention-days: 7

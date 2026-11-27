@@ -32,16 +32,17 @@ const NPC_NAMES := {
 # These deliberately conservative values use the original styled_character
 # factory; no replacement texture or fake sprite is created.
 const NPC_LOOK := {
-	# Portrait review: fixed identity; colors are provisional until the native
-	# palette contact sheet is inspected. Never infer gender from an asset hit.
-	"acolyte": {"gender": "f", "hair": 6, "hair_color": 7, "target_hair": "golden blonde"},
+	# Hair colors chosen from actual Web Build #3 native palette contact sheet.
+	# Keep portraits authoritative. Native wardrobe/gear remain separate
+	# review choices: no guessed equipment IDs or unrelated class changes.
+	"acolyte": {"gender": "f", "hair": 6, "hair_color": 1, "cloth": 0, "headgear": "", "target_hair": "golden blonde", "target_outfit": "white gold violet cleric; long hair and mitre"},
 	"gunslinger": {"gender": "m", "hair": 7, "hair_color": 1},
 	"taekwon": {"gender": "m", "hair": 8, "hair_color": 2},
-	"swordsman": {"gender": "m", "hair": 1, "hair_color": 1, "target_hair": "red"},
-	"mage": {"gender": "f", "hair": 5, "hair_color": 2, "target_hair": "violet"},
-	"archer": {"gender": "f", "hair": 3, "hair_color": 7, "target_hair": "golden blonde"},
-	"thief": {"gender": "m", "hair": 4, "hair_color": 0, "target_hair": "dark"},
-	"merchant": {"gender": "m", "hair": 2, "hair_color": 3, "target_hair": "brown"},
+	"swordsman": {"gender": "m", "hair": 1, "hair_color": 8, "cloth": 0, "headgear": "", "target_hair": "red", "target_outfit": "silver armor and red scarf; spiky hair"},
+	"mage": {"gender": "f", "hair": 5, "hair_color": 2, "cloth": 0, "headgear": "", "target_hair": "violet", "target_outfit": "violet gold robe and wide witch hat; long hair"},
+	"archer": {"gender": "f", "hair": 3, "hair_color": 1, "cloth": 0, "headgear": "", "target_hair": "golden blonde", "target_outfit": "brown leather archer; short hair and bow"},
+	"thief": {"gender": "m", "hair": 4, "hair_color": 7, "cloth": 0, "headgear": "", "target_hair": "dark", "target_outfit": "dark hooded cloak; dark hair"},
+	"merchant": {"gender": "m", "hair": 2, "hair_color": 3, "cloth": 0, "headgear": "", "target_hair": "brown", "target_outfit": "brown cap and red scarf; cream shirt, satchel"},
 }
 
 const NPC_GREETINGS := {
@@ -289,7 +290,10 @@ func _resolved_look(job: String) -> Dictionary:
 			var color: int = int(style["hair_color"])
 			if color > 0 and not RoAssets.has_palette("hair_%s_%d_%d" % [gender, hair_id_chosen, color]):
 				color = 0
-			return {"gender": gender, "hair": hair_id_chosen, "hair_color": color, "cloth": 0, "head_key": chosen, "preferred_head": hair_id_chosen == preferred}
+			var gear: String = str(style.get("headgear", ""))
+			if not gear.is_empty() and not RoAssets.has_sprite(gear):
+				gear = ""
+			return {"gender": gender, "hair": hair_id_chosen, "hair_color": color, "cloth": int(style.get("cloth", 0)), "headgear": gear, "head_key": chosen, "preferred_head": hair_id_chosen == preferred}
 	return {}
 
 
@@ -301,7 +305,7 @@ func _composed_original_sprite(job: String, sprite_id: String) -> RoSprite:
 		push_warning("SVV: no distinct native head for " + job)
 		return null
 	var composed: RoSprite = RoAssets.styled_character(
-		job, "", "", [RoVisual.PC_ATTACK], "", look)
+		job, "", "", [RoVisual.PC_ATTACK], str(look.get("headgear", "")), look)
 	if composed == null:
 		push_warning("SVV: full head/hair/body sprite unavailable for " + job)
 	return composed

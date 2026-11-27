@@ -197,9 +197,14 @@ func _run() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var palette_saved: bool = await _capture("hair-palette-review.png")
+	# Inspect native hairstyle geometry and clothing dyes, not just color IDs.
+	# The exact same factory and static-pose routine used by live town NPCs.
+	var hairstyle_saved: bool = await _variant_sheet(body, jobs, sample_root, "hair")
+	var clothing_saved: bool = await _variant_sheet(body, jobs, sample_root, "cloth")
 	sample_root.queue_free()
 	var report := {"map_screenshot": map_saved, "comparison_screenshot": board_saved,
-		"palette_screenshot": palette_saved,
+		"palette_screenshot": palette_saved, "hairstyle_screenshot": hairstyle_saved,
+		"clothing_screenshot": clothing_saved,
 		"all_six_unique_heads_and_stable_frames": complete, "portrait_likeness_approved": false,
 		"entries": entries}
 	var file := FileAccess.open(output_dir.path_join("friend-visual-report.json"), FileAccess.WRITE)
@@ -207,3 +212,65 @@ func _run() -> void:
 		file.store_string(JSON.stringify(report, "\t"))
 		file.close()
 	get_tree().quit(0 if map_saved and board_saved and complete else 1)
+
+func _variant_sheet(body: VBoxContainer, jobs: Array, root: Node3D, kind: String) -> bool:
+	for child in body.get_children():
+		child.queue_free()
+	await get_tree().process_frame
+	body.add_child(_label("Native " + ("hairstyles" if kind == "hair" else "clothing dyes") + " — portrait reference", 24))
+	var grid := GridContainer.new()
+	grid.columns = 10
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	body.add_child(grid)
+	for job in jobs:
+		var resolved: Dictionary = SVVCompanionTown._resolved_look(job)
+		var profile: Dictionary = SVVAssistant._friend_profile(job)
+		var target_cell := VBoxContainer.new()
+		target_cell.custom_minimum_size = Vector2(116, 108)
+		grid.add_child(target_cell)
+		target_cell.add_child(_label(str(profile.get("name", job)), 14))
+		var target := TextureRect.new()
+		target.texture = SVVAssistant._portrait_texture(job)
+		target.custom_minimum_size = Vector2(100, 88)
+		target.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		target.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		target_cell.add_child(target)
+		for index in range(9):
+			var value: int = index + 1 if kind == "hair" else index
+			var cell := VBoxContainer.new()
+			cell.custom_minimum_size = Vector2(116, 108)
+			grid.add_child(cell)
+			cell.add_child(_label(kind + " " + str(value), 13))
+			var icon := TextureRect.new()
+			icon.custom_minimum_size = Vector2(100, 88)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			cell.add_child(icon)
+			if resolved.is_empty():
+				continue
+			var look: Dictionary = resolved.duplicate(true)
+			if kind == "hair":
+				var head: String = "head_%s_%d" % [look["gender"], value]
+				if not RoAssets.has_sprite(head):
+					continue
+				look["hair"] = value
+				if not RoAssets.has_palette("hair_%s_%d_%d" % [look["gender"], value, look["hair_color"]]):
+					look["hair_color"] = 0
+			else:
+				look["cloth"] = value
+			var composite: RoSprite = RoAssets.styled_character(job, "", "", [RoVisual.PC_ATTACK], str(look.get("headgear", "")), look)
+			if composite == null:
+				continue
+			var sample := RoVisual.new()
+			root.add_child(sample)
+			sample.setup(composite, Color(0.8, 0.8, 0.9), 40)
+			SVVCompanionTown._set_idle(sample)
+			if sample.sprite is Sprite3D and sample.sprite.texture != null:
+				icon.texture = sample.sprite.texture
+			sample.queue_free()
+		await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	return await _capture(("hairstyle-review.png" if kind == "hair" else "clothing-review.png"))
