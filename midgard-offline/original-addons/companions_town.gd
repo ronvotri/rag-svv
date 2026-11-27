@@ -32,17 +32,18 @@ const NPC_NAMES := {
 # These deliberately conservative values use the original styled_character
 # factory; no replacement texture or fake sprite is created.
 const NPC_LOOK := {
-	# Hair colors chosen from actual Web Build #3 native palette contact sheet.
+	# Hair colors from Build #3; hair shapes and cloth dyes selected from
+	# actual Build #4 renderer contact sheets. Closest native approximation.
 	# Keep portraits authoritative. Native wardrobe/gear remain separate
 	# review choices: no guessed equipment IDs or unrelated class changes.
-	"acolyte": {"gender": "f", "hair": 6, "hair_color": 1, "cloth": 0, "headgear": "", "target_hair": "golden blonde", "target_outfit": "white gold violet cleric; long hair and mitre"},
+	"acolyte": {"gender": "f", "hair": 9, "hair_color": 1, "cloth": 6, "headgear": "", "target_hair": "golden blonde", "target_outfit": "white gold violet cleric; long hair and mitre"},
 	"gunslinger": {"gender": "m", "hair": 7, "hair_color": 1},
 	"taekwon": {"gender": "m", "hair": 8, "hair_color": 2},
-	"swordsman": {"gender": "m", "hair": 1, "hair_color": 8, "cloth": 0, "headgear": "", "target_hair": "red", "target_outfit": "silver armor and red scarf; spiky hair"},
-	"mage": {"gender": "f", "hair": 5, "hair_color": 2, "cloth": 0, "headgear": "", "target_hair": "violet", "target_outfit": "violet gold robe and wide witch hat; long hair"},
-	"archer": {"gender": "f", "hair": 3, "hair_color": 1, "cloth": 0, "headgear": "", "target_hair": "golden blonde", "target_outfit": "brown leather archer; short hair and bow"},
-	"thief": {"gender": "m", "hair": 4, "hair_color": 7, "cloth": 0, "headgear": "", "target_hair": "dark", "target_outfit": "dark hooded cloak; dark hair"},
-	"merchant": {"gender": "m", "hair": 2, "hair_color": 3, "cloth": 0, "headgear": "", "target_hair": "brown", "target_outfit": "brown cap and red scarf; cream shirt, satchel"},
+	"swordsman": {"gender": "m", "hair": 6, "hair_color": 8, "cloth": 0, "headgear": "", "target_hair": "red", "target_outfit": "silver armor and red scarf; spiky hair"},
+	"mage": {"gender": "f", "hair": 7, "hair_color": 2, "cloth": 6, "headgear": "", "target_hair": "violet", "target_outfit": "violet gold robe and wide witch hat; long hair"},
+	"archer": {"gender": "f", "hair": 2, "hair_color": 1, "cloth": 1, "headgear": "", "target_hair": "golden blonde", "target_outfit": "brown leather archer; short hair and bow"},
+	"thief": {"gender": "m", "hair": 7, "hair_color": 7, "cloth": 5, "headgear": "", "target_hair": "dark", "target_outfit": "dark hooded cloak; dark hair"},
+	"merchant": {"gender": "m", "hair": 5, "hair_color": 3, "cloth": 3, "headgear": "", "target_hair": "brown", "target_outfit": "brown cap and red scarf; cream shirt, satchel"},
 }
 
 const NPC_GREETINGS := {
@@ -304,11 +305,34 @@ func _composed_original_sprite(job: String, sprite_id: String) -> RoSprite:
 	if look.is_empty() or not RoAssets.has_sprite(str(look["head_key"])):
 		push_warning("SVV: no distinct native head for " + job)
 		return null
+	# The native class weapon is visual only; no equipment or stat changes.
+	var weapon: String = _portrait_weapon(job, look)
+	var extras: Array = _portrait_extras(job)
 	var composed: RoSprite = RoAssets.styled_character(
-		job, "", "", [RoVisual.PC_ATTACK], str(look.get("headgear", "")), look)
+		job, weapon, "", [RoVisual.PC_ATTACK], str(look.get("headgear", "")), look, "", extras)
 	if composed == null:
 		push_warning("SVV: full head/hair/body sprite unavailable for " + job)
 	return composed
+
+
+func _portrait_weapon(job: String, look: Dictionary) -> String:
+	var definition: Variant = GameData.CLASSES.get(job, {})
+	if not definition is Dictionary:
+		return ""
+	var weapon: String = str(definition.get("weapon", ""))
+	if weapon.is_empty():
+		return ""
+	if RoAssets.has_sprite(weapon) or (str(look.get("gender", "")) == "f" and RoAssets.has_sprite(weapon + "_f")):
+		return weapon
+	return ""
+
+
+func _portrait_extras(job: String) -> Array:
+	# Native cosmetic backpack, if this exact job-specific part exists.
+	# Keep it out of gameplay equipment and save data.
+	if job == "merchant" and RoAssets.has_sprite("robe_c_adventurer_backpack_merchant"):
+		return ["robe_c_adventurer_backpack_merchant"]
+	return []
 
 
 func _first_original_sprite(job: String) -> String:

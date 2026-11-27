@@ -201,10 +201,11 @@ func _run() -> void:
 	# The exact same factory and static-pose routine used by live town NPCs.
 	var hairstyle_saved: bool = await _variant_sheet(body, jobs, sample_root, "hair")
 	var clothing_saved: bool = await _variant_sheet(body, jobs, sample_root, "cloth")
+	var gear_report: Dictionary = await _headgear_sheet(body, jobs, sample_root)
 	sample_root.queue_free()
 	var report := {"map_screenshot": map_saved, "comparison_screenshot": board_saved,
 		"palette_screenshot": palette_saved, "hairstyle_screenshot": hairstyle_saved,
-		"clothing_screenshot": clothing_saved,
+		"clothing_screenshot": clothing_saved, "headgear_review": gear_report,
 		"all_six_unique_heads_and_stable_frames": complete, "portrait_likeness_approved": false,
 		"entries": entries}
 	var file := FileAccess.open(output_dir.path_join("friend-visual-report.json"), FileAccess.WRITE)
@@ -274,3 +275,100 @@ func _variant_sheet(body: VBoxContainer, jobs: Array, root: Node3D, kind: String
 	await get_tree().process_frame
 	await get_tree().process_frame
 	return await _capture(("hairstyle-review.png" if kind == "hair" else "clothing-review.png"))
+
+# Discover real asset keys inside the recovered private client. No guessed
+# IDs in the live look table, no extracted individual sprites in artifacts.
+func _gear_candidates(job: String, all_keys: PackedStringArray) -> Array[String]:
+	var terms: Array = {
+		"acolyte": ["mitre", "mitra", "bishop", "priest", "cleric", "pope", "nun"],
+		"swordsman": ["scarf", "muffler", "bandana", "headband"],
+		"mage": ["witch", "wizard", "magician", "magic_hat", "sorcerer", "mage_hat"],
+		"archer": ["archer", "hunter", "feather", "ribbon", "headband"],
+		"thief": ["hood", "assassin", "rogue", "ninja_mask", "bandana"],
+		"merchant": ["merchant", "cap", "beret", "traveler", "adventurer", "scarf"],
+	}.get(job, [])
+	var found: Array[String] = []
+	for term in terms:
+		for key in all_keys:
+			var lower: String = key.to_lower()
+			if not lower.contains(str(term)) or found.has(key):
+				continue
+			# Exclude known body, hair, NPC, robe, weapon and effect parts.
+			if lower.begins_with("robe_") or lower.begins_with("head_m") or lower.begins_with("head_f") or lower.begins_with("npc_") or lower.begins_with("weapon_") or lower.begins_with("fx_") or lower.begins_with("effect_"):
+				continue
+			if not (lower.begins_with("headgear_") or lower.begins_with("hat_") or lower.begins_with("acc_") or lower.begins_with("accessory_") or lower.begins_with("hg_") or lower.begins_with("equip_")):
+				continue
+			if RoAssets.has_sprite(key):
+				found.append(key)
+			if found.size() >= 5:
+				return found
+	return found
+
+
+func _headgear_sheet(body: VBoxContainer, jobs: Array, root: Node3D) -> Dictionary:
+	var keys := PackedStringArray()
+	for filename in DirAccess.get_files_at("res://assets/ro/sprites"):
+		if filename.ends_with(".json"):
+			keys.append(filename.get_basename())
+	keys.sort()
+	var prefix_counts: Dictionary = {}
+	for key in keys:
+		var prefix: String = key.get_slice("_", 0)
+		if prefix in ["headgear", "hat", "acc", "accessory", "hg", "equip", "head", "robe"]:
+			prefix_counts[prefix] = int(prefix_counts.get(prefix, 0)) + 1
+	for child in body.get_children():
+		child.queue_free()
+	await get_tree().process_frame
+	body.add_child(_label("Native headgear candidates — portrait reference", 24))
+	var grid := GridContainer.new()
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 4)
+	body.add_child(grid)
+	var candidates_by_job: Dictionary = {}
+	for job in jobs:
+		var resolved: Dictionary = SVVCompanionTown._resolved_look(job)
+		var candidates: Array[String] = _gear_candidates(job, keys)
+		candidates_by_job[job] = candidates
+		var profile: Dictionary = SVVAssistant._friend_profile(job)
+		var target_cell := VBoxContainer.new()
+		target_cell.custom_minimum_size = Vector2(194, 108)
+		grid.add_child(target_cell)
+		target_cell.add_child(_label(str(profile.get("name", job)), 14))
+		var target := TextureRect.new()
+		target.texture = SVVAssistant._portrait_texture(job)
+		target.custom_minimum_size = Vector2(100, 88)
+		target.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		target.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		target_cell.add_child(target)
+		for index in range(5):
+			var cell := VBoxContainer.new()
+			cell.custom_minimum_size = Vector2(194, 108)
+			grid.add_child(cell)
+			var gear: String = candidates[index] if index < candidates.size() else ""
+			var name_label := _label(gear if not gear.is_empty() else "—", 11)
+			name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			cell.add_child(name_label)
+			var icon := TextureRect.new()
+			icon.custom_minimum_size = Vector2(100, 88)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			cell.add_child(icon)
+			if gear.is_empty() or resolved.is_empty():
+				continue
+			var composite: RoSprite = RoAssets.styled_character(job, SVVCompanionTown._portrait_weapon(job, resolved), "", [RoVisual.PC_ATTACK], gear, resolved, "", SVVCompanionTown._portrait_extras(job))
+			if composite == null:
+				continue
+			var sample := RoVisual.new()
+			root.add_child(sample)
+			sample.setup(composite, Color(0.8, 0.8, 0.9), 40)
+			SVVCompanionTown._set_idle(sample)
+			if sample.sprite is Sprite3D and sample.sprite.texture != null:
+				icon.texture = sample.sprite.texture
+			sample.queue_free()
+		await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var saved: bool = await _capture("headgear-review.png")
+	return {"screenshot": saved, "prefix_counts": prefix_counts, "candidates": candidates_by_job}
