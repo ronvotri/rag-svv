@@ -96,6 +96,25 @@ class CloudflarePagesOnlyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             mod.replace_startup_splash("<html><head></head></html>", cover_url, require_image=True)
 
+    def test_raw_export_with_cover_stages_without_duplicate_and_uses_same_url(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = original_fixture(root)
+            cover = mod.startup_cover()
+            (source / "ragnarok-loading.jpg").write_bytes(cover.read_bytes())
+            url = mod.splash_url(cover)
+            raw = '<html><head></head><body><img id="status-splash" src="index.png"></body></html>'
+            (source / "index.html").write_text(mod.replace_startup_splash(raw, url, require_image=True), encoding="utf-8")
+            result = mod.stage(source, root / "deploy", "abcdef0123456")
+            public = root / "deploy/public"
+            self.assertEqual(sum(x["name"] == "ragnarok-loading.jpg" for x in result["static_assets"]), 1)
+            for entry in ("index.html", "game.html"):
+                page = (public / entry).read_text(encoding="utf-8")
+                self.assertIn('src="' + url + '"', page)
+                self.assertIn('href="' + url + '"', page)
+                self.assertNotIn('img.src="./ragnarok-loading.jpg"', page)
+            self.assertNotIn('src="index.png"', (public / "game.html").read_text(encoding="utf-8"))
+
     def test_unchanged_chunks_keep_urls_across_commits(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

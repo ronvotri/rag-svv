@@ -126,6 +126,8 @@ def stage(source: Path, output: Path, version: str,
     if not {".pck", ".wasm", ".js"}.issubset({p.suffix for p in files}):
         raise ValueError("Missing required Godot JS/WASM/PCK export files")
 
+    cover = startup_cover()
+    cover_url = splash_url(cover)
     public = output / "public"
     public.mkdir(parents=True)
     manifest = {
@@ -159,16 +161,7 @@ def stage(source: Path, output: Path, version: str,
                 html = file.read_text(encoding="utf-8")
                 if html.lower().count("</body>") != 1:
                     raise ValueError("Unexpected original Godot HTML body")
-                # Swap Godot's stock splash illustration, leaving its progress
-                # bar and class-select game scene completely untouched.
-                # This script executes after the body is parsed, before WASM
-                # finishes initializing. Fallback: original splash stays.
-                splash_script = ('<script>document.addEventListener("DOMContentLoaded", function(){'
-                    'var img=document.getElementById("status-splash");'
-                    'if(img){img.src="./ragnarok-loading.jpg";img.style.imageRendering="auto";}'
-                    '},{once:true});</script>')
-                html = re.sub(r"</body>", splash_script + "\n</body>", html,
-                              count=1, flags=re.IGNORECASE)
+                html = replace_startup_splash(html, cover_url)
                 # Directly opening /game.html bypasses the bootstrap and causes
                 # the multi-hundred-MiB Godot loader to hang without its SW.
                 # Place the guard before Godot's own HEAD scripts execute.
@@ -196,11 +189,6 @@ def stage(source: Path, output: Path, version: str,
     # when stretched to desktop 16:9. Never silently ship that thumbnail.
     # The authored Ragnarok image is the WEB LOADING SPLASH, not the
     # character-selection menu or an in-game overlay.
-    cover = ROOT / "original-addons/svv_home_background.jpg"
-    if not cover.is_file() or not (250_000 <= cover.stat().st_size <= 3_000_000):
-        raise ValueError("Full-quality Web startup cover missing, too small or larger than 3MB")
-    if cover.read_bytes()[:3] != b"\xff\xd8\xff":
-        raise ValueError("Web startup cover must be JPEG")
     shutil.copyfile(cover, public / "ragnarok-loading.jpg")
     manifest["static_assets"].append({
         "name": "ragnarok-loading.jpg",
@@ -223,7 +211,10 @@ def stage(source: Path, output: Path, version: str,
     )
     shutil.copyfile(ROOT / "cloudflare/fullscreen-toggle.js", public / "fullscreen-toggle.js")
     shutil.copyfile(ROOT / "cloudflare/game-entry-guard.js", public / "game-entry-guard.js")
-    shutil.copyfile(ROOT / "cloudflare/pages-bootstrap.html", public / "index.html")
+    bootstrap = (ROOT / "cloudflare/pages-bootstrap.html").read_text(encoding="utf-8")
+    if bootstrap.count("./ragnarok-loading.jpg") != 2:
+        raise ValueError("Unexpected bootstrap cover markup")
+    (public / "index.html").write_text(bootstrap.replace("./ragnarok-loading.jpg", cover_url), encoding="utf-8")
     (public / "_headers").write_text(
         "/index.html\n  Cache-Control: no-cache\n"
         "/ragnarok-loading.jpg\n  Cache-Control: no-cache\n"
