@@ -1,22 +1,15 @@
-# Web Beta — manual release from Wave 34
+# Wave 34 Web Beta — release branch
 
-Build #8 (45937128577) validated 0.2.11 export + actual Pages staging,
-64 files, max 16 MiB, consistent initial splash. QA #21 and #23 passed;
-#24 stopped during candidate download before gameplay. This is not a browser pass.
-
-The existing publish workflow on this branch is now MANUAL ONLY.
-Use Actions > Ragnarok SVV - publish original Web (Pages Free) > Run workflow,
-select feature/offline-cards-unique-npc-wave34, and confirm the redistribution
-rights checkbox only if true. Main and release/ragnarok-web are unchanged.
-The old release pipeline must not be triggered because it uses obsolete pins.
-
-The job checks out the selected commit, rebuilds via the verified direct-base
-0.2.11 export path, retains the staged package only in the runner, validates
-manifest/splash/size, and then deploys to the existing Pages project only after
-the rights gate and configured web-production environment checks. No artifact
-containing game data is uploaded to GitHub.
-
-Beta uses its own test profile and does not migrate/delete the old player
-profile. Back up saves before trying it. Browser/device and Save reload QA
-remain required; portrait likeness and signature NPC hats are not approved.
-Do not claim a release before actual Cloudflare deployment success.
+Owner requested deploying the updated Beta to the existing Web site and
+asked to reuse prior GitHub write access rather than manual workflow dispatch.
+Build #8 and #9 passed direct-base 0.2.11 export, Pages staging and initial
+splash checks. This release-only commit restores the existing push-triggered
+release route, restricted to changes to the publish workflow itself.
+The existing RAGNAROK_AUTO_DEPLOY_WEB repository opt-in remains mandatory for
+push releases; the web-production environment and existing Cloudflare
+credentials remain unchanged. No variables, secrets or approvals are modified.
+Manual publication also retains its explicit rights checkbox.
+The release branch is advanced without force, from the verified ancestor.
+Browser and real player Save QA are not yet confirmed. Beta uses a separate
+profile; old data is not deleted or migrated. NPC portrait likeness is not
+approved. Do not treat workflow initiation as successful deployment.

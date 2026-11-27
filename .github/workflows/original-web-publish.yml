@@ -1,5 +1,11 @@
 name: Ragnarok SVV - publish original Web (Pages Free)
 on:
+  # Keep the existing repository rights opt-in and production environment.
+  # Restrict automatic publication to an explicit release-workflow update.
+  push:
+    branches: [release/ragnarok-web]
+    paths:
+      - '.github/workflows/original-web-publish.yml'
   workflow_dispatch:
     inputs:
       redistribution_rights_confirmed:
@@ -14,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.redistribution_rights_confirmed == true }}
+    if: ${{ (github.event_name == 'push' && vars.RAGNAROK_AUTO_DEPLOY_WEB == 'true') || (github.event_name == 'workflow_dispatch' && inputs.redistribution_rights_confirmed == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     environment: web-production
@@ -36,7 +42,7 @@ jobs:
           node-version: '22'
       - name: Verify explicitly selected Wave 34 Beta commit
         run: |
-          test "$GITHUB_REF_NAME" = "feature/offline-cards-unique-npc-wave34"
+          test "$GITHUB_REF_NAME" = "release/ragnarok-web"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Verify Pages credentials (R2 credentials are NOT required)
         run: |
@@ -104,7 +110,7 @@ jobs:
             echo "## Ragnarok Web: Pages-only deployment submitted"
             echo "Project: rag-svv-web"
             echo "Original client commit: ${{ steps.pack.outputs.sha }}"
-            echo "Beta source: feature/offline-cards-unique-npc-wave34 (pinned to commit ${{ github.sha }})."
+            echo "Beta release: release/ragnarok-web (pinned to commit ${{ github.sha }})."
             echo "Uses separate Beta test profile; older profile is not migrated or deleted."
             echo "HTTPS site: https://rag-svv-web.pages.dev"
             echo "No R2, database or backend gameplay server."
