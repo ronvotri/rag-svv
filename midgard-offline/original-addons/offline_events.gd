@@ -606,64 +606,29 @@ func _refresh_mvp_summary(index: int) -> void:
 		MVP_NAMES[index], selected["wins"], total["wins"], total["marks"]]
 
 
-# Open the exact native dialog using its reviewed owning instance.
-# No simulated fallback when the explicit native-destination QA flag is set.
-func _native_destination_owners(world: World, script_path: String) -> Array[Object]:
-	var found: Array[Object] = []
-	var seen: Dictionary = {}
-	var queue: Array[Object] = [world, world.menus]
-	var town: Variant = world.get("town")
-	if town is Node:
-		queue.append(town)
-	var inspected := 0
-	while not queue.is_empty() and inspected < 6000:
-		var candidate: Object = queue.pop_front()
-		if not is_instance_valid(candidate) or seen.has(candidate.get_instance_id()):
-			continue
-		seen[candidate.get_instance_id()] = true
-		inspected += 1
-		var script: Variant = candidate.get_script()
-		if script is Script and script.resource_path == script_path:
-			found.append(candidate)
-		if candidate is Node:
-			for child in candidate.get_children():
-				queue.append(child)
-		# Town controllers can be RefCounted and held in script properties
-		# rather than appearing as children. Follow only exact script matches,
-		# not arbitrary resources or the whole object graph.
-		for property in candidate.get_property_list():
-			if not (int(property.get("usage", 0)) & PROPERTY_USAGE_SCRIPT_VARIABLE) or int(property.get("type", 0)) != TYPE_OBJECT:
-				continue
-			var value: Variant = candidate.get(str(property["name"]))
-			if value is Object and is_instance_valid(value):
-				var value_script: Variant = value.get_script()
-				if value_script is Script and value_script.resource_path == script_path:
-					queue.append(value)
-	return found
-
-
+# Call the exact native Menus instance only after validating the pinned
+# recovered script's teleporter contract. The native dialog owns its pause,
+# card art, callbacks and closing behavior; never open the green simulator.
 func _open_native_destination_review() -> void:
 	native_destination_opened = false
 	if not native_destination_review or not _in_town():
 		return
 	var world: World = SVVAssistant._world()
-	if not is_instance_valid(world) or world.net.mode != "" or world.net.eos() != null or world.cloud._enabled():
+	if not is_instance_valid(world) or not is_instance_valid(world.menus) or world.net.mode != "" or world.net.eos() != null or world.cloud._enabled():
 		return
-	var path: String = str(native_destination_contract.get("script", ""))
-	var method: String = str(native_destination_contract.get("method", ""))
-	if not path.begins_with("res://scripts/") or method.is_empty() or int(native_destination_contract.get("required", -1)) != 0:
+	var script: Script = world.menus.get_script()
+	if script == null or script.resource_path != "res://scripts/ui/menus.gd":
+		print("NATIVE_DESTINATION_QA BLOCKED wrong_owner")
+		return
+	if native_destination_contract.get("script", "") != script.resource_path or native_destination_contract.get("method", "") != "show_teleporter" or int(native_destination_contract.get("required", -1)) != 0:
 		print("NATIVE_DESTINATION_QA BLOCKED source_contract")
 		return
-	var owners: Array[Object] = _native_destination_owners(world, path)
-	if owners.size() != 1 or not owners[0].has_method(method):
-		print("NATIVE_DESTINATION_QA BLOCKED owner_count=", owners.size())
-		return
-	var opener := Callable(owners[0], method)
+	var opener := Callable(world.menus, "show_teleporter")
 	if not opener.is_valid():
 		return
 	opener.call()
 	native_destination_opened = true
-	print("NATIVE_DESTINATION_QA INVOKED ", path, "::", method)
+	print("NATIVE_DESTINATION_QA INVOKED Menus.show_teleporter")
 
 
 func _open() -> void:

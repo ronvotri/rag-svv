@@ -2,8 +2,8 @@
 """Discover the original nearQ destination UI and activity routes without exporting source.
 
 The contract is an isolated review aid, not permission to call online services.
-Only a unique zero-required-argument instance method containing the actual
-destination labels can be selected for the native toolbar probe.
+The known menus.gd show_teleporter contract is validated against actual
+card-builder and route references, rather than depending on localized prose.
 """
 from __future__ import annotations
 import importlib.util
@@ -24,12 +24,12 @@ LABELS = {
     "destinations": re.compile(r"\bdestinations?\b", re.I),
     "nearq": re.compile(r"\bnearq\b", re.I),
 }
-ROUTE_NAMES = re.compile(r"training|practice|dummy|festival|emperium|world_boss|nearq|destination|daily|build", re.I)
+ROUTE_NAMES = re.compile(r"training|practice|dummy|festival|emperium|world_boss|nearq|destination|teleport|daily|build", re.I)
 CALL_NAMES = re.compile(r"\b(?:[A-Za-z_]\w*\.)?([A-Za-z_]\w*)\s*\(")
 ASSET_ID = re.compile(r"^(?:training|practice|dummy|emperium|festival|comodo)[a-z0-9_]*$", re.I)
 
 def inspect(root: Path) -> dict:
-    candidates, routes, ids, scripts = [], [], set(), []
+    candidates, routes, ids, scripts, callers, teleporter = [], [], set(), [], [], None
     for path in sorted((root / "scripts").rglob("*.gd")):
         if path.stat().st_size > base.MAX_FILE_SIZE:
             continue
@@ -49,6 +49,8 @@ def inspect(root: Path) -> dict:
                 value = lit.strip("\"'")
                 if ASSET_ID.fullmatch(value):
                     ids.add(value)
+            if name != "show_teleporter" and re.search(r"\bshow_teleporter\b", code):
+                callers.append({"script": "res://" + relative, "method": name})
             interesting = ROUTE_NAMES.search(name) or ("festival" in labels and "world_boss" in labels)
             if not interesting:
                 continue
@@ -69,6 +71,10 @@ def inspect(root: Path) -> dict:
                    "network_cue": bool(re.search(r"\b(?:net|eos|cloud|leaderboard|ranking|relay)\b", code, re.I)),
                    "save_cue": bool(re.search(r"\b(?:Save|RunSave)\s*\.", code)),
                    "button_connection": bool(re.search(r"\bpressed\s*\.\s*connect\s*\(", code))}
+            if relative == "scripts/ui/menus.gd" and name == "show_teleporter":
+                refs = ["_teleport_card", "show_training_setup", "show_festival", "show_world_boss"]
+                row["native_route_references"] = [item for item in refs if re.search(r"\b" + re.escape(item) + r"\b", code)]
+                teleporter = row
             if "festival" in labels and "world_boss" in labels and (
                     "training" in labels or "destinations" in labels):
                 candidates.append(row)
@@ -78,9 +84,16 @@ def inspect(root: Path) -> dict:
             scripts.append(relative)
     # We intentionally refuse uncertain owners, static methods and required
     # arguments. Do not guess a build index, online state, or a callback.
-    usable = [row for row in candidates if not row["static"] and row["required"] == 0]
-    selected = usable[0] if len(usable) == 1 else None
-    return {"schema": 1, "candidate_count": len(candidates),
+    # Actual UI inventory from the earlier client identifies this owner/method.
+    # Confirm it on the pinned 0.2.11 client, including the card builder.
+    # Do not choose an unrelated dialog merely because it mentions all labels.
+    selected = None
+    if teleporter is not None and not teleporter["static"] and teleporter["required"] == 0:
+        refs = set(teleporter["native_route_references"])
+        if "_teleport_card" in refs and len(refs & {"show_training_setup", "show_festival", "show_world_boss"}) >= 2:
+            selected = teleporter
+    return {"schema": 2, "candidate_count": len(candidates),
+            "known_teleporter_contract": teleporter, "native_teleporter_callers": callers[:30],
             "menu_candidates": candidates[:30], "selected_native_menu": selected,
             "activity_routes": routes[:150], "related_scripts": scripts[:50],
             "candidate_asset_ids": sorted(ids)[:100],
@@ -90,18 +103,25 @@ def inspect(root: Path) -> dict:
 def self_test():
     with tempfile.TemporaryDirectory() as folder:
         root = Path(folder)
-        scripts = root / "scripts"
-        scripts.mkdir()
-        script = scripts / "town.gd"
-        script.write_text('extends Node\nfunc open_destinations() -> void:\n\tcard("Training")\n\tcard("Emperium Festival")\n\tcard("World Boss")\n\nfunc start_festival(index: int):\n\tworld.start_festival(index)\n', encoding="utf-8")
+        scripts = root / "scripts/ui"
+        scripts.mkdir(parents=True)
+        script = scripts / "menus.gd"
+        fixture = ('extends Node\nfunc show_teleporter() -> void:\n'
+                   '\t_teleport_card(tr("TRAINING_KEY"), show_training_setup.bind("training"))\n'
+                   '\t_teleport_card(tr("FESTIVAL_KEY"), show_festival)\n'
+                   '\t_teleport_card(tr("BOSS_KEY"), show_world_boss)\n'
+                   '\nfunc show_training_setup(what: String):\n\tpass\n'
+                   '\nfunc show_festival():\n\tpass\n\nfunc show_world_boss():\n\tpass\n')
+        script.write_text(fixture, encoding="utf-8")
         report = inspect(root)
-        assert report["selected_native_menu"]["method"] == "open_destinations"
+        assert report["selected_native_menu"]["method"] == "show_teleporter"
         assert report["selected_native_menu"]["required"] == 0
+        assert report["known_teleporter_contract"]["native_route_references"] == [
+            "_teleport_card", "show_training_setup", "show_festival", "show_world_boss"]
         assert not report["native_festival_playable"]
-        (scripts / "second.gd").write_text(script.read_text(), encoding="utf-8")
+        script.write_text(fixture.replace("show_teleporter()", "show_teleporter(slot: int)"), encoding="utf-8")
         assert inspect(root)["selected_native_menu"] is None
-        (scripts / "second.gd").unlink()
-        script.write_text(script.read_text().replace("open_destinations()", "open_destinations(slot: int)"), encoding="utf-8")
+        script.write_text(fixture.replace("_teleport_card(", "unknown_card("), encoding="utf-8")
         assert inspect(root)["selected_native_menu"] is None
     print("NATIVE_DESTINATIONS_DISCOVERY_SELFTEST PASS")
 

@@ -225,6 +225,23 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared, destinat
             "NATIVE_DESTINATION_QA COMPLETE errors=0" in report["native_destination_markers"])
         if not report["native_destination_toolbar_passed"]:
             raise ValueError("Native destination toolbar not verified")
+        report["native_destination_card_probes"] = {}
+        for activity in ("training", "festival"):
+            # Each card starts from a fresh isolated profile and Prontera.
+            for variable, suffix in (("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"), ("XDG_CACHE_HOME", "cache")):
+                directory = work / ("destination-" + activity) / suffix
+                directory.mkdir(parents=True, exist_ok=True)
+                env[variable] = str(directory)
+            card = run_private([godot, "--headless", "--path", prepared,
+                                "res://addons/svv_offline/qa/native_destinations_qa.tscn",
+                                "--", "--offline-test", "--offline-native-destinations",
+                                "--destination-card=" + activity], 90)
+            report["native_destination_card_probes"][activity] = {
+                "returncode": card.returncode,
+                "script_errors": card.stdout.count("SCRIPT ERROR:"),
+                "diagnostics": diagnostic_locations(card.stdout),
+                "markers": [line for line in card.stdout.splitlines() if line.startswith("NATIVE_DESTINATION_QA ")][:50],
+            }
         return
     report["stage"] = "isolated_smoke"
     smoke = run_private([godot, "--headless", "--path", prepared, "--",
