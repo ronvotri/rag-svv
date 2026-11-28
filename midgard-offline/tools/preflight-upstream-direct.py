@@ -28,7 +28,7 @@ def candidate_config(legacy, pin, engine):
     return {**legacy, **{k: pin[k] for k in ("archive_size", "pck_size", "pck_crc32", "pck_sha256")},
             "project_base_version": pin["version"]}
 
-def preflight(work, report, runtime=False):
+def preflight(work, report, runtime=False, destinations_only=False):
     cloud = load("cloud-build-original")
     pin = json.loads((ROOT / "review/upstream-0.2.11-pin.json").read_text(encoding="utf-8"))
     legacy = json.loads((ROOT / "config/official-client.json").read_text(encoding="utf-8"))
@@ -78,6 +78,8 @@ def preflight(work, report, runtime=False):
     abandon = return_contract.get("scripts/core/main.gd", {}).get("signatures", {}).get("abandon_run", {})
     report["repeat_probe_exit_signature_compatible"] = abandon.get("required") == 0
     report["scene_candidate_count"] = audit["scene_candidate_count"]
+    if destinations_only:
+        report["native_destination_discovery"] = load("audit-native-destinations").inspect(recovered)
     report["stage"] = "offline_patch_preflight"
     prepared = work / "prepared"
     patches = load("prepare-original-offline").prepare(recovered, prepared)
@@ -104,7 +106,22 @@ def preflight(work, report, runtime=False):
                                     "previously_retired_now_present": len(legacy_retired & source_keys),
                                     "newly_missing_authored_keys": sorted(missing - legacy_retired),
                                     "new_retired_keys_approved": False}
-    if runtime:
+    if destinations_only:
+        contract = report["native_destination_discovery"].get("selected_native_menu")
+        if contract is None:
+            report["stage"] = "native_destination_contract_unresolved"
+            raise ValueError("No unique zero-argument native destination builder")
+        addon = prepared / "addons/svv_offline"
+        (addon / "native_destination_review.json").write_text(json.dumps(contract), encoding="utf-8")
+        qa = addon / "qa"
+        import shutil
+        shutil.copyfile(ROOT / "review/native-destinations-qa.gd", qa / "native_destinations_qa.gd")
+        (qa / "native_destinations_qa.tscn").write_text(
+            '[gd_scene load_steps=2 format=3]\n\n'
+            '[ext_resource type="Script" path="res://addons/svv_offline/qa/native_destinations_qa.gd" id="1"]\n\n'
+            '[node name="NativeDestinationQA" type="Node"]\nscript = ExtResource("1")\n', encoding="utf-8")
+        runtime_preflight(work, report, cloud, config, recovered, prepared, destinations_only=True)
+    elif runtime:
         runtime_preflight(work, report, cloud, config, recovered, prepared)
     report["stage"] = "complete"
 
@@ -158,7 +175,7 @@ def diagnostic_locations(output):
     return [{"path": path, "line": int(line)} for path, line in sorted(set(matches))[:50]
             if ".." not in Path(path).parts]
 
-def runtime_preflight(work, report, cloud, config, recovered, prepared):
+def runtime_preflight(work, report, cloud, config, recovered, prepared, destinations_only=False):
     """Run only test-profile smoke and map QA; never export a client."""
     report["stage"] = "runtime_prepare"
     godot_zip = cloud.download(config["godot_linux"], work / "godot.zip")
@@ -194,6 +211,21 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared):
     report["import_diagnostic_locations"] = diagnostic_locations(imported.stdout) if imported.returncode or report["import_script_error_count"] else []
     if imported.returncode or report["import_script_error_count"]:
         raise ValueError("Godot import failed")
+    if destinations_only:
+        report["stage"] = "native_destination_toolbar"
+        probe = run_private([godot, "--headless", "--path", prepared,
+                             "res://addons/svv_offline/qa/native_destinations_qa.tscn",
+                             "--", "--offline-test", "--offline-native-destinations"], 90)
+        report["native_destination_markers"] = [line for line in probe.stdout.splitlines()
+                                                if line.startswith("NATIVE_DESTINATION_QA ")][:40]
+        report["native_destination_script_errors"] = probe.stdout.count("SCRIPT ERROR:")
+        report["native_destination_diagnostics"] = diagnostic_locations(probe.stdout)
+        report["native_destination_toolbar_passed"] = (probe.returncode == 0 and
+            not report["native_destination_script_errors"] and
+            "NATIVE_DESTINATION_QA COMPLETE errors=0" in report["native_destination_markers"])
+        if not report["native_destination_toolbar_passed"]:
+            raise ValueError("Native destination toolbar not verified")
+        return
     report["stage"] = "isolated_smoke"
     smoke = run_private([godot, "--headless", "--path", prepared, "--",
                          "--offline-test", "--offline-qa"], 180)
@@ -336,6 +368,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "work/upstream-direct-preflight.json")
     parser.add_argument("--runtime", action="store_true", help="Run isolated Godot QA after source preflight")
+    parser.add_argument("--destinations-only", action="store_true", help="Isolated native nearQ menu discovery and toolbar probe")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
@@ -349,7 +382,7 @@ def main():
     root.mkdir(exist_ok=True)
     try:
         with tempfile.TemporaryDirectory(prefix="upstream-direct-", dir=root) as folder:
-            preflight(Path(folder), report, runtime=args.runtime)
+            preflight(Path(folder), report, runtime=args.runtime, destinations_only=args.destinations_only)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
         report["error_type"] = type(error).__name__
         # Fixed stages and types only; no recovered code/credentials or signed URLs.

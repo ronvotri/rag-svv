@@ -54,6 +54,10 @@ var previous_pause := false
 var status_timer := 0.0
 var mvp_picker: OptionButton
 var mvp_preview := false
+# Explicit QA only; the public Beta stays on the last released implementation.
+var native_destination_review := false
+var native_destination_contract: Dictionary = {}
+var native_destination_opened := false
 var mvp_launching := false
 var mvp_last_spawn: Enemy
 var mvp_last_id := ""
@@ -81,12 +85,21 @@ var mvp_reward_balance_after := 0
 
 func _ready() -> void:
 	mvp_preview = Save._name == "profile_offline_test" and OS.get_cmdline_user_args().has("--offline-test") and OS.get_cmdline_user_args().has("--offline-mvp-menu-preview")
+	native_destination_review = Save._name == "profile_offline_test" and "--offline-test" in OS.get_cmdline_user_args() and "--offline-native-destinations" in OS.get_cmdline_user_args()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 117
 	open_button = Button.new()
 	open_button.text = "Luyện offline"
 	open_button.custom_minimum_size = Vector2(164, 38)
 	open_button.tooltip_text = "Mini-game mô phỏng cùng Party, không thay thế Điểm đến gốc"
+	if native_destination_review:
+		open_button.text = "Điểm đến"
+		open_button.tooltip_text = "Mở bảng Điểm đến gốc của nearQ"
+		var contract_file := FileAccess.open("res://addons/svv_offline/native_destination_review.json", FileAccess.READ)
+		if contract_file != null:
+			var parsed: Variant = JSON.parse_string(contract_file.get_as_text())
+			if parsed is Dictionary:
+				native_destination_contract = parsed
 	open_button.pressed.connect(_open)
 	_style_launcher_button(open_button)
 	add_child(open_button)
@@ -593,7 +606,70 @@ func _refresh_mvp_summary(index: int) -> void:
 		MVP_NAMES[index], selected["wins"], total["wins"], total["marks"]]
 
 
+# Open the exact native dialog using its reviewed owning instance.
+# No simulated fallback when the explicit native-destination QA flag is set.
+func _native_destination_owners(world: World, script_path: String) -> Array[Object]:
+	var found: Array[Object] = []
+	var seen: Dictionary = {}
+	var queue: Array[Object] = [world, world.menus]
+	var town: Variant = world.get("town")
+	if town is Node:
+		queue.append(town)
+	var inspected := 0
+	while not queue.is_empty() and inspected < 6000:
+		var candidate: Object = queue.pop_front()
+		if not is_instance_valid(candidate) or seen.has(candidate.get_instance_id()):
+			continue
+		seen[candidate.get_instance_id()] = true
+		inspected += 1
+		var script: Variant = candidate.get_script()
+		if script is Script and script.resource_path == script_path:
+			found.append(candidate)
+		if candidate is Node:
+			for child in candidate.get_children():
+				queue.append(child)
+		# Town controllers can be RefCounted and held in script properties
+		# rather than appearing as children. Follow only exact script matches,
+		# not arbitrary resources or the whole object graph.
+		for property in candidate.get_property_list():
+			if not (int(property.get("usage", 0)) & PROPERTY_USAGE_SCRIPT_VARIABLE) or int(property.get("type", 0)) != TYPE_OBJECT:
+				continue
+			var value: Variant = candidate.get(str(property["name"]))
+			if value is Object and is_instance_valid(value):
+				var value_script: Variant = value.get_script()
+				if value_script is Script and value_script.resource_path == script_path:
+					queue.append(value)
+	return found
+
+
+func _open_native_destination_review() -> void:
+	native_destination_opened = false
+	if not native_destination_review or not _in_town():
+		return
+	var world: World = SVVAssistant._world()
+	if not is_instance_valid(world) or world.net.mode != "" or world.net.eos() != null or world.cloud._enabled():
+		return
+	var path: String = str(native_destination_contract.get("script", ""))
+	var method: String = str(native_destination_contract.get("method", ""))
+	if not path.begins_with("res://scripts/") or method.is_empty() or int(native_destination_contract.get("required", -1)) != 0:
+		print("NATIVE_DESTINATION_QA BLOCKED source_contract")
+		return
+	var owners: Array[Object] = _native_destination_owners(world, path)
+	if owners.size() != 1 or not owners[0].has_method(method):
+		print("NATIVE_DESTINATION_QA BLOCKED owner_count=", owners.size())
+		return
+	var opener := Callable(owners[0], method)
+	if not opener.is_valid():
+		return
+	opener.call()
+	native_destination_opened = true
+	print("NATIVE_DESTINATION_QA INVOKED ", path, "::", method)
+
+
 func _open() -> void:
+	if native_destination_review:
+		_open_native_destination_review()
+		return
 	if panel.visible or not _in_town():
 		return
 	previous_pause = get_tree().paused
