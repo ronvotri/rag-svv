@@ -158,6 +158,23 @@ class WorldBossMapTests(unittest.TestCase):
         self.assertNotIn('Save.set_setting(', helper)
         self.assertIn('offline_mvp_encounter.gd', INSTALLER.read_text(encoding="utf-8"))
 
+    def test_native_mvp_guest_party_is_temporary_and_runtime_verified(self):
+        menu = (SCRIPT.parent / "offline_events.gd").read_text(encoding="utf-8")
+        probe = (SCRIPT.parent / "offline_mvp_menu_qa.gd").read_text(encoding="utf-8")
+        self.assertIn("const MVP_FILL_SECONDS := 5", menu)
+        self.assertIn("if recruited.size() < 3:", menu)
+        self.assertIn("create_timer(1.0, true, false, true)", menu)
+        self.assertIn("world.coop_classes.assign(launch_party)", menu)
+        self.assertIn("mvp_party_world.coop_classes.assign(SVVAssistant._party_members())", menu)
+        self.assertIn("if not panel.visible or not is_instance_valid(world) or not _in_town():", menu)
+        self.assertNotIn('Save.set_setting("svv_offline_party"', menu)
+        self.assertNotIn('Save.set_setting("svv_offline_friends"', menu)
+        for marker in ("fresh_profile_has_no_recruited_party", "guest_countdown_stays_in_town",
+                       "guest_fill_waited_five_seconds", "guest_party_not_persisted",
+                       "guest_fill_preserves_recruited_order", "full_party_unchanged",
+                       "temporary_party_restored_in_town", "human_plus_three_party"):
+            self.assertIn(marker, probe)
+
     def test_local_victory_ledger_is_test_only_and_duplicate_guarded(self):
         code = SCRIPT.read_text(encoding="utf-8")
         self.assertIn('Save._name != "profile_offline_test"', code)

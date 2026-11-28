@@ -1,7 +1,7 @@
 name: Upstream client - direct base preflight
 on:
   push:
-    branches: [feature/offline-cards-unique-npc-wave34]
+    branches: [feature/offline-cards-unique-npc-wave34, feature/daily-native-integration-wave35]
     paths:
       - 'midgard-offline/tools/preflight-upstream-direct.py'
       - 'midgard-offline/review/upstream-0.2.11-pin.json'

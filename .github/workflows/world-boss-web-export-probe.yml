@@ -1,8 +1,14 @@
 name: World Boss - Web export probe
 on:
   push:
-    branches: [feature/offline-cards-unique-npc-wave34]
+    branches: [feature/offline-cards-unique-npc-wave34, feature/daily-native-integration-wave35]
     paths:
+      - 'midgard-offline/original-addons/**'
+      - 'midgard-offline/tools/**'
+      - 'midgard-offline/tests/**'
+      - 'midgard-offline/config/**'
+      - 'midgard-offline/patches/**'
+      - 'midgard-offline/review/upstream-0.2.11-pin.json'
       - 'midgard-offline/review/run-web-export-probe.py'
       - 'midgard-offline/review/build-local-mvp-web-preview.py'
       - 'midgard-offline/review/friend-town-visual-review.gd'
@@ -25,6 +31,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate authored code and translations (Wave 35)
+        if: github.ref == 'refs/heads/feature/daily-native-integration-wave35'
+        run: |
+          node --test midgard-offline/tests/*.test.cjs
+          python -m unittest discover -s midgard-offline/tests -p 'test_*.py'
+          python -m py_compile midgard-offline/tools/*.py
       - name: Check export entrypoints
         run: |
           python -m py_compile midgard-offline/review/build-local-mvp-web-preview.py midgard-offline/review/run-web-export-probe.py midgard-offline/tools/prepare-original-web-deploy.py

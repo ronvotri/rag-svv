@@ -91,6 +91,7 @@ func _repeat_hunt(world: World, previous_token: String) -> void:
 		print("MVP_MENU_TEST REPEAT_RETURN mode=", world.menus._mode, " running=", world.running)
 		return
 	_check(Save.setting("svv_offline_mvp_victories", {}) == prior, "repeat_first_victory_unchanged")
+	_check(world.coop_classes == SVVAssistant._party_members() and world.coop_classes.is_empty(), "temporary_party_restored_in_town")
 	SVVOfflineEvents.open_button.pressed.emit()
 	_check(SVVOfflineEvents.panel.visible, "repeat_menu_reopens")
 	SVVOfflineEvents.mode_buttons["world_boss"].pressed.emit()
@@ -124,8 +125,9 @@ func _run() -> void:
 		return
 	Save.set_setting("onboarded", true)
 	Save.set_setting("privacy_seen", true)
-	Save.set_setting("svv_offline_friends", ["mage", "archer", "acolyte"])
-	Save.set_setting("svv_offline_party", ["mage", "archer", "acolyte"])
+	# Fresh profile: the launcher, not a fixture, must provide all three bots.
+	Save.set_setting("svv_offline_friends", [])
+	Save.set_setting("svv_offline_party", [])
 	Save.flush()
 	var packed: PackedScene = load("res://scenes/main.tscn")
 	var world: World = packed.instantiate() as World
@@ -137,6 +139,12 @@ func _run() -> void:
 		await get_tree().process_frame
 	_check(SVVCompanionTown._town() != null, "original_prontera")
 	_check(SVVOfflineEvents.mvp_preview, "explicit_preview_enabled")
+	var partial: Array[String] = ["archer"]
+	var filled: Array[String] = SVVOfflineEvents._mvp_filled_party(partial)
+	_check(partial == ["archer"] and filled == ["archer", "mage", "acolyte"], "guest_fill_preserves_recruited_order")
+	var full: Array[String] = ["acolyte", "archer", "mage"]
+	_check(SVVOfflineEvents._mvp_filled_party(full) == full, "full_party_unchanged")
+	_check(SVVAssistant._party_members().is_empty(), "fresh_profile_has_no_recruited_party")
 	if not errors.is_empty():
 		_finish()
 		return
@@ -152,8 +160,10 @@ func _run() -> void:
 	if not errors.is_empty():
 		_finish()
 		return
+	var queued_at: int = Time.get_ticks_msec()
 	SVVOfflineEvents.start_button.pressed.emit()
-	var deadline: int = Time.get_ticks_msec() + 30000
+	_check(SVVOfflineEvents.mvp_launching and SVVOfflineEvents.panel.visible and not world.running, "guest_countdown_stays_in_town")
+	var deadline: int = Time.get_ticks_msec() + 35000
 	var next_choice: int = 0
 	var choice_attempts: int = 0
 	var observed_native_choice := false
@@ -180,6 +190,8 @@ func _run() -> void:
 	_check(world.running and world.map != null and world.player != null, "native_map_and_player")
 	_check(not SVVOfflineEvents.panel.visible and not get_tree().paused and world.menus._mode in ["", "closed"], "no_stuck_overlay")
 	_check(world.heroes.size() == 4, "human_plus_three_party")
+	_check(Time.get_ticks_msec() - queued_at >= 4900, "guest_fill_waited_five_seconds")
+	_check(Save.setting("svv_offline_party", []).is_empty() and Save.setting("svv_offline_friends", []).is_empty(), "guest_party_not_persisted")
 	for hero in world.heroes:
 		if hero != world.player:
 			_check(hero.input is HeroInput.BotHero, "native_bot_input")

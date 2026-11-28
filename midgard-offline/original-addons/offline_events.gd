@@ -7,6 +7,8 @@ const MVPEncounter = preload("res://addons/svv_offline/offline_mvp_encounter.gd"
 const MVPResult = preload("res://addons/svv_offline/offline_mvp_result.gd")
 const MVPCredit = preload("res://addons/svv_offline/offline_mvp_credit_qa.gd")
 const MVP_NAMES := ["Baphomet", "Osiris", "Eddga", "Mistress", "Maya", "Dark Lord"]
+const MVP_FILL_SECONDS := 5
+const MVP_GUEST_JOBS := ["mage", "archer", "acolyte", "swordsman"]
 
 const MODE_LABELS := {
 	"training": "Bài tập · Thử sát thương",
@@ -55,6 +57,7 @@ var status_timer := 0.0
 var mvp_picker: OptionButton
 var mvp_preview := false
 var mvp_launching := false
+var mvp_party_world: World
 var mvp_last_spawn: Enemy
 var mvp_last_id := ""
 var mvp_loading_callback_completed := false
@@ -459,6 +462,7 @@ func _return_from_mvp() -> void:
 		var deadline: int = Time.get_ticks_msec() + 12000
 		while is_instance_valid(world) and Time.get_ticks_msec() < deadline:
 			if not world.running and world.menus._mode in ["", "closed"] and not get_tree().paused:
+				_restore_mvp_party()
 				if SVVCompanionTown._town() == null:
 					world.enter_town("swordsman")
 				break
@@ -533,6 +537,8 @@ func _update_mvp_hud() -> void:
 func _process(delta: float) -> void:
 	if mvp_preview:
 		_update_mvp_hud()
+		if not mvp_launching:
+			_restore_mvp_party()
 	status_timer += delta
 	if status_timer >= 0.5:
 		status_timer = 0.0
@@ -560,7 +566,7 @@ func _process(delta: float) -> void:
 
 
 func _choose_mode(next_mode: String) -> void:
-	if running or not MODE_LABELS.has(next_mode):
+	if running or mvp_launching or not MODE_LABELS.has(next_mode):
 		return
 	selected_mode = next_mode
 	for key in mode_buttons:
@@ -570,7 +576,7 @@ func _choose_mode(next_mode: String) -> void:
 	mvp_picker.visible = native_preview
 	start_button.text = "Vào trận thật (QA)" if native_preview else "Bắt đầu mô phỏng"
 	if native_preview:
-		help.text = "Swordsman cùng Party hiện tại trên bản đồ Prontera. Thưởng QA: Zeny và huy hiệu thành tích; không phải vật phẩm."
+		help.text = "Swordsman trên bản đồ Prontera. Giữ đồng đội đã tuyển; ô trống được bổ sung NPC sau 5 giây. Thưởng QA: Zeny và huy hiệu, không phải vật phẩm."
 	start_button.disabled = mvp_launching
 	attack_button.disabled = true
 	skill_button.disabled = true
@@ -595,7 +601,7 @@ func _refresh_mvp_summary(index: int) -> void:
 
 
 func _open() -> void:
-	if panel.visible or not _in_town():
+	if panel.visible or mvp_launching or not _in_town():
 		return
 	previous_pause = get_tree().paused
 	get_tree().paused = true
@@ -644,6 +650,25 @@ func _begin() -> void:
 	_render()
 
 
+# Use a disposable roster only for the gated native encounter. Recruitment,
+# saved party order, and the normal adventure roster remain untouched.
+func _mvp_filled_party(recruited: Array[String]) -> Array[String]:
+	var roster: Array[String] = recruited.duplicate()
+	for job in MVP_GUEST_JOBS:
+		if roster.size() >= 3:
+			break
+		if GameData.CLASSES.has(job) and not roster.has(job):
+			roster.append(job)
+	return roster
+
+
+func _restore_mvp_party() -> void:
+	if not is_instance_valid(mvp_party_world) or mvp_party_world.running:
+		return
+	mvp_party_world.coop_classes.assign(SVVAssistant._party_members())
+	mvp_party_world = null
+
+
 func _begin_native_mvp_preview() -> void:
 	# Only explicitly opted-in test profiles can leave the simulation menu.
 	if not mvp_preview or Save._name != "profile_offline_test" or mvp_launching:
@@ -656,6 +681,28 @@ func _begin_native_mvp_preview() -> void:
 		return
 	var boss_id: String = MVPEncounter.ROSTER[index]
 	mvp_launching = true
+	mvp_loading_callback_completed = false
+	start_button.disabled = true
+	mvp_picker.disabled = true
+	var recruited: Array[String] = SVVAssistant._party_members()
+	var launch_party: Array[String] = _mvp_filled_party(recruited)
+	if recruited.size() < 3:
+		for remaining in range(MVP_FILL_SECONDS, 0, -1):
+			status.text = "Party: %d/3 · Bổ sung NPC sau %d giây" % [recruited.size(), remaining]
+			await get_tree().create_timer(1.0, true, false, true).timeout
+			if not panel.visible or not is_instance_valid(world) or not _in_town():
+				mvp_launching = false
+				mvp_picker.disabled = false
+				start_button.disabled = false
+				return
+	# The wait must not carry a stale or online world into a local encounter.
+	mvp_picker.disabled = false
+	if not is_instance_valid(world) or not _in_town() or world.running or world.net.mode != "" or world.net.eos() != null or world.cloud._enabled() or launch_party.size() != 3:
+		mvp_launching = false
+		start_button.disabled = false
+		status.text = "Chưa thể lập đủ đội hình offline. Hãy thử lại."
+		return
+	print("OFFLINE_MVP_MENU_QA PARTY recruited=", recruited.size(), " filled=", launch_party.size())
 	mvp_last_spawn = null
 	mvp_last_id = ""
 	mvp_hud_outcome = ""
@@ -668,6 +715,10 @@ func _begin_native_mvp_preview() -> void:
 	# This callback belongs to this launch only. Do not close unrelated
 	# level-up, skill-choice, pause, or tutorial overlays.
 	world.menus.show_loading(func():
+		if not mvp_launching or not is_instance_valid(world):
+			return
+		mvp_party_world = world
+		world.coop_classes.assign(launch_party)
 		world.start_run("swordsman", false)
 		mvp_loading_callback_completed = true
 	)
