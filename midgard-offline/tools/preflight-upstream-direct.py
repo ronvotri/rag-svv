@@ -110,17 +110,17 @@ def preflight(work, report, runtime=False, destinations_only=False):
         contract = report["native_destination_discovery"].get("selected_native_menu")
         if contract is None:
             report["stage"] = "native_destination_contract_unresolved"
-            raise ValueError("No unique zero-argument native destination builder")
+            raise ValueError("Exact class-aware native destination builder unresolved")
         addon = prepared / "addons/svv_offline"
         # Hook only the disposable test project, after the discovered
         # native menu contract was validated. Never patch the published Beta.
-        if contract.get("total") == 0:
-            menus = prepared / "scripts/ui/menus.gd"
-            menus.write_text(load("patch-native-destination-review").inject(
-                menus.read_text(encoding="utf-8")), encoding="utf-8")
-            report["native_mvp_card_hook_installed"] = True
-        else:
-            report["native_mvp_card_hook_installed"] = False
+        patcher = load("patch-native-destination-review")
+        menus = prepared / "scripts/ui/menus.gd"
+        main = prepared / "scripts/core/main.gd"
+        menus.write_text(patcher.inject(menus.read_text(encoding="utf-8")), encoding="utf-8")
+        main.write_text(patcher.inject_town_class(main.read_text(encoding="utf-8")), encoding="utf-8")
+        report["native_mvp_card_hook_installed"] = True
+        report["native_town_class_hook_installed"] = True
         (addon / "native_destination_review.json").write_text(json.dumps(contract), encoding="utf-8")
         qa = addon / "qa"
         import shutil

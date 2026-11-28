@@ -15,16 +15,16 @@ func _check(condition: bool, label: String) -> void:
 func _collect_visible(node: Node, texts: Array[String]) -> void:
 	if node is Label or node is Button or node is RichTextLabel:
 		if node.is_visible_in_tree():
-			texts.append(str(node.text).to_lower())
+			texts.append((str(node.text) + " " + tr(str(node.text))).to_lower())
 	for child in node.get_children():
 		_collect_visible(child, texts)
 
 
-func _visible_buttons(node: Node, buttons: Array[Button]) -> void:
-	if node is Button and node.is_visible_in_tree() and not node.disabled:
+func _visible_buttons(node: Node, buttons: Array[Button], include_disabled: bool = false) -> void:
+	if node is Button and node.is_visible_in_tree() and (include_disabled or not node.disabled):
 		buttons.append(node)
 	for child in node.get_children():
-		_visible_buttons(child, buttons)
+		_visible_buttons(child, buttons, include_disabled)
 
 
 func _card_category(text: String) -> String:
@@ -33,7 +33,7 @@ func _card_category(text: String) -> String:
 		found.append("world_boss")
 	if text.contains("emperium"):
 		found.append("festival")
-	if text.contains("training") or text.contains("practice") or text.contains("bài tập") or text.contains("luyện tập"):
+	if text.contains("training") or text.contains("practice") or text.contains("bài tập") or text.contains("luyện tập") or text.contains("hình nộm"):
 		found.append("training")
 	return found[0] if found.size() == 1 else ""
 
@@ -42,10 +42,10 @@ func _card_category(text: String) -> String:
 # click coordinates, indexing assumptions, or pressing a disabled button.
 func _card_button(world: World, activity: String) -> Button:
 	var buttons: Array[Button] = []
-	_visible_buttons(world.menus, buttons)
+	_visible_buttons(world.menus, buttons, true)
 	var candidates: Array[Button] = []
 	for button in buttons:
-		var caption: String = button.text.strip_edges().to_lower()
+		var caption: String = tr(button.text).strip_edges().to_lower()
 		if caption not in ["go", "go!", "let's go", "let’s go", "đi thôi", "đi thôi!", "đi"]:
 			continue
 		var parent: Node = button.get_parent()
@@ -61,7 +61,7 @@ func _card_button(world: World, activity: String) -> Button:
 	return candidates[0] if candidates.size() == 1 else null
 
 
-func _native_training_choice(world: World) -> Button:
+func _native_training_choice(world: World, class_id: String) -> Button:
 	var buttons: Array[Button] = []
 	_visible_buttons(world.menus, buttons)
 	var matches: Array[Button] = []
@@ -70,7 +70,7 @@ func _native_training_choice(world: World) -> Button:
 			var callback: Callable = connection.get("callable", Callable())
 			if not callback.is_valid() or str(callback.get_method()) != "_start_training":
 				continue
-			if callback.get_bound_arguments().has("swordsman"):
+			if callback.get_bound_arguments().has(class_id):
 				matches.append(button)
 				break
 	return matches[0] if matches.size() == 1 else null
@@ -88,14 +88,20 @@ func _native_training_observation(world: World) -> Dictionary:
 				flags[name] = value
 	var registry: Variant = world.get("enemies")
 	return {"running": world.running, "map_ready": world.map != null,
-		"hero_ready": is_instance_valid(world.player), "training_fields": flags,
+		"hero_ready": is_instance_valid(world.player), "class_id": str(world.player.class_id) if is_instance_valid(world.player) else "", "training_fields": flags,
 		"enemies": registry.size() if registry is Array else -1}
 
 
-func _probe_card(world: World, activity: String) -> void:
+func _probe_card(world: World, activity: String, class_id: String) -> void:
 	var button: Button = _card_button(world, activity)
 	if not is_instance_valid(button):
-		print("NATIVE_DESTINATION_QA CARD_BLOCKED ", activity, " no_unique_enabled_native_button")
+		print("NATIVE_DESTINATION_QA CARD_BLOCKED ", activity, " no_unique_native_button")
+		_check(false, activity + "_card_identified")
+		return
+	_check(true, activity + "_card_identified")
+	if button.disabled:
+		print("NATIVE_DESTINATION_QA CARD_BLOCKED ", activity, " original_button_disabled")
+		_check(false, activity + "_card_enabled_offline")
 		return
 	var before: String = str(world.menus._mode)
 	button.pressed.emit()
@@ -103,20 +109,30 @@ func _probe_card(world: World, activity: String) -> void:
 		await get_tree().process_frame
 	print("NATIVE_DESTINATION_QA CARD_OPENED ", activity, " before=", before, " after=", world.menus._mode, " running=", world.running)
 	if activity != "training":
-		# Festival opens its genuine saved-build selector. Do not fabricate a
-		# saved build or submit results just to force entry.
+		# Do not invent saved builds. This probes the native selector only.
+		_check(str(world.menus._mode) != before and not world.running, "festival_native_selector_opened")
 		return
-	var choice: Button = _native_training_choice(world)
-	if not is_instance_valid(choice):
-		print("NATIVE_DESTINATION_QA TRAINING_BLOCKED native_class_choice_not_identified")
-		return
-	choice.pressed.emit()
-	var deadline: int = Time.get_ticks_msec() + 15000
+	var deadline: int = Time.get_ticks_msec() + 20000
+	var chose_class := false
 	while Time.get_ticks_msec() < deadline:
 		if world.running and world.map != null and is_instance_valid(world.player):
 			break
+		if not chose_class and not world.running:
+			var choice: Button = _native_training_choice(world, class_id)
+			if is_instance_valid(choice):
+				chose_class = true
+				choice.pressed.emit()
 		await get_tree().process_frame
-	print("NATIVE_DESTINATION_QA TRAINING_OBSERVED ", JSON.stringify(_native_training_observation(world)))
+	var observation: Dictionary = _native_training_observation(world)
+	print("NATIVE_DESTINATION_QA TRAINING_OBSERVED ", JSON.stringify(observation))
+	_check(bool(observation["running"]) and bool(observation["map_ready"]) and bool(observation["hero_ready"]), "training_native_map_entered")
+	_check(str(observation["class_id"]) == class_id, "training_uses_current_town_class")
+	# Observe actual runtime enemy objects after the native map settles.
+	# An empty map is not evidence that dummies are playable.
+	if world.running:
+		for frame in range(60):
+			await get_tree().process_frame
+		print("NATIVE_DESTINATION_QA TRAINING_SETTLED ", JSON.stringify(_native_training_observation(world)))
 
 
 func _run() -> void:
@@ -131,11 +147,13 @@ func _run() -> void:
 	var world: World = packed.instantiate() as World
 	get_tree().root.add_child(world)
 	await get_tree().create_timer(1.0).timeout
-	world.enter_town("swordsman")
+	var town_class := "mage" if "--destination-card=training" in OS.get_cmdline_user_args() else "swordsman"
+	world.enter_town(town_class)
 	var deadline: int = Time.get_ticks_msec() + 12000
 	while Time.get_ticks_msec() < deadline and SVVCompanionTown._town() == null:
 		await get_tree().process_frame
 	_check(SVVCompanionTown._town() != null, "native_prontera")
+	_check(str(world.get_meta("svv_offline_town_class", "")) == town_class, "town_class_captured")
 	SVVOfflineEvents.open_button.pressed.emit()
 	for index in range(30):
 		await get_tree().process_frame
@@ -151,9 +169,9 @@ func _run() -> void:
 	if errors.is_empty():
 		for arg in OS.get_cmdline_user_args():
 			if arg == "--destination-card=training":
-				await _probe_card(world, "training")
+				await _probe_card(world, "training", town_class)
 			elif arg == "--destination-card=festival":
-				await _probe_card(world, "festival")
+				await _probe_card(world, "festival", town_class)
 	_check(world.net.mode == "" and world.net.eos() == null and not world.cloud._enabled(), "card_probe_remains_offline")
 	print("NATIVE_DESTINATION_QA COMPLETE errors=", errors.size())
 	get_tree().quit(0 if errors.is_empty() else 1)

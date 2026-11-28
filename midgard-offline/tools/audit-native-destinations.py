@@ -72,7 +72,7 @@ def inspect(root: Path) -> dict:
                    "save_cue": bool(re.search(r"\b(?:Save|RunSave)\s*\.", code)),
                    "button_connection": bool(re.search(r"\bpressed\s*\.\s*connect\s*\(", code))}
             if relative == "scripts/ui/menus.gd" and name == "show_teleporter":
-                refs = ["_teleport_card", "show_training_setup", "show_festival", "show_world_boss"]
+                refs = ["_teleport_card", "_start_training", "show_training_setup", "show_festival", "show_world_boss"]
                 row["native_route_references"] = [item for item in refs if re.search(r"\b" + re.escape(item) + r"\b", code)]
                 teleporter = row
             if "festival" in labels and "world_boss" in labels and (
@@ -82,17 +82,15 @@ def inspect(root: Path) -> dict:
                 routes.append(row)
         if re.search(r"nearq|festival|training|dummy|emperium", path.stem, re.I):
             scripts.append(relative)
-    # We intentionally refuse uncertain owners, static methods and required
-    # arguments. Do not guess a build index, online state, or a callback.
-    # Actual UI inventory from the earlier client identifies this owner/method.
-    # Confirm it on the pinned 0.2.11 client, including the card builder.
-    # Do not choose an unrelated dialog merely because it mentions all labels.
+    # QA #2 identified the exact required class argument and native routes.
+    # Refuse a different signature or missing card wiring. Never invent a
+    # default hero class or select an unrelated dialog by localized text.
     selected = None
-    if teleporter is not None and not teleporter["static"] and teleporter["required"] == 0:
+    if teleporter is not None and not teleporter["static"] and teleporter["required"] == teleporter["total"] == 1 and teleporter["parameters"] == ["class_id: String"]:
         refs = set(teleporter["native_route_references"])
-        if "_teleport_card" in refs and len(refs & {"show_training_setup", "show_festival", "show_world_boss"}) >= 2:
+        if {"_teleport_card", "_start_training", "show_festival", "show_world_boss"} <= refs:
             selected = teleporter
-    return {"schema": 2, "candidate_count": len(candidates),
+    return {"schema": 3, "candidate_count": len(candidates),
             "known_teleporter_contract": teleporter, "native_teleporter_callers": callers[:30],
             "menu_candidates": candidates[:30], "selected_native_menu": selected,
             "activity_routes": routes[:150], "related_scripts": scripts[:50],
@@ -106,23 +104,25 @@ def self_test():
         scripts = root / "scripts/ui"
         scripts.mkdir(parents=True)
         script = scripts / "menus.gd"
-        fixture = ('extends Node\nfunc show_teleporter() -> void:\n'
-                   '\t_teleport_card(tr("TRAINING_KEY"), show_training_setup.bind("training"))\n'
+        fixture = ('extends Node\nfunc show_teleporter(class_id: String) -> void:\n'
+                   '\t_teleport_card(tr("TRAINING_KEY"), _start_training.bind(class_id))\n'
                    '\t_teleport_card(tr("FESTIVAL_KEY"), show_festival)\n'
                    '\t_teleport_card(tr("BOSS_KEY"), show_world_boss)\n'
-                   '\nfunc show_training_setup(what: String):\n\tpass\n'
+                   '\nfunc _start_training(class_id: String):\n\tpass\n'
                    '\nfunc show_festival():\n\tpass\n\nfunc show_world_boss():\n\tpass\n')
         script.write_text(fixture, encoding="utf-8")
         report = inspect(root)
         assert report["selected_native_menu"]["method"] == "show_teleporter"
-        assert report["selected_native_menu"]["required"] == 0
+        assert report["selected_native_menu"]["parameters"] == ["class_id: String"]
         assert report["known_teleporter_contract"]["native_route_references"] == [
-            "_teleport_card", "show_training_setup", "show_festival", "show_world_boss"]
+            "_teleport_card", "_start_training", "show_festival", "show_world_boss"]
         assert not report["native_festival_playable"]
-        script.write_text(fixture.replace("show_teleporter()", "show_teleporter(slot: int)"), encoding="utf-8")
-        assert inspect(root)["selected_native_menu"] is None
-        script.write_text(fixture.replace("_teleport_card(", "unknown_card("), encoding="utf-8")
-        assert inspect(root)["selected_native_menu"] is None
+        for invalid in (fixture.replace("show_teleporter(class_id: String)", "show_teleporter()"),
+                        fixture.replace("class_id: String", "slot: int", 1),
+                        fixture.replace("_teleport_card(", "unknown_card("),
+                        fixture.replace("_start_training.bind(class_id)", "unrelated_callback")):
+            script.write_text(invalid, encoding="utf-8")
+            assert inspect(root)["selected_native_menu"] is None
     print("NATIVE_DESTINATIONS_DISCOVERY_SELFTEST PASS")
 
 if __name__ == "__main__":

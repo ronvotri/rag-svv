@@ -62,6 +62,8 @@ var shared_mvp_button: Button
 var shared_mvp_dialog: ConfirmationDialog
 var shared_mvp_picker: OptionButton
 var shared_mvp_hub_mode := ""
+var shared_mvp_class_id := ""
+var mvp_launch_class_id := "swordsman"
 var mvp_launching := false
 var mvp_last_spawn: Enemy
 var mvp_last_id := ""
@@ -476,7 +478,7 @@ func _return_from_mvp() -> void:
 		while is_instance_valid(world) and Time.get_ticks_msec() < deadline:
 			if not world.running and world.menus._mode in ["", "closed"] and not get_tree().paused:
 				if SVVCompanionTown._town() == null:
-					world.enter_town("swordsman")
+					world.enter_town(mvp_launch_class_id)
 				break
 			await get_tree().process_frame
 		while is_instance_valid(world) and Time.get_ticks_msec() < deadline and SVVCompanionTown._town() == null:
@@ -624,15 +626,19 @@ func _open_native_destination_review() -> void:
 	if script == null or script.resource_path != "res://scripts/ui/menus.gd":
 		print("NATIVE_DESTINATION_QA BLOCKED wrong_owner")
 		return
-	if native_destination_contract.get("script", "") != script.resource_path or native_destination_contract.get("method", "") != "show_teleporter" or int(native_destination_contract.get("required", -1)) != 0:
+	if native_destination_contract.get("script", "") != script.resource_path or native_destination_contract.get("method", "") != "show_teleporter" or native_destination_contract.get("parameters", []) != ["class_id: String"] or int(native_destination_contract.get("required", -1)) != 1:
 		print("NATIVE_DESTINATION_QA BLOCKED source_contract")
+		return
+	var class_id: String = str(world.get_meta("svv_offline_town_class", ""))
+	if class_id.is_empty() or not GameData.CLASSES.has(class_id):
+		print("NATIVE_DESTINATION_QA BLOCKED missing_native_town_class")
 		return
 	var opener := Callable(world.menus, "show_teleporter")
 	if not opener.is_valid():
 		return
-	opener.call()
+	opener.call(class_id)
 	native_destination_opened = true
-	print("NATIVE_DESTINATION_QA INVOKED Menus.show_teleporter")
+	print("NATIVE_DESTINATION_QA INVOKED Menus.show_teleporter class=", class_id)
 
 
 # Only the temporary pinned-client QA copy installs the native builder hook.
@@ -685,10 +691,11 @@ func _shared_mvp_context(owner: Node) -> bool:
 	return is_instance_valid(world) and world.menus == owner and not world.running and world.net.mode == "" and world.net.eos() == null and not world.cloud._enabled() and not Updater._enabled() and not Leaderboard.enabled()
 
 
-func _bind_native_mvp_card(owner: Node) -> void:
+func _bind_native_mvp_card(owner: Node, class_id: String) -> void:
 	if not is_instance_valid(owner) or not _shared_mvp_context(owner):
 		return
-	if native_destination_contract.get("method", "") != "show_teleporter":
+	var world: World = SVVAssistant._world()
+	if native_destination_contract.get("method", "") != "show_teleporter" or not GameData.CLASSES.has(class_id) or class_id != str(world.get_meta("svv_offline_town_class", "")):
 		return
 	var cards: Dictionary = {}
 	_native_hub_go_buttons(owner, owner, cards)
@@ -708,6 +715,7 @@ func _bind_native_mvp_card(owner: Node) -> void:
 	card.disabled = false
 	card.tooltip_text = "Săn MVP offline cùng đồng đội · Không dùng máu chung hoặc bảng hạng online"
 	shared_mvp_button = card
+	shared_mvp_class_id = class_id
 	shared_mvp_hub_mode = str(owner.get("_mode"))
 	print("NATIVE_DESTINATION_QA MVP_CARD_BOUND original_visual=true")
 
@@ -807,9 +815,13 @@ func _begin_native_mvp_preview(from_native_hub: bool = false) -> void:
 		return
 	if world.net.mode != "" or world.net.eos() != null or world.cloud._enabled():
 		return
+	mvp_launch_class_id = "swordsman"  # Preserve the pre-existing isolated MVP test route.
 	if from_native_hub:
 		if not _shared_mvp_context(world.menus) or panel.visible or str(world.menus._mode) != shared_mvp_hub_mode:
 			return
+		if not GameData.CLASSES.has(shared_mvp_class_id) or shared_mvp_class_id != str(world.get_meta("svv_offline_town_class", "")):
+			return
+		mvp_launch_class_id = shared_mvp_class_id
 		# Close the original dialog using its own lifecycle. Do not force
 		# unrelated native modals or the game pause state.
 		world.menus.close()
@@ -831,7 +843,7 @@ func _begin_native_mvp_preview(from_native_hub: bool = false) -> void:
 	# This callback belongs to this launch only. Do not close unrelated
 	# level-up, skill-choice, pause, or tutorial overlays.
 	world.menus.show_loading(func():
-		world.start_run("swordsman", false)
+		world.start_run(mvp_launch_class_id, false)
 		mvp_loading_callback_completed = true
 	)
 	var deadline: int = Time.get_ticks_msec() + 12000
