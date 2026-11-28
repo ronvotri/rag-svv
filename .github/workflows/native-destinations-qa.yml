@@ -26,6 +26,7 @@ jobs:
         run: |
           python -m py_compile midgard-offline/tools/audit-native-destinations.py midgard-offline/tools/preflight-upstream-direct.py
           python midgard-offline/tools/audit-native-destinations.py
+          python midgard-offline/tools/patch-native-destination-review.py
       - name: Recover pinned client and exercise actual native destination menu
         run: python midgard-offline/tools/preflight-upstream-direct.py --destinations-only --output midgard-offline/work/native-destinations-qa.json
       - name: Upload metadata only

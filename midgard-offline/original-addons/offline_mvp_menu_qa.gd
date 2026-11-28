@@ -140,19 +140,41 @@ func _run() -> void:
 	if not errors.is_empty():
 		_finish()
 		return
+	var shared_hub: bool = SVVOfflineEvents.native_destination_review
 	SVVOfflineEvents.open_button.pressed.emit()
-	_check(SVVOfflineEvents.panel.visible, "open_real_menu")
-	SVVOfflineEvents.mode_buttons["world_boss"].pressed.emit()
-	_check(SVVOfflineEvents.mvp_picker.visible and SVVOfflineEvents.mvp_picker.item_count == 6, "six_mvp_choices")
+	if shared_hub:
+		for frame in range(30):
+			await get_tree().process_frame
+		_check(SVVOfflineEvents.native_destination_opened and not SVVOfflineEvents.panel.visible, "original_hub_not_simulator")
+		var card: Button = SVVOfflineEvents.shared_mvp_button
+		_check(is_instance_valid(card) and card.is_visible_in_tree() and not card.disabled, "native_world_boss_card_bound")
+		if not errors.is_empty():
+			_finish()
+			return
+		card.pressed.emit()
+		await get_tree().process_frame
+		_check(is_instance_valid(SVVOfflineEvents.shared_mvp_dialog) and SVVOfflineEvents.shared_mvp_dialog.visible, "native_card_opens_local_mvp_picker")
+		_check(is_instance_valid(SVVOfflineEvents.shared_mvp_picker) and SVVOfflineEvents.shared_mvp_picker.item_count == 6, "six_mvp_choices")
+	else:
+		_check(SVVOfflineEvents.panel.visible, "open_real_menu")
+		SVVOfflineEvents.mode_buttons["world_boss"].pressed.emit()
+		_check(SVVOfflineEvents.mvp_picker.visible and SVVOfflineEvents.mvp_picker.item_count == 6, "six_mvp_choices")
 	var extended: bool = OS.get_cmdline_user_args().has("--offline-mvp-menu-terminal")
 	var boss_index: int = 0 if extended else 1
 	var requested_id: String = "baphomet" if extended else "osiris"
-	SVVOfflineEvents.mvp_picker.select(boss_index)
-	_check(SVVOfflineEvents.mvp_picker.get_item_text(boss_index) == ("Baphomet" if extended else "Osiris"), "select_requested_mvp")
 	if not errors.is_empty():
 		_finish()
 		return
-	SVVOfflineEvents.start_button.pressed.emit()
+	var picker: OptionButton = SVVOfflineEvents.shared_mvp_picker if shared_hub else SVVOfflineEvents.mvp_picker
+	picker.select(boss_index)
+	_check(picker.get_item_text(boss_index) == ("Baphomet" if extended else "Osiris"), "select_requested_mvp")
+	if not errors.is_empty():
+		_finish()
+		return
+	if shared_hub:
+		SVVOfflineEvents.shared_mvp_dialog.get_ok_button().pressed.emit()
+	else:
+		SVVOfflineEvents.start_button.pressed.emit()
 	var deadline: int = Time.get_ticks_msec() + 30000
 	var next_choice: int = 0
 	var choice_attempts: int = 0

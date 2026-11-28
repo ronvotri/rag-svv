@@ -58,6 +58,10 @@ var mvp_preview := false
 var native_destination_review := false
 var native_destination_contract: Dictionary = {}
 var native_destination_opened := false
+var shared_mvp_button: Button
+var shared_mvp_dialog: ConfirmationDialog
+var shared_mvp_picker: OptionButton
+var shared_mvp_hub_mode := ""
 var mvp_launching := false
 var mvp_last_spawn: Enemy
 var mvp_last_id := ""
@@ -631,6 +635,115 @@ func _open_native_destination_review() -> void:
 	print("NATIVE_DESTINATION_QA INVOKED Menus.show_teleporter")
 
 
+# Only the temporary pinned-client QA copy installs the native builder hook.
+# Both the NPC and toolbar use that same builder. Only the local MVP card
+# is redirected; the Training/Festival callbacks and original artwork stay.
+func _native_hub_text(node: Node) -> String:
+	var value := ""
+	if node is Label or node is Button or node is RichTextLabel:
+		if node.is_visible_in_tree():
+			value = str(node.text) + " " + tr(str(node.text))
+	for child in node.get_children():
+		value += " " + _native_hub_text(child)
+	return value.to_lower()
+
+
+func _native_hub_category(value: String) -> String:
+	var categories: Array[String] = []
+	if value.contains("world boss") or value.contains("boss thế giới"):
+		categories.append("world_boss")
+	if value.contains("emperium"):
+		categories.append("festival")
+	if value.contains("training") or value.contains("practice") or value.contains("bài tập") or value.contains("luyện tập") or value.contains("hình nộm"):
+		categories.append("training")
+	return categories[0] if categories.size() == 1 else ""
+
+
+func _native_hub_go_buttons(node: Node, owner: Node, cards: Dictionary) -> void:
+	if node is Button and node.is_visible_in_tree():
+		var caption: String = tr(str(node.text)).strip_edges().to_lower()
+		if caption in ["go", "go!", "let's go", "let’s go", "đi thôi", "đi thôi!", "đi"]:
+			var parent: Node = node.get_parent()
+			for level in range(7):
+				if parent == null or parent == owner:
+					break
+				var category: String = _native_hub_category(_native_hub_text(parent))
+				if not category.is_empty():
+					var matches: Array = cards.get(category, [])
+					matches.append(node)
+					cards[category] = matches
+					break
+				parent = parent.get_parent()
+	for child in node.get_children():
+		_native_hub_go_buttons(child, owner, cards)
+
+
+func _shared_mvp_context(owner: Node) -> bool:
+	if not native_destination_review or not mvp_preview or Save._name != "profile_offline_test" or not _in_town():
+		return false
+	var world: World = SVVAssistant._world()
+	return is_instance_valid(world) and world.menus == owner and not world.running and world.net.mode == "" and world.net.eos() == null and not world.cloud._enabled() and not Updater._enabled() and not Leaderboard.enabled()
+
+
+func _bind_native_mvp_card(owner: Node) -> void:
+	if not is_instance_valid(owner) or not _shared_mvp_context(owner):
+		return
+	if native_destination_contract.get("method", "") != "show_teleporter":
+		return
+	var cards: Dictionary = {}
+	_native_hub_go_buttons(owner, owner, cards)
+	for category in ["training", "festival", "world_boss"]:
+		if (cards.get(category, []) as Array).size() != 1:
+			print("NATIVE_DESTINATION_QA MVP_CARD_BLOCKED ambiguous_card=", category)
+			return
+	var card: Button = cards["world_boss"][0]
+	# Exact native three-card screen was identified. Replace only the
+	# selected card's pressed connections with our independent local mode.
+	# This never calls or unlocks the original online World Boss service.
+	for connection in card.pressed.get_connections():
+		var callback: Callable = connection.get("callable", Callable())
+		if callback.is_valid() and card.pressed.is_connected(callback):
+			card.pressed.disconnect(callback)
+	card.pressed.connect(_open_shared_mvp_picker.bind(owner))
+	card.disabled = false
+	card.tooltip_text = "Săn MVP offline cùng đồng đội · Không dùng máu chung hoặc bảng hạng online"
+	shared_mvp_button = card
+	shared_mvp_hub_mode = str(owner.get("_mode"))
+	print("NATIVE_DESTINATION_QA MVP_CARD_BOUND original_visual=true")
+
+
+func _open_shared_mvp_picker(owner: Node) -> void:
+	if not _shared_mvp_context(owner) or mvp_launching or not is_instance_valid(shared_mvp_button) or not shared_mvp_button.is_visible_in_tree() or str(owner.get("_mode")) != shared_mvp_hub_mode:
+		return
+	if not is_instance_valid(shared_mvp_dialog):
+		shared_mvp_dialog = ConfirmationDialog.new()
+		shared_mvp_dialog.title = "World Boss · Săn MVP"
+		shared_mvp_dialog.dialog_text = "Chọn MVP để săn cùng đội hình hiện tại. Thành tích riêng trên thiết bị."
+		shared_mvp_dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(shared_mvp_dialog)
+		shared_mvp_picker = OptionButton.new()
+		shared_mvp_picker.custom_minimum_size = Vector2(220, 42)
+		for boss_name in MVP_NAMES:
+			shared_mvp_picker.add_item(boss_name)
+		shared_mvp_dialog.add_child(shared_mvp_picker)
+		shared_mvp_dialog.get_ok_button().text = "Đi thôi"
+		shared_mvp_dialog.get_cancel_button().text = "Đóng"
+		shared_mvp_dialog.confirmed.connect(_confirm_shared_mvp)
+	shared_mvp_picker.select(mvp_picker.selected)
+	shared_mvp_dialog.popup_centered(Vector2i(330, 180))
+
+
+func _confirm_shared_mvp() -> void:
+	var world: World = SVVAssistant._world()
+	if not is_instance_valid(world) or not _shared_mvp_context(world.menus) or str(world.menus._mode) != shared_mvp_hub_mode:
+		return
+	var index: int = shared_mvp_picker.selected
+	if index < 0 or index >= MVPEncounter.ROSTER.size():
+		return
+	mvp_picker.select(index)
+	_begin_native_mvp_preview(true)
+
+
 func _open() -> void:
 	if native_destination_review:
 		_open_native_destination_review()
@@ -684,7 +797,7 @@ func _begin() -> void:
 	_render()
 
 
-func _begin_native_mvp_preview() -> void:
+func _begin_native_mvp_preview(from_native_hub: bool = false) -> void:
 	# Only explicitly opted-in test profiles can leave the simulation menu.
 	if not mvp_preview or Save._name != "profile_offline_test" or mvp_launching:
 		return
@@ -694,6 +807,15 @@ func _begin_native_mvp_preview() -> void:
 		return
 	if world.net.mode != "" or world.net.eos() != null or world.cloud._enabled():
 		return
+	if from_native_hub:
+		if not _shared_mvp_context(world.menus) or panel.visible or str(world.menus._mode) != shared_mvp_hub_mode:
+			return
+		# Close the original dialog using its own lifecycle. Do not force
+		# unrelated native modals or the game pause state.
+		world.menus.close()
+		if world.menus._mode not in ["", "closed"] or get_tree().paused:
+			print("NATIVE_DESTINATION_QA MVP_CARD_BLOCKED native_menu_close")
+			return
 	var boss_id: String = MVPEncounter.ROSTER[index]
 	mvp_launching = true
 	mvp_last_spawn = null
@@ -702,7 +824,8 @@ func _begin_native_mvp_preview() -> void:
 	if is_instance_valid(mvp_hud):
 		mvp_hud.hide()
 	mvp_loading_callback_completed = false
-	_close()
+	if not from_native_hub:
+		_close()
 	world.leave_town()
 	world.set_stage("prontera")
 	# This callback belongs to this launch only. Do not close unrelated

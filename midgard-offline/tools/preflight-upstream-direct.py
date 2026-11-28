@@ -112,6 +112,15 @@ def preflight(work, report, runtime=False, destinations_only=False):
             report["stage"] = "native_destination_contract_unresolved"
             raise ValueError("No unique zero-argument native destination builder")
         addon = prepared / "addons/svv_offline"
+        # Hook only the disposable test project, after the discovered
+        # native menu contract was validated. Never patch the published Beta.
+        if contract.get("total") == 0:
+            menus = prepared / "scripts/ui/menus.gd"
+            menus.write_text(load("patch-native-destination-review").inject(
+                menus.read_text(encoding="utf-8")), encoding="utf-8")
+            report["native_mvp_card_hook_installed"] = True
+        else:
+            report["native_mvp_card_hook_installed"] = False
         (addon / "native_destination_review.json").write_text(json.dumps(contract), encoding="utf-8")
         qa = addon / "qa"
         import shutil
@@ -241,6 +250,26 @@ def runtime_preflight(work, report, cloud, config, recovered, prepared, destinat
                 "script_errors": card.stdout.count("SCRIPT ERROR:"),
                 "diagnostics": diagnostic_locations(card.stdout),
                 "markers": [line for line in card.stdout.splitlines() if line.startswith("NATIVE_DESTINATION_QA ")][:50],
+            }
+        if report.get("native_mvp_card_hook_installed"):
+            for variable, suffix in (("XDG_DATA_HOME", "data"), ("XDG_CONFIG_HOME", "config"), ("XDG_CACHE_HOME", "cache")):
+                directory = work / "destination-mvp" / suffix
+                directory.mkdir(parents=True, exist_ok=True)
+                env[variable] = str(directory)
+            boss = run_private([godot, "--headless", "--path", prepared,
+                "res://addons/svv_offline/qa/offline_mvp_menu_qa.tscn", "--",
+                "--offline-test", "--offline-native-destinations", "--offline-mvp-menu-preview"], 180)
+            markers = [line for line in boss.stdout.splitlines()
+                       if line.startswith(("NATIVE_DESTINATION_QA ", "MVP_MENU_TEST ", "OFFLINE_MVP_MENU_QA SPAWN"))][-70:]
+            report["native_mvp_card_probe"] = {
+                "returncode": boss.returncode, "script_errors": boss.stdout.count("SCRIPT ERROR:"),
+                "diagnostics": diagnostic_locations(boss.stdout), "markers": markers,
+                "passed": boss.returncode == 0 and "SCRIPT ERROR:" not in boss.stdout and
+                    all("MVP_MENU_TEST PASS " + marker in markers for marker in (
+                        "original_hub_not_simulator", "native_world_boss_card_bound",
+                        "native_card_opens_local_mvp_picker", "native_boss_spawned",
+                        "human_plus_three_party", "native_combat_damage")) and
+                    "MVP_MENU_TEST COMPLETE errors=0" in markers,
             }
         return
     report["stage"] = "isolated_smoke"
