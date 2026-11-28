@@ -1,0 +1,39 @@
+name: Wave 35 - native destinations QA
+on:
+  push:
+    branches: [feature/unified-destinations-wave35]
+    paths:
+      - 'midgard-offline/tools/**'
+      - 'midgard-offline/original-addons/**'
+      - 'midgard-offline/review/**'
+      - '.github/workflows/native-destinations-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-destinations-qa
+  cancel-in-progress: false
+jobs:
+  native-menu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify source-discovery guardrails
+        run: |
+          python -m py_compile midgard-offline/tools/audit-native-destinations.py midgard-offline/tools/preflight-upstream-direct.py
+          python midgard-offline/tools/audit-native-destinations.py
+          python midgard-offline/tools/patch-native-destination-review.py
+      - name: Recover pinned client and exercise actual native destination menu
+        run: python midgard-offline/tools/preflight-upstream-direct.py --destinations-only --output midgard-offline/work/native-destinations-qa.json
+      - name: Upload metadata only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-destinations-qa
+          path: midgard-offline/work/native-destinations-qa.json
+          if-no-files-found: ignore
+          retention-days: 7
